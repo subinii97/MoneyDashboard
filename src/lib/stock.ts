@@ -213,7 +213,16 @@ export async function fetchExchangeRate() {
         const $ = cheerio.load(html);
 
         const rateText = $('.spot .no_today').first().text();
-        const rateValue = extractNumber(rateText);
+        let rateValue = extractNumber(rateText);
+
+        // Fallback: Try the calculator's select box which is often more stable
+        if (rateValue === 0) {
+            const selectValue = $('#select_to option').filter((i, el) => $(el).text().includes('미국 달러')).val();
+            if (selectValue) {
+                rateValue = parseFloat(String(selectValue).replace(/,/g, ''));
+            }
+        }
+
         const timeText = $('.exchange_info .date').first().text().trim();
 
         return {

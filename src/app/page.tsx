@@ -28,19 +28,20 @@ export default function Home() {
             const rawAllocations = data.allocations || data.others || [];
             const rawInvestments = data.investments || data.stocks || [];
 
-            if (rawInvestments.length > 0) {
-                const symbols = Array.from(new Set(rawInvestments.map((s: any) => s.symbol))).join(',');
-                const priceRes = await fetch(`/api/stock?symbols=${symbols}&t=${Date.now()}`);
-                const priceData = await priceRes.json();
+            // Always fetch exchange rate and stock data if needed
+            const symbols = Array.from(new Set(rawInvestments.map((s: any) => s.symbol))).join(',');
+            const priceRes = await fetch(`/api/stock?symbols=${symbols || 'AAPL'}&t=${Date.now()}`); // AAPL as dummy to trigger rate
+            const priceData = await priceRes.json();
 
-                if (priceData.exchangeRate) {
-                    if (typeof priceData.exchangeRate === 'object' && priceData.exchangeRate !== null) {
-                        setRate(priceData.exchangeRate.rate);
-                    } else {
-                        setRate(priceData.exchangeRate);
-                    }
+            if (priceData.exchangeRate) {
+                if (typeof priceData.exchangeRate === 'object' && priceData.exchangeRate !== null) {
+                    setRate(priceData.exchangeRate.rate);
+                } else {
+                    setRate(priceData.exchangeRate);
                 }
+            }
 
+            if (rawInvestments.length > 0) {
                 const updatedInvestments = rawInvestments.map((inv: any) => {
                     const info = priceData.results?.find((r: any) => r.symbol === inv.symbol);
                     return {
