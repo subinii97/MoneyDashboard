@@ -33,7 +33,11 @@ export default function HistoryDetailPage() {
                 // Fetch exchange rate (optional, can use fallback)
                 const stockRes = await fetch('/api/stock?symbols=AAPL'); // Just to get the rate
                 const stockData = await stockRes.json();
-                if (stockData.exchangeRate) setRate(stockData.exchangeRate);
+                if (stockData.exchangeRate && typeof stockData.exchangeRate.rate === 'number') {
+                    setRate(stockData.exchangeRate.rate);
+                } else if (typeof stockData.exchangeRate === 'number') {
+                    setRate(stockData.exchangeRate);
+                }
             } catch (e) {
                 console.error('Failed to fetch details', e);
             } finally {
@@ -100,15 +104,22 @@ export default function HistoryDetailPage() {
                         </thead>
                         <tbody>
                             {(entry.holdings || []).map((inv, idx) => {
-                                const valKRW = convertToKRW((inv.currentPrice || inv.avgPrice) * inv.shares, (inv.currency || 'KRW') as any, rate);
-                                const costKRW = convertToKRW(inv.avgPrice * inv.shares, (inv.currency || 'KRW') as any, rate);
+                                // Use original values, only default to 0 if undefined or NaN
+                                const currentPrice = inv.currentPrice ?? 0;
+                                const avgPrice = inv.avgPrice ?? 0;
+                                const shares = inv.shares ?? 0;
+
+                                const effectivePrice = currentPrice || avgPrice;
+                                const valKRW = convertToKRW(effectivePrice * shares, (inv.currency || 'KRW') as any, rate);
+                                const costKRW = convertToKRW(avgPrice * shares, (inv.currency || 'KRW') as any, rate);
+
                                 return (
                                     <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
                                         <td style={{ padding: '1rem 0' }}>
                                             <div style={{ fontWeight: 'bold' }}>{inv.name || inv.symbol}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{inv.symbol}</div>
                                         </td>
-                                        <td style={{ textAlign: 'right' }}>{inv.shares}</td>
+                                        <td style={{ textAlign: 'right' }}>{shares}</td>
                                         <td style={{ textAlign: 'right', fontWeight: '600' }}>{formatKRW(valKRW)}</td>
                                         <td style={{ textAlign: 'right' }}>{renderChange(valKRW, costKRW)}</td>
                                     </tr>
@@ -217,6 +228,6 @@ export default function HistoryDetailPage() {
                     </table>
                 </div>
             </section>
-        </main>
+        </main >
     );
 }
