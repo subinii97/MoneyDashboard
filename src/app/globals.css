@@ -1,0 +1,51 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+
+:root {
+    --background: #0f172a;
+    --foreground: #f8fafc;
+    --card: rgba(30, 41, 59, 0.7);
+    --card-foreground: #f8fafc;
+    --primary: #38bdf8;
+    --primary-foreground: #0f172a;
+    --accent: #818cf8;
+    --muted: #64748b;
+    --border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+body {
+    background: radial-gradient(circle at top left, #1e293b, #0f172a);
+    color: var(--foreground);
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    min-height: 100vh;
+}
+
+.glass {
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+}
+
+input.glass {
+    color: white;
+    outline: none;
+}
+
+input.glass:focus {
+    border-color: var(--primary);
+}
+
+.gradient-text {
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
