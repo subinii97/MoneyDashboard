@@ -3,7 +3,16 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Transaction } from '@/lib/types';
 
-const DATA_PATH = path.join(process.cwd(), 'data/transactions.json');
+const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_PATH = path.join(DATA_DIR, 'transactions.json');
+
+async function ensureDir() {
+    try {
+        await fs.access(DATA_DIR);
+    } catch {
+        await fs.mkdir(DATA_DIR, { recursive: true });
+    }
+}
 
 export async function GET() {
     try {
@@ -16,6 +25,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        await ensureDir();
         const newTx = await request.json();
         let transactions: Transaction[] = [];
         try {

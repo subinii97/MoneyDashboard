@@ -4,8 +4,17 @@ import path from 'path';
 import { Assets, HistoryEntry } from '@/lib/types';
 import { fetchGoogleQuote, fetchExchangeRate } from '@/lib/stock';
 
-const ASSETS_PATH = path.join(process.cwd(), 'data/assets.json');
-const HISTORY_PATH = path.join(process.cwd(), 'data/history.json');
+const DATA_DIR = path.join(process.cwd(), 'data');
+const ASSETS_PATH = path.join(DATA_DIR, 'assets.json');
+const HISTORY_PATH = path.join(DATA_DIR, 'history.json');
+
+async function ensureDir() {
+    try {
+        await fs.access(DATA_DIR);
+    } catch {
+        await fs.mkdir(DATA_DIR, { recursive: true });
+    }
+}
 
 export async function GET() {
     try {
@@ -18,9 +27,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        await ensureDir();
         const body = await request.json().catch(() => ({}));
-        const assetsRaw = await fs.readFile(ASSETS_PATH, 'utf8');
-        const assets: Assets = JSON.parse(assetsRaw);
+
+        let assets: Assets = { investments: [], allocations: [] };
+        try {
+            const assetsRaw = await fs.readFile(ASSETS_PATH, 'utf8');
+            assets = JSON.parse(assetsRaw);
+        } catch (e) {
+            // If assets.json missing, we can't take a snapshot of anything
+            return NextResponse.json({ success: false, error: 'No assets found to snapshot' }, { status: 400 });
+        }
 
         let history: HistoryEntry[] = [];
         try {
@@ -70,7 +87,7 @@ export async function POST(request: Request) {
         }, 0);
 
         // Calculate Other Allocation Values (Manual categories like Cash, Savings)
-        const totalOtherValue = assets.allocations
+        const totalOtherValue = (assets.allocations || [])
             .filter(a => ![
                 'Domestic Stock', 'Overseas Stock',
                 'Domestic Index', 'Overseas Index',
@@ -94,7 +111,7 @@ export async function POST(request: Request) {
         }
 
         // Create updated allocations with calculated values
-        const updatedAllocations = assets.allocations.map(alc => {
+        const updatedAllocations = (assets.allocations || []).map(alc => {
             const categoryValue = invEntries
                 .filter(inv => inv.category === alc.category)
                 .reduce((sum, inv) => {
