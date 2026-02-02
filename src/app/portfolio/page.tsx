@@ -40,6 +40,7 @@ export default function PortfolioPage() {
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [navTarget, setNavTarget] = useState<string | null>(null);
 
     // Slider refinement states
     const [editingWeight, setEditingWeight] = useState<AssetCategory | null>(null);
@@ -242,12 +243,10 @@ export default function PortfolioPage() {
             const anchor = target.closest('a');
             if (anchor && hasChanges) {
                 const href = anchor.getAttribute('href');
-                // Only warn if navigating to a different internal page
                 if (href && (href.startsWith('/') || href.startsWith(window.location.origin))) {
-                    if (!window.confirm('저장되지 않은 변경사항이 있습니다. 페이지를 벗어나시겠습니까?')) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setNavTarget(href);
                 }
             }
         };
@@ -537,6 +536,71 @@ export default function PortfolioPage() {
                         ))}
                 </div>
             </section>
+
+            {/* Unsaved Changes Dialog */}
+            {navTarget && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div className="glass" style={{
+                        padding: '2.5rem', maxWidth: '450px', width: '90%',
+                        textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <div style={{
+                            width: '60px', height: '60px', borderRadius: '50%',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 1.5rem', color: 'var(--primary)'
+                        }}>
+                            <Save size={30} />
+                        </div>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '1rem' }}>변경사항 저장</h2>
+                        <p style={{ color: 'var(--muted)', marginBottom: '2rem', lineHeight: '1.6' }}>
+                            저장되지 않은 변경사항이 있습니다.<br />
+                            지금 저장하시겠습니까?
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <button
+                                onClick={async () => {
+                                    await saveChanges();
+                                    window.location.href = navTarget;
+                                }}
+                                className="glass"
+                                style={{
+                                    padding: '1rem', background: 'var(--primary)', color: 'white',
+                                    border: 'none', cursor: 'pointer', fontWeight: '700', borderRadius: '12px'
+                                }}
+                            >
+                                저장하고 이동
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setHasChanges(false);
+                                    window.location.href = navTarget;
+                                }}
+                                style={{
+                                    padding: '1rem', background: 'transparent',
+                                    border: '1px solid var(--border)', cursor: 'pointer', color: 'white',
+                                    borderRadius: '12px'
+                                }}
+                            >
+                                저장하지 않고 이동
+                            </button>
+                            <button
+                                onClick={() => setNavTarget(null)}
+                                style={{
+                                    padding: '1rem', background: 'none', border: 'none',
+                                    color: 'var(--muted)', cursor: 'pointer', fontSize: '0.9rem'
+                                }}
+                            >
+                                취소하고 머무르기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }
