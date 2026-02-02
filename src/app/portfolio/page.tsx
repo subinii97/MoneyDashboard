@@ -39,6 +39,7 @@ export default function PortfolioPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
 
     // Slider refinement states
     const [editingWeight, setEditingWeight] = useState<AssetCategory | null>(null);
@@ -75,6 +76,7 @@ export default function PortfolioPage() {
             }));
 
             setAssets({ investments: data.investments || data.stocks || [], allocations: initialAllocations });
+            setHasChanges(false);
 
             const priceRes = await fetch('/api/stock');
             const priceData = await priceRes.json();
@@ -100,6 +102,7 @@ export default function PortfolioPage() {
             );
             return { ...prev, allocations: newAllocations };
         });
+        setHasChanges(true);
     };
 
     const addCategory = (category: AssetCategory) => {
@@ -109,6 +112,7 @@ export default function PortfolioPage() {
                 a.category === category ? { ...a, targetWeight: 5 } : a
             )
         }));
+        setHasChanges(true);
         setShowAddMenu(false);
     };
 
@@ -121,6 +125,7 @@ export default function PortfolioPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...assets, allocations: finalAllocations }),
             });
+            setHasChanges(false);
             alert('저장되었습니다.');
         } catch (e) {
             alert('저장에 실패했습니다.');
@@ -192,6 +197,7 @@ export default function PortfolioPage() {
                 return a;
             })
         }));
+        setHasChanges(true);
     };
 
     const deleteDetail = (category: AssetCategory, detailId: string) => {
@@ -205,6 +211,7 @@ export default function PortfolioPage() {
                 return a;
             })
         }));
+        setHasChanges(true);
     };
 
     const updateDetail = (category: AssetCategory, detailId: string, updates: Partial<AssetDetail>) => {
@@ -218,7 +225,41 @@ export default function PortfolioPage() {
                 return a;
             })
         }));
+        setHasChanges(true);
     };
+
+    // Warn on unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        const handleInternalNavigation = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            const anchor = target.closest('a');
+            if (anchor && hasChanges) {
+                const href = anchor.getAttribute('href');
+                // Only warn if navigating to a different internal page
+                if (href && (href.startsWith('/') || href.startsWith(window.location.origin))) {
+                    if (!window.confirm('저장되지 않은 변경사항이 있습니다. 페이지를 벗어나시겠습니까?')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('click', handleInternalNavigation, true); // Use capture phase to intercept early
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('click', handleInternalNavigation, true);
+        };
+    }, [hasChanges]);
 
 
 
