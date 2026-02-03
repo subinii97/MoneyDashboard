@@ -19,27 +19,27 @@ export default function HistoryDetailPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch history to find the specific entry
-                const historyRes = await fetch('/api/snapshot');
-                const historyData: HistoryEntry[] = await historyRes.json();
-                const matchedEntry = historyData.find(h => h.date === date);
-                setEntry(matchedEntry || null);
-
-                // Fetch transactions for this date
-                const txRes = await fetch('/api/transactions');
-                const txData: Transaction[] = await txRes.json();
-                const filteredTxs = txData.filter(tx => tx.date === date && tx.amount !== 0);
-                console.log(`Found ${filteredTxs.length} transactions for ${date}`, filteredTxs);
-                setTransactions(filteredTxs);
-
-                // Fetch exchange rate (optional, can use fallback)
-                const stockRes = await fetch('/api/stock?symbols=AAPL'); // Just to get the rate
-                const stockData = await stockRes.json();
-                if (stockData.exchangeRate && typeof stockData.exchangeRate.rate === 'number') {
-                    setRate(stockData.exchangeRate.rate);
-                } else if (typeof stockData.exchangeRate === 'number') {
-                    setRate(stockData.exchangeRate);
+                // Optimized: Fetch specific entry
+                const historyRes = await fetch(`/api/snapshot?date=${date}`);
+                if (!historyRes.ok) {
+                    setEntry(null);
+                    setLoading(false);
+                    return;
                 }
+                const matchedEntry: HistoryEntry = await historyRes.json();
+                setEntry(matchedEntry);
+
+                // Use historical exchange rate if available, otherwise fallback
+                if (matchedEntry.exchangeRate) {
+                    setRate(matchedEntry.exchangeRate);
+                }
+
+                // Optimized: Fetch transactions for this date
+                const txRes = await fetch(`/api/transactions?date=${date}`);
+                const txData: Transaction[] = await txRes.json();
+                // Filter is now done on server, but double check works fine
+                setTransactions(txData);
+
             } catch (e) {
                 console.error('Failed to fetch details', e);
             } finally {

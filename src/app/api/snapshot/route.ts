@@ -3,12 +3,27 @@ import db from '@/lib/db';
 import { Assets, HistoryEntry } from '@/lib/types';
 import { fetchQuote, fetchExchangeRate } from '@/lib/stock';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const date = searchParams.get('date');
+        const includeHoldings = searchParams.get('includeHoldings') === 'true';
+
+        if (date) {
+            const entry = db.prepare('SELECT * FROM history WHERE date = ?').get(date) as any;
+            if (!entry) return NextResponse.json(null, { status: 404 });
+
+            return NextResponse.json({
+                ...entry,
+                holdings: entry.holdings ? JSON.parse(entry.holdings) : undefined,
+                allocations: entry.allocations ? JSON.parse(entry.allocations) : undefined
+            });
+        }
+
         const rows = db.prepare('SELECT * FROM history ORDER BY date ASC').all();
         const history = rows.map((row: any) => ({
             ...row,
-            holdings: row.holdings ? JSON.parse(row.holdings) : undefined,
+            holdings: includeHoldings && row.holdings ? JSON.parse(row.holdings) : undefined,
             allocations: row.allocations ? JSON.parse(row.allocations) : undefined
         }));
         return NextResponse.json(history);

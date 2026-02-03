@@ -35,12 +35,13 @@ export default function HistoryPage() {
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [rate, setRate] = useState(1350);
+    const [selectedCategories, setSelectedCategories] = useState<AssetCategory[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const [historyRes, stockRes] = await Promise.all([
-                    fetch('/api/snapshot'),
+                    fetch('/api/snapshot?includeHoldings=true'),
                     fetch('/api/stock?symbols=AAPL')
                 ]);
                 const historyData = await historyRes.json();
@@ -59,6 +60,12 @@ export default function HistoryPage() {
         };
         fetchData();
     }, []);
+
+    const toggleCategory = (cat: AssetCategory) => {
+        setSelectedCategories(prev =>
+            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+        );
+    };
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
 
@@ -165,8 +172,45 @@ export default function HistoryPage() {
                     <PieChartIcon size={24} color="var(--primary)" />
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>자산군별 추이</h2>
                 </div>
-                <div className="glass" style={{ padding: '2rem', height: '400px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="glass" style={{ padding: '2rem', height: '500px' }}>
+                    <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <button
+                            onClick={() => setSelectedCategories([])}
+                            className="glass"
+                            style={{
+                                padding: '0.4rem 0.8rem',
+                                fontSize: '0.8rem',
+                                borderRadius: '20px',
+                                border: selectedCategories.length === 0 ? '1px solid var(--primary)' : '1px solid var(--border)',
+                                color: selectedCategories.length === 0 ? 'var(--primary)' : 'var(--muted)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            전체 보기
+                        </button>
+                        {CATEGORIES.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => toggleCategory(cat)}
+                                className="glass"
+                                style={{
+                                    padding: '0.4rem 0.8rem',
+                                    fontSize: '0.8rem',
+                                    borderRadius: '20px',
+                                    border: selectedCategories.includes(cat) ? `1px solid ${CATEGORY_COLORS[cat]}` : '1px solid var(--border)',
+                                    color: selectedCategories.includes(cat) ? CATEGORY_COLORS[cat] : 'var(--muted)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem'
+                                }}
+                            >
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[cat] }}></div>
+                                {CATEGORY_MAP[cat]}
+                            </button>
+                        ))}
+                    </div>
+                    <ResponsiveContainer width="100%" height="90%">
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                             <XAxis
@@ -181,16 +225,27 @@ export default function HistoryPage() {
                                 tickLine={false}
                                 tick={{ fill: 'var(--muted)', fontSize: 12 }}
                                 tickFormatter={(val) => `₩${(val / 1000000).toLocaleString()}M`}
+                                domain={selectedCategories.length === 1
+                                    ? [(dataMin: number) => dataMin * 0.95, (dataMax: number) => dataMax * 1.05]
+                                    : [0, 'auto']}
                             />
                             <Tooltip
                                 content={({ active, payload, label }: any) => {
                                     if (active && payload && payload.length) {
-                                        const total = payload.reduce((sum: number, entry: any) => sum + entry.value, 0);
+                                        // If specific categories are selected, Recharts only provides payload for rendered Areas.
+                                        // However, if we filter rendered areas, payload is already correct.
+                                        // Sort payload by value descending for better tooltip readability
+                                        const visiblePayload = payload.sort((a: any, b: any) => b.value - a.value);
+
+                                        if (visiblePayload.length === 0) return null;
+
+                                        const total = visiblePayload.reduce((sum: number, entry: any) => sum + entry.value, 0);
+
                                         return (
                                             <div className="glass" style={{ padding: '1rem', border: '1px solid var(--border)' }}>
                                                 <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>{label}</div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                                    {payload.slice().reverse().map((entry: any, index: number) => (
+                                                    {visiblePayload.map((entry: any, index: number) => (
                                                         <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2rem' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: entry.color }}></div>
@@ -210,15 +265,17 @@ export default function HistoryPage() {
                                     return null;
                                 }}
                             />
-                            {CATEGORIES.map(cat => (
+                            {CATEGORIES.filter(cat => selectedCategories.length === 0 || selectedCategories.includes(cat)).map(cat => (
                                 <Area
                                     key={cat}
                                     type="monotone"
                                     dataKey={cat}
-                                    stackId="1"
+                                    stackId={selectedCategories.length === 1 ? undefined : "1"}
                                     stroke={CATEGORY_COLORS[cat]}
                                     fill={CATEGORY_COLORS[cat]}
                                     fillOpacity={0.6}
+                                    strokeOpacity={1}
+                                    activeDot={true}
                                 />
                             ))}
                         </AreaChart>
