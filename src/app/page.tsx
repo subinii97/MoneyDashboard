@@ -7,7 +7,9 @@ import {
     Briefcase,
     BarChart2,
     TrendingUp,
-    ArrowRight
+    ArrowRight,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import Link from 'next/link';
 import { Assets, HistoryEntry, CATEGORY_MAP } from '@/lib/types';
@@ -18,6 +20,7 @@ export default function Home() {
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [rate, setRate] = useState<number>(1350); // Default fallback
+    const [isPrivate, setIsPrivate] = useState(false);
 
     const fetchData = useCallback(async () => {
         try {
@@ -123,15 +126,20 @@ export default function Home() {
                     안녕하세요!
                 </h1>
                 <p style={{ color: 'var(--muted)', fontSize: '1.2rem' }}>현재 자산 현황을 한눈에 확인하세요</p>
-                {rate && <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.5rem' }}>실시간 환율: 1 USD = {rate.toLocaleString()} KRW</p>}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }} title={isPrivate ? "금액 표시" : "금액 숨기기"}>
+                        {isPrivate ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                    {rate && <p style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>실시간 환율: 1 USD = {rate.toLocaleString()} KRW</p>}
+                </div>
             </header>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginBottom: '4rem' }}>
                 <div className="glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center' }}>
                     <Wallet size={48} color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
                     <h2 style={{ fontSize: '1.1rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>총 순자산</h2>
-                    <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: '1rem 0' }}>{formatKRW(totalValueKRW)}</p>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', color: change >= 0 ? '#ef4444' : '#3b82f6' }}>
+                    <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: '1rem 0', filter: isPrivate ? 'blur(12px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(totalValueKRW)}</p>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', color: change >= 0 ? '#ef4444' : '#3b82f6', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
                         {change >= 0 ? <TrendingUp size={20} /> : <TrendingUp size={20} style={{ transform: 'rotate(180deg)' }} />}
                         {change >= 0 ? '+' : ''}{changePercent.toFixed(2)}% ({formatKRW(Math.abs(change))})
                     </div>
@@ -182,7 +190,7 @@ export default function Home() {
                                 return (
                                     <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
                                         <span style={{ color: 'var(--muted)' }}>{CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP] || cat}</span>
-                                        <span style={{ fontWeight: '600' }}>{formatKRW(valKRW || 0)} ({totalValueKRW > 0 ? (((valKRW || 0) / totalValueKRW) * 100).toFixed(1) : 0}%)</span>
+                                        <span style={{ fontWeight: '600', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(valKRW || 0)} ({totalValueKRW > 0 ? (((valKRW || 0) / totalValueKRW) * 100).toFixed(1) : 0}%)</span>
                                     </div>
                                 );
                             });

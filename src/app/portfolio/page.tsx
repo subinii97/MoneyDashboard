@@ -309,7 +309,7 @@ export default function PortfolioPage() {
                                             return (
                                                 <div className="glass" style={{ padding: '0.5rem 1rem', border: '1px solid var(--border)', textAlign: 'left' }}>
                                                     <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{data.name}</div>
-                                                    <div style={{ color: 'var(--primary)', fontWeight: 'bold', filter: isPrivate ? 'blur(6px)' : 'none' }}>{formatKRW(data.value)}</div>
+                                                    <div style={{ color: 'var(--primary)', fontWeight: 'bold', filter: isPrivate ? 'blur(6px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(data.value)}</div>
                                                     <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{percent.toFixed(1)}%</div>
                                                 </div>
                                             );
@@ -350,7 +350,7 @@ export default function PortfolioPage() {
                                             return (
                                                 <div className="glass" style={{ padding: '0.5rem 1rem', border: '1px solid var(--border)', textAlign: 'left' }}>
                                                     <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{data.name} (목표)</div>
-                                                    <div style={{ color: 'var(--primary)', fontWeight: 'bold', filter: isPrivate ? 'blur(6px)' : 'none' }}>{formatKRW(targetVal)}</div>
+                                                    <div style={{ color: 'var(--primary)', fontWeight: 'bold', filter: isPrivate ? 'blur(6px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(targetVal)}</div>
                                                     <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{targetWeight.toFixed(1)}%</div>
                                                 </div>
                                             );
@@ -374,7 +374,7 @@ export default function PortfolioPage() {
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>자산배분 상세 현황</h2>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>총 자산 평가액</div>
-                        <div style={{ fontSize: '2rem', fontWeight: '800', filter: isPrivate ? 'blur(10px)' : 'none' }}>{formatKRW(totalValue)}</div>
+                        <div style={{ fontSize: '2rem', fontWeight: '800', filter: isPrivate ? 'blur(10px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(totalValue)}</div>
                     </div>
                 </div>
 
@@ -407,7 +407,7 @@ export default function PortfolioPage() {
                                                 <span style={{ fontWeight: '600' }}>{CATEGORY_MAP[a.category] || a.category}</span>
                                             </div>
                                         </td>
-                                        <td style={{ textAlign: 'right', filter: isPrivate ? 'blur(8px)' : 'none' }}>{formatKRW(currentVal)}</td>
+                                        <td style={{ textAlign: 'right', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(currentVal)}</td>
                                         <td style={{ textAlign: 'right' }}>{currentWeight.toFixed(1)}%</td>
                                         <td style={{ textAlign: 'right', padding: '1rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -459,7 +459,7 @@ export default function PortfolioPage() {
                     <tfoot>
                         <tr style={{ fontWeight: '800', fontSize: '1.1rem' }}>
                             <td style={{ padding: '1.5rem 0' }}>합계</td>
-                            <td style={{ textAlign: 'right', filter: isPrivate ? 'blur(10px)' : 'none' }}>{formatKRW(totalValue)}</td>
+                            <td style={{ textAlign: 'right', filter: isPrivate ? 'blur(10px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(totalValue)}</td>
                             <td style={{ textAlign: 'right' }}>100.0%</td>
                             <td style={{ textAlign: 'right', color: Math.round(totalTargetWeight) === 100 ? '#10b981' : '#ef4444' }}>
                                 {Math.round(totalTargetWeight)}%
@@ -508,7 +508,7 @@ export default function PortfolioPage() {
                                                 type="number" placeholder="금액" value={d.value}
                                                 onChange={(e) => updateDetail(a.category, d.id, { value: Number(e.target.value) })}
                                                 className="glass"
-                                                style={{ flex: 1, padding: '0.4rem', fontSize: '0.85rem', textAlign: 'right', background: 'transparent', color: 'white', border: '1px solid var(--border)', filter: isPrivate ? 'blur(6px)' : 'none' }}
+                                                style={{ flex: 1, padding: '0.4rem', fontSize: '0.85rem', textAlign: 'right', background: 'transparent', color: 'white', border: '1px solid var(--border)', filter: isPrivate ? 'blur(6px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}
                                             />
                                             <select
                                                 value={d.currency || a.currency}
@@ -530,7 +530,7 @@ export default function PortfolioPage() {
                                 </div>
                                 <div style={{ marginTop: '1rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: 'bold' }}>
                                     <span style={{ color: 'var(--muted)', marginRight: '0.5rem' }}>소계:</span>
-                                    <span className="gradient-text" style={{ fontSize: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none' }}>{formatKRW(getCurrentValue(a))}</span>
+                                    <span className="gradient-text" style={{ fontSize: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(getCurrentValue(a))}</span>
                                 </div>
                             </div>
                         ))}

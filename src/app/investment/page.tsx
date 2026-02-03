@@ -307,10 +307,10 @@ export default function InvestmentManager() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>{title} <span style={{ fontSize: '0.9rem', color: 'var(--muted)', marginLeft: '0.5rem' }}>({investments.length}개)</span></h3>
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>합계: <span className="gradient-text" style={{ filter: isPrivate ? 'blur(8px)' : 'none' }}>{formatKRW(subTotal)}</span></div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>합계: <span className="gradient-text" style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(subTotal)}</span></div>
                         {lastHistory && (
                             <div style={{ fontSize: '0.9rem', color: dailyChange >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
-                                전날 대비: <span style={{ filter: isPrivate ? 'blur(8px)' : 'none' }}>{dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)} ({dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%)</span>
+                                전날 대비: <span style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)} ({dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%)</span>
                             </div>
                         )}
                     </div>
@@ -376,12 +376,12 @@ export default function InvestmentManager() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td style={{ textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none' }}>
+                                        <td style={{ textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
                                             {editingInvestment === inv.id ? (
                                                 <input type="text" value={editForm.shares} onChange={e => setEditForm({ ...editForm, shares: e.target.value })} className="glass" style={{ width: '55px', padding: '0.2rem', background: 'transparent', color: 'white', textAlign: 'right' }} />
                                             ) : inv.shares}
                                         </td>
-                                        <td style={{ fontWeight: '600', fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none' }}>
+                                        <td style={{ fontWeight: '600', fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
                                             {formatKRW(marketValKRW)}
                                         </td>
                                         <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
@@ -390,7 +390,10 @@ export default function InvestmentManager() {
                                                     fontSize: isPrivate ? '1.1rem' : '0.82rem',
                                                     opacity: isPrivate ? 0.9 : 0.8,
                                                     fontWeight: isPrivate ? '600' : 'normal',
-                                                    marginBottom: isPrivate ? '0' : '0'
+                                                    marginBottom: isPrivate ? '0' : '0',
+                                                    filter: isPrivate ? 'blur(8px)' : 'none',
+                                                    userSelect: isPrivate ? 'none' : 'auto',
+                                                    pointerEvents: isPrivate ? 'none' : 'auto'
                                                 }}>
                                                     {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
                                                 </div>
