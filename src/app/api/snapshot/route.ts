@@ -1,64 +1,63 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import db from '@/lib/db';
 import { Assets, HistoryEntry } from '@/lib/types';
 import { fetchQuote, fetchExchangeRate } from '@/lib/stock';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const ASSETS_PATH = path.join(DATA_DIR, 'assets.json');
-const HISTORY_PATH = path.join(DATA_DIR, 'history.json');
-
-async function ensureDir() {
-    try {
-        await fs.access(DATA_DIR);
-    } catch {
-        await fs.mkdir(DATA_DIR, { recursive: true });
-    }
-}
-
 export async function GET() {
     try {
-        const data = await fs.readFile(HISTORY_PATH, 'utf8');
-        return NextResponse.json(JSON.parse(data));
+        const rows = db.prepare('SELECT * FROM history ORDER BY date ASC').all();
+        const history = rows.map((row: any) => ({
+            ...row,
+            holdings: row.holdings ? JSON.parse(row.holdings) : undefined,
+            allocations: row.allocations ? JSON.parse(row.allocations) : undefined
+        }));
+        return NextResponse.json(history);
     } catch (error) {
+        console.error('Failed to fetch history:', error);
         return NextResponse.json([], { status: 200 });
     }
 }
 
 export async function POST(request: Request) {
     try {
-        await ensureDir();
         const body = await request.json().catch(() => ({}));
 
-        let assets: Assets = { investments: [], allocations: [] };
-        try {
-            const assetsRaw = await fs.readFile(ASSETS_PATH, 'utf8');
-            assets = JSON.parse(assetsRaw);
-        } catch (e) {
-            // If assets.json missing, we can't take a snapshot of anything
+        // Fetch current assets from DB
+        const invRows = db.prepare('SELECT * FROM investments').all();
+        const alcRows = db.prepare('SELECT * FROM allocations').all();
+
+        const assets: Assets = {
+            investments: invRows.map((r: any) => ({ ...r })),
+            allocations: alcRows.map((r: any) => ({
+                ...r,
+                details: r.details ? JSON.parse(r.details) : undefined
+            }))
+        };
+
+        if (assets.investments.length === 0 && assets.allocations.length === 0) {
             return NextResponse.json({ success: false, error: 'No assets found to snapshot' }, { status: 400 });
         }
 
-        let history: HistoryEntry[] = [];
-        try {
-            const historyRaw = await fs.readFile(HISTORY_PATH, 'utf8');
-            history = JSON.parse(historyRaw);
-        } catch (e) { }
-
         // If it's a manual adjustment to a specific date
         if (body.date && body.manualAdjustment !== undefined) {
-            const updatedHistory = history.map(h =>
-                h.date === body.date
-                    ? { ...h, manualAdjustment: body.manualAdjustment, totalValue: (h.snapshotValue || h.totalValue) + body.manualAdjustment }
-                    : h
-            );
-            await fs.writeFile(HISTORY_PATH, JSON.stringify(updatedHistory, null, 2));
+            const row = db.prepare('SELECT * FROM history WHERE date = ?').get(body.date) as any;
+            if (row) {
+                const totalValue = (row.snapshotValue || row.totalValue) + body.manualAdjustment;
+                db.prepare('UPDATE history SET manualAdjustment = ?, totalValue = ? WHERE date = ?')
+                    .run(body.manualAdjustment, totalValue, body.date);
+            }
             return NextResponse.json({ success: true });
         }
 
         // Otherwise, create a new snapshot for today
         const rateInfo = await fetchExchangeRate();
         const rate = typeof rateInfo === 'object' ? rateInfo.rate : rateInfo;
+
+        // Record daily exchange rate
+        const todayFull = new Date();
+        const dateStr = todayFull.toISOString().split('T')[0];
+        db.prepare('INSERT OR REPLACE INTO currency_rates (date, rate) VALUES (?, ?)')
+            .run(dateStr, rate);
 
         // Calculate Investment Values
         const invEntries = await Promise.all(
@@ -83,11 +82,9 @@ export async function POST(request: Request) {
 
         const totalInvValue = invEntries.reduce((acc, inv) => {
             const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
-            // Use the settlement rate for conversion
             return acc + (inv.currency === 'USD' ? val * rate : val);
         }, 0);
 
-        // Calculate Other Allocation Values (Manual categories like Cash, Savings)
         const totalOtherValue = (assets.allocations || [])
             .filter(a => ![
                 'Domestic Stock', 'Overseas Stock',
@@ -101,17 +98,16 @@ export async function POST(request: Request) {
 
         const totalValue = totalOtherValue + totalInvValue;
 
-        // Use local date for the snapshot key (yesterday: YYYY-MM-DD)
         const d = new Date();
         d.setDate(d.getDate() - 1);
         const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-        // If today's snapshot already exists and it's not a manual trigger, return early
-        if (body.auto && history.some(h => h.date === todayStr)) {
+        // Check if exists
+        const existing = db.prepare('SELECT date FROM history WHERE date = ?').get(todayStr);
+        if (body.auto && existing) {
             return NextResponse.json({ success: true, message: 'Today already recorded' });
         }
 
-        // Create updated allocations with calculated values
         const updatedAllocations = (assets.allocations || []).map(alc => {
             const categoryValue = invEntries
                 .filter(inv => inv.category === alc.category)
@@ -120,8 +116,6 @@ export async function POST(request: Request) {
                     return sum + (inv.currency === 'USD' ? val * rate : val);
                 }, 0);
 
-            // For Cash category, we keep the manual value from assets.allocations
-            // For investment categories, we use the aggregated value
             if (alc.category === 'Domestic Stock' ||
                 alc.category === 'Overseas Stock' ||
                 alc.category === 'Domestic Index' ||
@@ -143,12 +137,15 @@ export async function POST(request: Request) {
             exchangeRate: rate
         };
 
-        const updatedHistory = [
-            ...history.filter(h => h.date !== newEntry.date),
-            newEntry
-        ].sort((a, b) => a.date.localeCompare(b.date));
+        db.prepare(`
+            INSERT OR REPLACE INTO history (date, totalValue, snapshotValue, manualAdjustment, exchangeRate, holdings, allocations)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            newEntry.date, newEntry.totalValue, newEntry.snapshotValue,
+            newEntry.manualAdjustment, newEntry.exchangeRate,
+            JSON.stringify(newEntry.holdings), JSON.stringify(newEntry.allocations)
+        );
 
-        await fs.writeFile(HISTORY_PATH, JSON.stringify(updatedHistory, null, 2));
         return NextResponse.json({ success: true, entry: newEntry });
     } catch (error) {
         console.error('Snapshot failed', error);

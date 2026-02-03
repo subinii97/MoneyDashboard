@@ -1,58 +1,44 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-import { Transaction } from '@/lib/types';
-
-const DATA_DIR = path.join(process.cwd(), 'data');
-const DATA_PATH = path.join(DATA_DIR, 'transactions.json');
-
-async function ensureDir() {
-    try {
-        await fs.access(DATA_DIR);
-    } catch {
-        await fs.mkdir(DATA_DIR, { recursive: true });
-    }
-}
+import db from '@/lib/db';
 
 export async function GET() {
     try {
-        const data = await fs.readFile(DATA_PATH, 'utf8');
-        return NextResponse.json(JSON.parse(data));
+        const transactions = db.prepare('SELECT * FROM transactions ORDER BY date DESC').all();
+        return NextResponse.json(transactions);
     } catch (error) {
+        console.error('Failed to fetch transactions:', error);
         return NextResponse.json([], { status: 200 });
     }
 }
 
 export async function POST(request: Request) {
     try {
-        await ensureDir();
-        const newTx = await request.json();
-        let transactions: Transaction[] = [];
-        try {
-            const data = await fs.readFile(DATA_PATH, 'utf8');
-            transactions = JSON.parse(data);
-        } catch (e) { }
+        const tx = await request.json();
 
-        transactions.push(newTx);
-        await fs.writeFile(DATA_PATH, JSON.stringify(transactions, null, 2));
+        const insertTx = db.prepare(`
+            INSERT OR REPLACE INTO transactions (id, date, type, symbol, amount, shares, price, currency, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        insertTx.run(
+            tx.id, tx.date, tx.type, tx.symbol || null, tx.amount,
+            tx.shares || null, tx.price || null, tx.currency, tx.notes || null
+        );
+
         return NextResponse.json({ success: true });
     } catch (error) {
+        console.error('Failed to save transaction:', error);
         return NextResponse.json({ success: false, error: 'Failed to save transaction' }, { status: 500 });
     }
 }
+
 export async function DELETE(request: Request) {
     try {
         const { id } = await request.json();
-        let transactions: Transaction[] = [];
-        try {
-            const data = await fs.readFile(DATA_PATH, 'utf8');
-            transactions = JSON.parse(data);
-        } catch (e) { }
-
-        const updated = transactions.filter(tx => tx.id !== id);
-        await fs.writeFile(DATA_PATH, JSON.stringify(updated, null, 2));
+        db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
         return NextResponse.json({ success: true });
     } catch (error) {
+        console.error('Failed to delete transaction:', error);
         return NextResponse.json({ success: false, error: 'Failed to delete transaction' }, { status: 500 });
     }
 }
