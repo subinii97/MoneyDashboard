@@ -285,12 +285,16 @@ export default function InvestmentManager() {
 
         const subTotal = calculateTotalValue(investments);
 
-        // Calculate daily change
-        const lastHistory = history[history.length - 1];
+        // Calculate daily change based on the latest historical snapshot before today
+        const todayStr = new Date().toISOString().split('T')[0];
+        const historicalSnapshots = history.filter(h => h.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
+        const lastHistory = historicalSnapshots[0];
+
         const lastMarketType = title.includes('국내') ? 'Domestic' : 'Overseas';
         const lastSubTotal = lastHistory?.holdings?.filter(h => h.marketType === lastMarketType).reduce((acc, h) => {
             const val = (h.currentPrice || h.avgPrice) * h.shares;
-            return acc + convertToKRW(val, h.currency || 'KRW', lastHistory.exchangeRate || rate);
+            const histRate = lastHistory.exchangeRate || rate;
+            return acc + convertToKRW(val, (h.currency || (lastMarketType === 'Domestic' ? 'KRW' : 'USD')) as any, histRate);
         }, 0) || 0;
 
         const dailyChange = lastHistory ? subTotal - lastSubTotal : 0;

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import { Assets, HistoryEntry } from '@/lib/types';
-import { fetchGoogleQuote, fetchExchangeRate } from '@/lib/stock';
+import { fetchQuote, fetchExchangeRate } from '@/lib/stock';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const ASSETS_PATH = path.join(DATA_DIR, 'assets.json');
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         // Calculate Investment Values
         const invEntries = await Promise.all(
             assets.investments.map(async (inv) => {
-                const quote = await fetchGoogleQuote(inv.symbol);
+                const quote = await fetchQuote(inv.symbol);
                 let currentPrice = inv.avgPrice;
                 let currency = inv.currency || (inv.symbol.includes('.') ? 'KRW' : 'USD');
 
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
 
         const totalInvValue = invEntries.reduce((acc, inv) => {
             const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
+            // Use the settlement rate for conversion
             return acc + (inv.currency === 'USD' ? val * rate : val);
         }, 0);
 

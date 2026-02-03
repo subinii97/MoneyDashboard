@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchGoogleQuote, fetchExchangeRate } from '@/lib/stock';
+import { fetchQuote, fetchExchangeRate } from '@/lib/stock';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     try {
         const [exchangeRate, ...stockResults] = await Promise.all([
             fetchExchangeRate(),
-            ...symbols.map(s => fetchGoogleQuote(s))
+            ...symbols.map(s => fetchQuote(s))
         ]);
 
         return NextResponse.json({
