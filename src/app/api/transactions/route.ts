@@ -40,3 +40,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: 'Failed to save transaction' }, { status: 500 });
     }
 }
+export async function DELETE(request: Request) {
+    try {
+        const { id } = await request.json();
+        let transactions: Transaction[] = [];
+        try {
+            const data = await fs.readFile(DATA_PATH, 'utf8');
+            transactions = JSON.parse(data);
+        } catch (e) { }
+
+        const updated = transactions.filter(tx => tx.id !== id);
+        await fs.writeFile(DATA_PATH, JSON.stringify(updated, null, 2));
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        return NextResponse.json({ success: false, error: 'Failed to delete transaction' }, { status: 500 });
+    }
+}

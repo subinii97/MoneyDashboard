@@ -123,17 +123,54 @@ export default function InvestmentManager() {
 
     const addInvestment = async () => {
         if (!newInvestment.symbol || !newInvestment.shares || !newInvestment.avgPrice) return;
+
+        const symbol = newInvestment.symbol.toUpperCase();
+        const shares = Number(newInvestment.shares);
+        const price = Number(newInvestment.avgPrice);
+        const currency = symbol.includes('.') || newInvestment.marketType === 'Domestic' ? 'KRW' : 'USD';
+
         const invToAdd: Investment = {
             id: Date.now().toString(),
-            symbol: newInvestment.symbol,
-            shares: Number(newInvestment.shares),
-            avgPrice: Number(newInvestment.avgPrice),
+            symbol: symbol,
+            shares: shares,
+            avgPrice: price,
             marketType: newInvestment.marketType,
             category: newInvestment.category,
+            currency: currency,
             targetWeight: 0
         };
-        const updated = { ...assets, investments: [...assets.investments, invToAdd] };
-        await saveAssets(updated);
+
+        const tx: Transaction = {
+            id: Date.now().toString(),
+            date: new Date().toISOString().split('T')[0],
+            type: 'BUY',
+            symbol: symbol,
+            amount: shares * price,
+            shares: shares,
+            price: price,
+            currency: currency as 'KRW' | 'USD',
+            notes: '신규 항목 추가 (매수)'
+        };
+
+        // Update Cash in allocations
+        const updatedAllocations = assets.allocations.map((a: any) => {
+            if (a.category === 'Cash') {
+                const txVal = convertToKRW(tx.amount, tx.currency, rate);
+                return { ...a, value: a.value - txVal };
+            }
+            return a;
+        });
+
+        const updatedInvestments = [...assets.investments, invToAdd];
+
+        // Save transaction to history
+        await fetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tx),
+        });
+
+        await saveAssets({ investments: updatedInvestments, allocations: updatedAllocations });
         setNewInvestment({ symbol: '', shares: '', avgPrice: '', marketType: 'Domestic', category: 'Domestic Stock' });
     };
 
@@ -247,13 +284,32 @@ export default function InvestmentManager() {
         }, 0);
 
         const subTotal = calculateTotalValue(investments);
+
+        // Calculate daily change
+        const lastHistory = history[history.length - 1];
+        const lastMarketType = title.includes('국내') ? 'Domestic' : 'Overseas';
+        const lastSubTotal = lastHistory?.holdings?.filter(h => h.marketType === lastMarketType).reduce((acc, h) => {
+            const val = (h.currentPrice || h.avgPrice) * h.shares;
+            return acc + convertToKRW(val, h.currency || 'KRW', lastHistory.exchangeRate || rate);
+        }, 0) || 0;
+
+        const dailyChange = lastHistory ? subTotal - lastSubTotal : 0;
+        const dailyChangePercent = lastSubTotal > 0 ? (dailyChange / lastSubTotal) * 100 : 0;
+
         if (investments.length === 0) return null;
 
         return (
             <div className="glass" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>{title} <span style={{ fontSize: '0.9rem', color: 'var(--muted)', marginLeft: '0.5rem' }}>({investments.length}개)</span></h3>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>합계: <span className="gradient-text" style={{ filter: isPrivate ? 'blur(8px)' : 'none' }}>{formatKRW(subTotal)}</span></div>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>합계: <span className="gradient-text" style={{ filter: isPrivate ? 'blur(8px)' : 'none' }}>{formatKRW(subTotal)}</span></div>
+                        {lastHistory && (
+                            <div style={{ fontSize: '0.9rem', color: dailyChange >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
+                                전날 대비: <span style={{ filter: isPrivate ? 'blur(8px)' : 'none' }}>{dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)} ({dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%)</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px', tableLayout: 'fixed' }}>
@@ -501,11 +557,6 @@ export default function InvestmentManager() {
                                 <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>가격 ({selectedInv?.currency})</label>
                                 <input type="number" value={txForm.price} onChange={e => setTxForm({ ...txForm, price: e.target.value })} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'white' }} />
                             </div>
-                        </div>
-
-                        <div>
-                            <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>메모</label>
-                            <input type="text" value={txForm.notes} onChange={e => setTxForm({ ...txForm, notes: e.target.value })} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'white' }} />
                         </div>
 
                         <button onClick={handleTransaction} className="glass" style={{ width: '100%', padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 'bold', marginTop: '1rem' }}>

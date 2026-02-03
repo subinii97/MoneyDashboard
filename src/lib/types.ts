@@ -93,4 +93,5 @@ export interface HistoryEntry {
     holdings?: Investment[];
     allocations?: AssetAllocation[];
     transactions?: Transaction[];
+    exchangeRate?: number;
 }

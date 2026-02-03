@@ -138,7 +138,8 @@ export async function POST(request: Request) {
             snapshotValue: totalValue,
             manualAdjustment: 0,
             holdings: invEntries,
-            allocations: updatedAllocations
+            allocations: updatedAllocations,
+            exchangeRate: rate
         };
 
         const updatedHistory = [

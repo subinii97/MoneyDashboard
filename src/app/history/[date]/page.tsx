@@ -28,7 +28,9 @@ export default function HistoryDetailPage() {
                 // Fetch transactions for this date
                 const txRes = await fetch('/api/transactions');
                 const txData: Transaction[] = await txRes.json();
-                setTransactions(txData.filter(tx => tx.date === date));
+                const filteredTxs = txData.filter(tx => tx.date === date && tx.amount !== 0);
+                console.log(`Found ${filteredTxs.length} transactions for ${date}`, filteredTxs);
+                setTransactions(filteredTxs);
 
                 // Fetch exchange rate (optional, can use fallback)
                 const stockRes = await fetch('/api/stock?symbols=AAPL'); // Just to get the rate
@@ -103,29 +105,53 @@ export default function HistoryDetailPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {(entry.holdings || []).map((inv, idx) => {
-                                // Use original values, only default to 0 if undefined or NaN
-                                const currentPrice = inv.currentPrice ?? 0;
-                                const avgPrice = inv.avgPrice ?? 0;
-                                const shares = inv.shares ?? 0;
+                            {(() => {
+                                const holdings = entry.holdings || [];
+                                const aggregated: { [symbol: string]: any } = {};
 
-                                const effectivePrice = currentPrice || avgPrice;
-                                const valKRW = convertToKRW(effectivePrice * shares, (inv.currency || 'KRW') as any, rate);
-                                const costKRW = convertToKRW(avgPrice * shares, (inv.currency || 'KRW') as any, rate);
+                                holdings.forEach(h => {
+                                    if (!aggregated[h.symbol]) {
+                                        aggregated[h.symbol] = { ...h };
+                                    } else {
+                                        const prev = aggregated[h.symbol];
+                                        const totalShares = (prev.shares || 0) + (h.shares || 0);
+                                        const totalCost = (prev.shares || 0) * (prev.avgPrice || 0) + (h.shares || 0) * (h.avgPrice || 0);
+                                        aggregated[h.symbol] = {
+                                            ...prev,
+                                            shares: totalShares,
+                                            avgPrice: totalShares > 0 ? totalCost / totalShares : 0,
+                                            // currentPrice is usually same for same symbol, 
+                                            // but we'll take the one from the current entry just in case
+                                            currentPrice: h.currentPrice || prev.currentPrice
+                                        };
+                                    }
+                                });
 
-                                return (
-                                    <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
-                                        <td style={{ padding: '1rem 0' }}>
-                                            <div style={{ fontWeight: 'bold' }}>{inv.name || inv.symbol}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{inv.symbol}</div>
-                                        </td>
-                                        <td style={{ textAlign: 'right' }}>{shares}</td>
-                                        <td style={{ textAlign: 'right', fontWeight: '600' }}>{formatKRW(valKRW)}</td>
-                                        <td style={{ textAlign: 'right' }}>{renderChange(valKRW, costKRW)}</td>
-                                    </tr>
-                                );
-                            })}
-                            {entry.holdings?.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', padding: '1rem', color: 'var(--muted)' }}>내역 없음</td></tr>}
+                                const aggregatedList = Object.values(aggregated);
+
+                                return aggregatedList.map((inv, idx) => {
+                                    const currentPrice = inv.currentPrice ?? 0;
+                                    const avgPrice = inv.avgPrice ?? 0;
+                                    const shares = inv.shares ?? 0;
+
+                                    const effectivePrice = currentPrice || avgPrice;
+                                    const valKRW = convertToKRW(effectivePrice * shares, (inv.currency || 'KRW') as any, rate);
+                                    const costKRW = convertToKRW(avgPrice * shares, (inv.currency || 'KRW') as any, rate);
+
+                                    return (
+                                        <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                            <td style={{ padding: '1rem 0' }}>
+                                                <div style={{ fontWeight: 'bold' }}>{inv.name || inv.symbol}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{inv.symbol}</div>
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>{shares}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: '600' }}>{formatKRW(valKRW)}</td>
+                                            <td style={{ textAlign: 'right' }}>{renderChange(valKRW, costKRW)}</td>
+                                        </tr>
+                                    );
+                                });
+                            })()}
+                            {(!entry.holdings || entry.holdings.length === 0) && <tr><td colSpan={4} style={{ textAlign: 'center', padding: '1rem', color: 'var(--muted)' }}>내역 없음</td></tr>}
                         </tbody>
                     </table>
                 </div>
@@ -145,13 +171,13 @@ export default function HistoryDetailPage() {
                                         <th style={{ padding: '1rem 0', width: '100px' }}>구분</th>
                                         <th style={{ padding: '1rem 0', width: '150px' }}>항목</th>
                                         <th style={{ textAlign: 'right', width: '100px' }}>수량</th>
-                                        <th style={{ textAlign: 'right', width: '180px' }}>금액</th>
-                                        <th style={{ paddingLeft: '1rem' }}>메모</th>
+                                        <th style={{ textAlign: 'right', width: '120px' }}>거래가격</th>
+                                        <th style={{ textAlign: 'right', width: '60px' }}>작업</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {transactions.map((tx, idx) => (
-                                        <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                        <tr key={tx.id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
                                             <td style={{ padding: '1rem 0' }}>
                                                 <span style={{
                                                     padding: '0.25rem 0.5rem',
@@ -161,24 +187,41 @@ export default function HistoryDetailPage() {
                                                     background: tx.type === 'BUY' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                                                     color: tx.type === 'BUY' ? '#ef4444' : '#3b82f6'
                                                 }}>
-                                                    {tx.type === 'BUY' ? '매수 (-)' : '매도 (+)'}
+                                                    {tx.type === 'BUY' ? '매수 (+)' : '매도 (-)'}
                                                 </span>
                                             </td>
                                             <td style={{ padding: '1rem 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.symbol}</td>
                                             <td style={{ textAlign: 'right' }}>{tx.shares}</td>
-                                            <td style={{ textAlign: 'right' }}>{tx.currency === 'USD' ? `$${tx.amount.toLocaleString()}` : formatKRW(tx.amount)}</td>
-                                            <td style={{ color: 'var(--muted)', fontSize: '0.85rem', paddingLeft: '1rem' }}>{tx.notes}</td>
+                                            <td style={{ textAlign: 'right' }}>{tx.currency === 'USD' ? `$${(tx.price || 0).toLocaleString()}` : formatKRW(tx.price || 0)}</td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!confirm('정말 이 거래 기록을 삭제하시겠습니까? (스냅샷 금액은 변경되지 않습니다)')) return;
+                                                        const res = await fetch('/api/transactions', {
+                                                            method: 'DELETE',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ id: tx.id })
+                                                        });
+                                                        if (res.ok) {
+                                                            setTransactions(transactions.filter(t => t.id !== tx.id));
+                                                        }
+                                                    }}
+                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}
+                                                >
+                                                    삭제
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                             <div style={{ padding: '1rem', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', display: 'flex', justifyContent: 'flex-end', gap: '2rem' }}>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>총 매수</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>총 매수 (+)</div>
                                     <div style={{ fontWeight: 'bold', color: '#ef4444' }}>{formatKRW(transactions.filter(t => t.type === 'BUY').reduce((acc, t) => acc + convertToKRW(t.amount, t.currency, rate), 0))}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>총 매도</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>총 매도 (-)</div>
                                     <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>{formatKRW(transactions.filter(t => t.type === 'SELL').reduce((acc, t) => acc + convertToKRW(t.amount, t.currency, rate), 0))}</div>
                                 </div>
                             </div>
@@ -192,7 +235,7 @@ export default function HistoryDetailPage() {
             <section>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
                     <Wallet size={24} color="var(--primary)" />
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>기타 자산 (현금 등)</h2>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>자산 현황</h2>
                 </div>
                 <div className="glass" style={{ padding: '1.5rem' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -216,7 +259,7 @@ export default function HistoryDetailPage() {
                                         sum + convertToKRW((h.currentPrice || h.avgPrice) * h.shares, h.currency || (marketType === 'Domestic' ? 'KRW' : 'USD'), rate), 0) || 0;
                                 }
 
-                                if (valKRW === 0 && alc.targetWeight === 0) return null;
+                                if (valKRW === 0) return null; // Simplified: hide any zero-value item
                                 return (
                                     <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
                                         <td style={{ padding: '1rem 0' }}>{CATEGORY_MAP[alc.category] || alc.category}</td>
