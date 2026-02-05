@@ -21,11 +21,16 @@ export async function GET(request: Request) {
         }
 
         const rows = db.prepare('SELECT * FROM history ORDER BY date ASC').all();
-        const history = rows.map((row: any) => ({
+        let history = rows.map((row: any) => ({
             ...row,
             holdings: includeHoldings && row.holdings ? JSON.parse(row.holdings) : undefined,
             allocations: row.allocations ? JSON.parse(row.allocations) : undefined
         }));
+
+        // Optimization: For charts and settled views, if today is missing, we could theoretically 
+        // append a "LIVE" entry. But let's keep it simple: History only shows settled days.
+        // Today's LIVE status is already visible on the Home hero section.
+
         return NextResponse.json(history);
     } catch (error) {
         console.error('Failed to fetch history:', error);
@@ -71,27 +76,39 @@ export async function POST(request: Request) {
         };
 
         const todayStr = getLocalDateStr(now);
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        const yesterdayStr = getLocalDateStr(yesterday);
 
         let targetDate = todayStr;
+        let shouldSaveToHistory = true;
+
         if (body.auto) {
-            // Logic for 00:00 - 01:00 window: Treat as final record for yesterday
-            if (now.getHours() === 0) {
-                const yesterday = new Date(now);
-                yesterday.setDate(now.getDate() - 1);
-                targetDate = getLocalDateStr(yesterday);
-                // For yesterday's final record, we don't return early so it can be updated one last time at 00:xx
+            // Logic: Is there a gap? (yesterday missing?)
+            const yesterdayExists = db.prepare('SELECT 1 FROM history WHERE date = ?').get(yesterdayStr);
+
+            if (!yesterdayExists) {
+                // If yesterday is missing, we MUST settle it now using the first prices we find today
+                targetDate = yesterdayStr;
+                shouldSaveToHistory = true;
+            } else if (now.getHours() === 0) {
+                // During the 00:00 - 00:59 window, we are finalizing yesterday's settlement
+                targetDate = yesterdayStr;
+                shouldSaveToHistory = true;
             } else {
-                // During the day, we keep updating today's snapshot
+                // During the rest of the day, we don't save "today" to the history table yet
+                // The history table should only contain "Settled" (completed) days.
                 targetDate = todayStr;
+                shouldSaveToHistory = false;
             }
         }
 
         const rateInfo = await fetchExchangeRate();
         const rate = typeof rateInfo === 'object' ? rateInfo.rate : rateInfo;
 
-        // Record daily exchange rate
+        // Record current exchange rate (always update for today)
         db.prepare('INSERT OR REPLACE INTO currency_rates (date, rate) VALUES (?, ?)')
-            .run(targetDate, rate);
+            .run(todayStr, rate);
 
         // Calculate Investment Values
         const invEntries = await Promise.all(
@@ -161,16 +178,22 @@ export async function POST(request: Request) {
             exchangeRate: rate
         };
 
-        db.prepare(`
-            INSERT OR REPLACE INTO history (date, totalValue, snapshotValue, manualAdjustment, exchangeRate, holdings, allocations)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            newEntry.date, newEntry.totalValue, newEntry.snapshotValue,
-            newEntry.manualAdjustment, newEntry.exchangeRate,
-            JSON.stringify(newEntry.holdings), JSON.stringify(newEntry.allocations)
-        );
+        if (shouldSaveToHistory) {
+            db.prepare(`
+                INSERT OR REPLACE INTO history (date, totalValue, snapshotValue, manualAdjustment, exchangeRate, holdings, allocations)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).run(
+                newEntry.date, newEntry.totalValue, newEntry.snapshotValue,
+                newEntry.manualAdjustment, newEntry.exchangeRate,
+                JSON.stringify(newEntry.holdings), JSON.stringify(newEntry.allocations)
+            );
+        }
 
-        return NextResponse.json({ success: true, entry: newEntry });
+        return NextResponse.json({
+            success: true,
+            entry: newEntry,
+            isSettled: shouldSaveToHistory
+        });
     } catch (error) {
         console.error('Snapshot failed', error);
         return NextResponse.json({ success: false, error: 'Snapshot failed' }, { status: 500 });

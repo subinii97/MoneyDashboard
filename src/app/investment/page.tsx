@@ -120,6 +120,12 @@ export default function InvestmentManager() {
         }).catch(() => { });
     }, [fetchData]);
 
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const handleMouseMove = (e: React.MouseEvent) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    };
+
     const saveAssets = async (updatedAssets: Assets) => {
         await fetch('/api/assets', {
             method: 'POST',
@@ -347,39 +353,53 @@ export default function InvestmentManager() {
 
         const subTotal = calculateTotalValue(investments);
 
-        // Calculate daily change based on the latest historical snapshot before today
-        const todayStr = new Date().toISOString().split('T')[0];
-        const historicalSnapshots = history.filter(h => h.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
-        const lastHistory = historicalSnapshots[0];
+        // Total Unrealized P/L (Total ROI)
+        const totalPL = investments.reduce((acc, s) => {
+            const currentPrice = s.currentPrice || s.avgPrice;
+            const pl = (currentPrice - s.avgPrice) * s.shares;
+            return acc + convertToKRW(pl, s.currency || 'KRW', rate);
+        }, 0);
+        const totalPLPercent = (subTotal - totalPL) > 0 ? (totalPL / (subTotal - totalPL)) * 100 : 0;
 
-        const lastMarketType = title.includes('국내') ? 'Domestic' : 'Overseas';
-        const lastSubTotal = (lastHistory?.holdings || []).filter(h => h.marketType === lastMarketType).reduce((acc, h) => {
-            const val = (h.currentPrice || h.avgPrice) * h.shares;
-            const histRate = lastHistory.exchangeRate || rate;
-            return acc + convertToKRW(val, (h.currency || (lastMarketType === 'Domestic' ? 'KRW' : 'USD')) as any, histRate);
-        }, 0) || 0;
-
-        const dailyChange = lastHistory ? subTotal - lastSubTotal : 0;
-        const dailyChangePercent = lastSubTotal > 0 ? (dailyChange / lastSubTotal) * 100 : 0;
+        // Refined Daily Change: Sum of (per-share change * held shares) using real-time data
+        const dailyChange = investments.reduce((acc, s) => {
+            const changeAmount = (s.change || 0) * s.shares;
+            return acc + convertToKRW(changeAmount, s.currency || 'KRW', rate);
+        }, 0);
+        const dailyChangePercent = (subTotal - dailyChange) > 0 ? (dailyChange / (subTotal - dailyChange)) * 100 : 0;
 
         if (investments.length === 0) return null;
 
         return (
-            <div className="glass" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>{title} <span style={{ fontSize: '0.9rem', color: 'var(--muted)', marginLeft: '0.5rem' }}>({investments.length}개)</span></h3>
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>합계: <span className="gradient-text" style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(subTotal)}</span></div>
-                        {lastHistory && (
-                            <div style={{ fontSize: '0.9rem', color: 'white', fontWeight: 'bold' }}>
-                                전날 대비: <span style={{ color: dailyChange >= 0 ? '#ef4444' : '#3b82f6' }}>
-                                    <span style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
-                                        {dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)}
-                                    </span>
-                                    <span> ({dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%)</span>
-                                </span>
+            <div style={{ padding: '1.5rem', marginBottom: '0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+                    <div>
+                        <span className="section-label" style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>Portfolio</span>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.01em' }}>{title}</h3>
+                    </div>
+                    <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
+                        <div style={{ textAlign: 'left' }}>
+                            <span className="section-label" style={{ marginBottom: '0.2rem' }}>Sub Total</span>
+                            <div className="hero-value" style={{ fontSize: '1.75rem', filter: isPrivate ? 'blur(10px)' : 'none' }}>{formatKRW(subTotal)}</div>
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                            <span className="section-label" style={{ marginBottom: '0.2rem' }}>Daily Change</span>
+                            <div style={{ fontSize: '1.2rem', color: dailyChange >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
+                                {dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)}
                             </div>
-                        )}
+                            <div style={{ fontSize: '0.8rem', color: dailyChange >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '600', opacity: 0.8 }}>
+                                {dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%
+                            </div>
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                            <span className="section-label" style={{ marginBottom: '0.2rem' }}>Total Gain/Loss</span>
+                            <div style={{ fontSize: '1.2rem', color: totalPL >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
+                                {totalPL >= 0 ? '+' : ''}{formatKRW(totalPL)}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: totalPL >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '600', opacity: 0.8 }}>
+                                {totalPL >= 0 ? '▲' : '▼'}{Math.abs(totalPLPercent).toFixed(2)}%
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -514,33 +534,41 @@ export default function InvestmentManager() {
 
     return (
         <main style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem' }}>
                 <div>
-                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800' }}>투자 자산 관리</h1>
-                    <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <DollarSign size={16} /> 적용 환율: 1 USD = {rate.toLocaleString()} KRW
-                        {rateTime && <span style={{ fontSize: '0.75rem', color: 'var(--muted)', marginLeft: '4px' }}>({rateTime} 기준)</span>}
+                    <span className="section-label">Management</span>
+                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Assets</h1>
+                    <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                        <DollarSign size={14} /> 1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
+                        {rateTime && <span style={{ opacity: 0.6, marginLeft: '4px' }}>({rateTime})</span>}
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ padding: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: isPrivate ? 'var(--accent)' : 'white' }}>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: isPrivate ? 'var(--primary)' : 'white', fontWeight: '600', fontSize: '0.9rem' }}>
                         {isPrivate ? <Eye size={18} /> : <EyeOff size={18} />} {isPrivate ? '금액 보기' : '금액 숨기기'}
                     </button>
-                    <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}>
-                        {viewMode === 'aggregated' ? <List size={18} /> : <Layers size={18} />} {viewMode === 'aggregated' ? '개별 내역 보기' : '종목별 합산 / 비중 설정'}
+                    <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', fontWeight: '600', fontSize: '0.9rem' }}>
+                        {viewMode === 'aggregated' ? <List size={18} /> : <Layers size={18} />} {viewMode === 'aggregated' ? '상세 내역' : '합산 내역'}
                     </button>
-                    <button onClick={fetchData} className="glass" style={{ padding: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}>
+                    <button onClick={fetchData} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', fontWeight: '600', fontSize: '0.9rem' }}>
                         <RefreshCw size={18} /> 새로고침
                     </button>
                 </div>
             </header>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem', marginBottom: '2.5rem' }}>
-                <InvestmentTable investments={domesticInv} title="🇰🇷 국내 투자 (주식/채권/지수)" />
-                <InvestmentTable investments={overseasInv} title="🇺🇸 해외 투자 (주식/채권/지수)" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2.5rem', marginBottom: '3rem' }}>
+                <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
+                    <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
+                    <InvestmentTable investments={domesticInv} title="Domestic Portfolios" />
+                </div>
+                <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
+                    <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
+                    <InvestmentTable investments={overseasInv} title="Overseas Portfolios" />
+                </div>
 
-                <div className="glass" style={{ padding: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>새로운 투자 항목 추가</h3>
+                <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '1.5rem', border: '1px solid var(--primary-glow)' }}>
+                    <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
+                    <span className="section-label" style={{ marginBottom: '1.5rem' }}>Add Asset</span>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
                         <div>
                             <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>티커 (AAPL, 005930.KS, 114800.KS)</label>

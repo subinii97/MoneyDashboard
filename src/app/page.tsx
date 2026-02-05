@@ -113,36 +113,61 @@ export default function Home() {
 
     const totalValueKRW = (totalInvestmentValueKRW + totalNonInvestmentValueKRW) || 0;
 
-    const lastSnapshot = (history && history.length > 1) ? history[history.length - 2] : null;
+    const lastSnapshot = (history && history.length > 0) ? history[history.length - 1] : null;
     const change = lastSnapshot ? totalValueKRW - (lastSnapshot.totalValue || 0) : 0;
     const changePercent = (lastSnapshot && (lastSnapshot.totalValue || 0) > 0) ? (change / (lastSnapshot.totalValue || 0)) * 100 : 0;
+
+    // Spotlight mouse tracking logic
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    };
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
 
     return (
         <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-            <header style={{ marginBottom: '3rem', textAlign: 'center' }}>
-                <h1 className="gradient-text" style={{ fontSize: '3.5rem', fontWeight: '900', marginBottom: '1rem' }}>
-                    안녕하세요!
+            <header style={{ marginBottom: '4rem', textAlign: 'center' }}>
+                <span className="section-label">Overview</span>
+                <h1 className="gradient-text" style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '1rem', letterSpacing: '-0.03em' }}>
+                    Dashboard
                 </h1>
-                <p style={{ color: 'var(--muted)', fontSize: '1.2rem' }}>현재 자산 현황을 한눈에 확인하세요</p>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
-                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }} title={isPrivate ? "금액 표시" : "금액 숨기기"}>
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }} title={isPrivate ? "금액 표시" : "금액 숨기기"}>
                         {isPrivate ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
-                    {rate && <p style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>실시간 환율: 1 USD = {rate.toLocaleString()} KRW</p>}
+                    {rate && <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500' }}>1 USD = <span style={{ color: 'var(--primary)' }}>{rate.toLocaleString()}</span> KRW</p>}
                 </div>
             </header>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginBottom: '4rem' }}>
-                <div className="glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center' }}>
-                    <Wallet size={48} color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
-                    <h2 style={{ fontSize: '1.1rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>총 순자산</h2>
-                    <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: '1rem 0', filter: isPrivate ? 'blur(12px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(totalValueKRW)}</p>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', color: change >= 0 ? '#ef4444' : '#3b82f6' }}>
-                        {change >= 0 ? <TrendingUp size={20} /> : <TrendingUp size={20} style={{ transform: 'rotate(180deg)' }} />}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2.5rem', marginBottom: '5rem' }}>
+                {/* Hero Section: Total Net Worth */}
+                <div
+                    className="glass"
+                    onMouseMove={handleMouseMove}
+                    style={{ padding: '3rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gridColumn: '1 / -1', background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%)' }}
+                >
+                    <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
+                    <span className="section-label" style={{ marginBottom: '1.5rem', opacity: 0.8 }}>Total Net Worth</span>
+                    <div className="hero-value" style={{ filter: isPrivate ? 'blur(16px)' : 'none', transition: 'filter 0.3s ease', marginBottom: '1.5rem' }}>
+                        {formatKRW(totalValueKRW)}
+                    </div>
+
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '0.6rem 1.25rem',
+                        borderRadius: '100px',
+                        backgroundColor: change >= 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                        color: change >= 0 ? '#ef4444' : '#60a5fa',
+                        fontWeight: '700',
+                        fontSize: '1.1rem'
+                    }}>
+                        {change >= 0 ? <TrendingUp size={22} /> : <TrendingUp size={22} style={{ transform: 'rotate(180deg)' }} />}
                         <span>{change >= 0 ? '+' : ''}{changePercent.toFixed(2)}%</span>
-                        <span style={{ fontSize: '0.9rem', opacity: 0.8, filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
+                        <span style={{ fontSize: '0.9rem', opacity: 0.7, filter: isPrivate ? 'blur(8px)' : 'none', marginLeft: '0.2rem' }}>
                             ({formatKRW(Math.abs(change))})
                         </span>
                     </div>

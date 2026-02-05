@@ -6,7 +6,7 @@ A sophisticated, glassmorphic financial dashboard built with Next.js 15+, React 
 
 - **Investment Manager**: 
     - Support for domestic and overseas stocks, ETFs, and indices.
-    - Real-time price tracking via Naver Finance and Google Finance.
+    - Real-time price tracking via Naver Finance.
     - Pre-market and after-market price visibility for overseas stocks.
     - Aggregated (symbol-wise) and Detailed (transaction-wise) views.
 - **Privacy Mode (금액 숨기기)**: 

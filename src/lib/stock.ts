@@ -1,27 +1,39 @@
 import * as cheerio from 'cheerio';
 
+// In-memory cache for stock quotes and exchange rates
+const quoteCache: Record<string, { data: any, timestamp: number }> = {};
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
 /**
- * Main entry point for fetching stock quotes.
- * Prefers Naver Finance for both domestic and overseas stocks.
+ * Main entry point for fetching stock quotes using Naver Finance.
+ * Automatically handles both domestic (KRX/KOSDAQ) and overseas stocks.
  */
 export async function fetchQuote(symbol: string) {
-    let res;
-    if (symbol.endsWith('.KS') || symbol.endsWith('.KQ') || /^\d{6}/.test(symbol)) {
-        res = await fetchNaverQuote(symbol);
-    } else {
-        res = await fetchNaverOverseasQuote(symbol);
+    const cached = quoteCache[symbol];
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
     }
 
-    // Ensure the output symbol matches the input symbol for correct frontend matching
+    // Sanitize symbol: handle Google Finance style prefixes (e.g., NASDAQ:AAPL -> AAPL)
+    let cleanSymbol = symbol.toUpperCase().trim();
+    if (cleanSymbol.includes(':')) {
+        cleanSymbol = cleanSymbol.split(':')[1];
+    }
+
+    let res;
+    // Domestic: Ends with .KS/.KQ or is 6 digits
+    if (cleanSymbol.endsWith('.KS') || cleanSymbol.endsWith('.KQ') || /^\d{6}/.test(cleanSymbol)) {
+        res = await fetchNaverQuote(cleanSymbol);
+    } else {
+        // Overseas
+        res = await fetchNaverOverseasQuote(cleanSymbol);
+    }
+
     if (res) {
-        res.symbol = symbol;
+        res.symbol = symbol; // Keep original symbol for mapping back in frontend
+        quoteCache[symbol] = { data: res, timestamp: Date.now() };
     }
     return res;
-}
-
-// Keep fetchGoogleQuote for backward compatibility or as a future fallback if needed
-export async function fetchGoogleQuote(symbol: string) {
-    return fetchQuote(symbol);
 }
 
 const extractNumber = (text: string) => {
@@ -105,6 +117,9 @@ export async function fetchNaverQuote(symbol: string) {
     }
 }
 
+// Persistent mapping for resolved overseas symbols
+const overseasSymbolMap: Record<string, string> = {};
+
 /**
  * Fetches overseas stock quotes from Naver Finance API.
  * Handles NASDAQ (.O), NYSE (.N), and AMEX (.A) suffixes.
@@ -131,32 +146,44 @@ export async function fetchNaverOverseasQuote(symbol: string) {
     let data = null;
     let finalSymbol = symbol;
 
-    // 1. Try with suffixes if not provided
-    if (!symbol.includes('.')) {
-        const suffixes = ['.O', '.N', '.A'];
-        for (const suffix of suffixes) {
-            data = await tryFetch(symbol + suffix);
-            if (data) {
-                finalSymbol = symbol + suffix;
-                break;
-            }
+    // 0. Use mapping if already resolved
+    if (overseasSymbolMap[symbol]) {
+        data = await tryFetch(overseasSymbolMap[symbol]);
+        if (data) {
+            finalSymbol = overseasSymbolMap[symbol];
         }
-    } else {
-        // Already has a suffix or dot notation
-        data = await tryFetch(symbol);
+    }
 
-        // Handle common dot notation issue (e.g., BRK.B -> BRK_B.N)
-        if (!data && symbol.includes('.')) {
-            const parts = symbol.split('.');
-            const base = parts[0];
-            const sub = parts[1];
-            // Try common Naver formats for tickers with classes
-            const altSyms = [`${base}_${sub}.N`, `${base}_${sub}.O`, `${base}.${sub}`];
-            for (const alt of altSyms) {
-                data = await tryFetch(alt);
+    if (!data) {
+        // 1. Try with suffixes if not provided
+        if (!symbol.includes('.')) {
+            const suffixes = ['.O', '.N', '.A'];
+            for (const suffix of suffixes) {
+                data = await tryFetch(symbol + suffix);
                 if (data) {
-                    finalSymbol = alt;
+                    finalSymbol = symbol + suffix;
+                    overseasSymbolMap[symbol] = finalSymbol;
                     break;
+                }
+            }
+        } else {
+            // Already has a suffix or dot notation
+            data = await tryFetch(symbol);
+
+            // Handle common dot notation issue (e.g., BRK.B -> BRK_B.N)
+            if (!data && symbol.includes('.')) {
+                const parts = symbol.split('.');
+                const base = parts[0];
+                const sub = parts[1];
+                // Try common Naver formats for tickers with classes
+                const altSyms = [`${base}_${sub}.N`, `${base}_${sub}.O`, `${base}.${sub}`];
+                for (const alt of altSyms) {
+                    data = await tryFetch(alt);
+                    if (data) {
+                        finalSymbol = alt;
+                        overseasSymbolMap[symbol] = finalSymbol;
+                        break;
+                    }
                 }
             }
         }
@@ -196,7 +223,14 @@ export async function fetchNaverOverseasQuote(symbol: string) {
     };
 }
 
+let rateCacheObj: { data: any, timestamp: number } | null = null;
+const RATE_CACHE_TTL = 5 * 60 * 1000;
+
 export async function fetchExchangeRate() {
+    if (rateCacheObj && Date.now() - rateCacheObj.timestamp < RATE_CACHE_TTL) {
+        return rateCacheObj.data;
+    }
+
     try {
         const url = 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW';
         const response = await fetch(url, {
@@ -230,11 +264,13 @@ export async function fetchExchangeRate() {
         }
 
         const timeText = $('.exchange_info .date').first().text().trim() || $('.date').first().text().trim();
-
-        return {
+        const data = {
             rate: rateValue || 1350,
             time: timeText || ''
         };
+
+        rateCacheObj = { data, timestamp: Date.now() };
+        return data;
     } catch (e) {
         console.error('Naver Finance fetch error:', e);
         return { rate: 1350, time: '' };
