@@ -41,8 +41,9 @@ export default function InvestmentManager() {
         marketType: 'Domestic' as MarketType,
         category: 'Domestic Stock' as AssetCategory
     });
-    const [editingInvestment, setEditingInvestment] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ shares: '', avgPrice: '' });
+    const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
+    const [editForm, setEditForm] = useState({ shares: '', avgPrice: '', category: '' as AssetCategory });
+    const [showEditModal, setShowEditModal] = useState(false);
 
     // Transaction states
     const [showTxModal, setShowTxModal] = useState(false);
@@ -83,9 +84,10 @@ export default function InvestmentManager() {
                     return {
                         ...inv,
                         currentPrice: info?.price || inv.avgPrice,
-                        currency: info?.currency || (inv.symbol.includes('.') ? 'KRW' : 'USD'),
-                        exchange: info?.exchange,
-                        name: info?.name,
+                        // Priority: use currentPriceInfo's currency if available to ensure real-time accuracy
+                        currency: info?.currency || inv.currency || (inv.symbol.includes('.') ? 'KRW' : 'USD'),
+                        exchange: inv.exchange || info?.exchange,
+                        name: inv.name || info?.name,
                         change: info?.change,
                         changePercent: info?.changePercent,
                         marketType: inv.marketType || (inv.symbol.includes('.') || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas')
@@ -96,7 +98,7 @@ export default function InvestmentManager() {
                 setAssets({ investments: [], allocations: allocationsRaw });
             }
 
-            const historyRes = await fetch('/api/snapshot');
+            const historyRes = await fetch('/api/snapshot?includeHoldings=true');
             if (historyRes.ok) {
                 const historyData = await historyRes.json();
                 setHistory(historyData);
@@ -110,6 +112,12 @@ export default function InvestmentManager() {
 
     useEffect(() => {
         fetchData();
+        // Silently trigger auto snapshot on load
+        fetch('/api/snapshot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auto: true })
+        }).catch(() => { });
     }, [fetchData]);
 
     const saveAssets = async (updatedAssets: Assets) => {
@@ -181,32 +189,86 @@ export default function InvestmentManager() {
     };
 
     const startEditing = (inv: Investment) => {
-        setEditingInvestment(inv.id);
+        setEditingInvestment(inv);
+
+        let initialCategory = inv.category as AssetCategory;
+        if (!initialCategory) {
+            // Infer category based on marketType and probable type
+            if (inv.marketType === 'Overseas') {
+                initialCategory = 'Overseas Stock';
+            } else {
+                initialCategory = 'Domestic Stock';
+            }
+        }
+
+        // Use the full precision of the price to avoid unintentional rounding when editing
         setEditForm({
             shares: String(inv.shares),
-            avgPrice: String(inv.avgPrice)
+            avgPrice: String(inv.avgPrice),
+            category: initialCategory
         });
+        setShowEditModal(true);
     };
 
-    const saveEdit = async (id: string) => {
-        const updatedInv = assets.investments.map((s: Investment) =>
-            s.id === id
-                ? {
-                    ...s,
-                    shares: Number(editForm.shares),
-                    avgPrice: Number(editForm.avgPrice),
-                    category: s.category // Ensure category persists
-                }
-                : s
-        );
-        await saveAssets({ ...assets, investments: updatedInv });
-        setEditingInvestment(null);
+    const saveEdit = async () => {
+        if (!editingInvestment) return;
+
+        try {
+            // Remove commas and convert to number
+            const sharesStr = editForm.shares.toString().replace(/,/g, '');
+            const priceStr = editForm.avgPrice.toString().replace(/,/g, '');
+
+            const sharesNum = Number(sharesStr);
+            const priceNum = Number(priceStr);
+
+            if (isNaN(sharesNum) || isNaN(priceNum) || sharesNum < 0) {
+                alert('유효한 수량과 평단가를 입력해주세요.');
+                return;
+            }
+
+            const category = editForm.category || (editingInvestment.marketType === 'Overseas' ? 'Overseas Stock' : 'Domestic Stock');
+            const marketType = (category.includes('Overseas') ? 'Overseas' : 'Domestic') as MarketType;
+
+            let updatedInvestments: Investment[];
+
+            if (viewMode === 'aggregated') {
+                // When editing an aggregated row, we consolidate all entries of that symbol
+                const otherSymbols = assets.investments.filter(inv =>
+                    inv.symbol !== editingInvestment.symbol || inv.marketType !== editingInvestment.marketType
+                );
+
+                const mergedEntry: Investment = {
+                    ...editingInvestment,
+                    shares: sharesNum,
+                    avgPrice: priceNum,
+                    category: category as AssetCategory,
+                    marketType: marketType
+                };
+                updatedInvestments = [...otherSymbols, mergedEntry];
+            } else {
+                updatedInvestments = assets.investments.map((s: Investment) =>
+                    s.id === editingInvestment.id
+                        ? {
+                            ...s,
+                            shares: sharesNum,
+                            avgPrice: priceNum,
+                            category: category as AssetCategory,
+                            marketType: marketType
+                        }
+                        : s
+                );
+            }
+
+            await saveAssets({ ...assets, investments: updatedInvestments });
+            setShowEditModal(false);
+            setEditingInvestment(null);
+        } catch (err) {
+            console.error('Save failed:', err);
+            alert('저장 도중 오류가 발생했습니다.');
+        }
     };
 
-    const takeSnapshot = async () => {
-        await fetch('/api/snapshot', { method: 'POST' });
-        fetchData();
-    };
+
 
     const getAggregatedInvestments = (list: Investment[]) => {
         const grouped = list.reduce((acc: Record<string, Investment>, inv: Investment) => {
@@ -291,7 +353,7 @@ export default function InvestmentManager() {
         const lastHistory = historicalSnapshots[0];
 
         const lastMarketType = title.includes('국내') ? 'Domestic' : 'Overseas';
-        const lastSubTotal = lastHistory?.holdings?.filter(h => h.marketType === lastMarketType).reduce((acc, h) => {
+        const lastSubTotal = (lastHistory?.holdings || []).filter(h => h.marketType === lastMarketType).reduce((acc, h) => {
             const val = (h.currentPrice || h.avgPrice) * h.shares;
             const histRate = lastHistory.exchangeRate || rate;
             return acc + convertToKRW(val, (h.currency || (lastMarketType === 'Domestic' ? 'KRW' : 'USD')) as any, histRate);
@@ -309,8 +371,13 @@ export default function InvestmentManager() {
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                         <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>합계: <span className="gradient-text" style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(subTotal)}</span></div>
                         {lastHistory && (
-                            <div style={{ fontSize: '0.9rem', color: dailyChange >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
-                                전날 대비: <span style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)} ({dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%)</span>
+                            <div style={{ fontSize: '0.9rem', color: 'white', fontWeight: 'bold' }}>
+                                전날 대비: <span style={{ color: dailyChange >= 0 ? '#ef4444' : '#3b82f6' }}>
+                                    <span style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
+                                        {dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)}
+                                    </span>
+                                    <span> ({dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%)</span>
+                                </span>
                             </div>
                         )}
                     </div>
@@ -341,7 +408,7 @@ export default function InvestmentManager() {
                                 const ex = getExchangeStyle(inv.exchange || '');
 
                                 return (
-                                    <tr key={inv.id} style={{ borderBottom: '1px solid var(--border)', opacity: (editingInvestment && editingInvestment !== inv.id) ? 0.5 : 1 }}>
+                                    <tr key={inv.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                         <td style={{ padding: '1rem 0.85rem', textAlign: 'center' }}>
                                             <span style={{ padding: '0.25rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: '800', color: ex.color, backgroundColor: ex.bg, border: `1px solid ${ex.color}33` }}>{ex.label}</span>
                                         </td>
@@ -352,7 +419,7 @@ export default function InvestmentManager() {
                                                     <span style={{ fontSize: '0.62rem', padding: '1px 3px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.6, fontWeight: 'bold' }}>
                                                         {inv.category
                                                             ? (inv.category.includes('Stock') ? '주식' : inv.category.includes('Index') ? '지수' : inv.category.includes('Bond') ? '채권' : '기타')
-                                                            : '주식' // Default fallback for existing items without explicit category
+                                                            : '주식'
                                                         }
                                                     </span>
                                                 )}
@@ -360,13 +427,17 @@ export default function InvestmentManager() {
                                             <div style={{ fontSize: '0.72rem', color: 'var(--primary)', opacity: 0.8 }}>{inv.symbol}</div>
                                         </td>
                                         <td style={{ fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem' }}>
-                                            {editingInvestment === inv.id ? (
-                                                <input type="text" value={editForm.avgPrice} onChange={e => setEditForm({ ...editForm, avgPrice: e.target.value })} className="glass" style={{ width: '75px', padding: '0.2rem', background: 'transparent', color: 'white', textAlign: 'right' }} />
-                                            ) : (isUSD ? `$${inv.avgPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : formatKRW(inv.avgPrice))}
+                                            {isUSD
+                                                ? `$${inv.avgPrice.toLocaleString(undefined, { minimumFractionDigits: inv.avgPrice < 100 ? 4 : 2, maximumFractionDigits: inv.avgPrice < 100 ? 4 : 2 })}`
+                                                : formatKRW(inv.avgPrice)}
                                         </td>
                                         <td style={{ fontSize: '0.98rem', fontWeight: '500', textAlign: 'right', paddingRight: '1.2rem', paddingLeft: '0.8rem' }}>
-                                            <div>{isUSD ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : formatKRW(currentPrice)}</div>
-                                            {inv.change !== undefined && inv.change !== 0 && (
+                                            <div>
+                                                {isUSD
+                                                    ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: currentPrice < 100 ? 4 : 2, maximumFractionDigits: currentPrice < 100 ? 4 : 2 })}`
+                                                    : formatKRW(currentPrice)}
+                                            </div>
+                                            {inv.change !== undefined && (
                                                 <div style={{ fontSize: '0.72rem', color: inv.change >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
                                                     {inv.change >= 0 ? '▲' : '▼'}{Math.abs(inv.change).toLocaleString(undefined, {
                                                         minimumFractionDigits: isUSD ? 2 : 0,
@@ -377,26 +448,13 @@ export default function InvestmentManager() {
                                             )}
                                         </td>
                                         <td style={{ textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
-                                            {editingInvestment === inv.id ? (
-                                                <input type="text" value={editForm.shares} onChange={e => setEditForm({ ...editForm, shares: e.target.value })} className="glass" style={{ width: '55px', padding: '0.2rem', background: 'transparent', color: 'white', textAlign: 'right' }} />
-                                            ) : inv.shares}
+                                            {inv.shares}
                                         </td>
                                         <td style={{ fontWeight: '600', fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
                                             {formatKRW(marketValKRW)}
                                         </td>
                                         <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', whiteSpace: 'nowrap' }}>
-                                                <div style={{
-                                                    fontSize: isPrivate ? '1.1rem' : '0.82rem',
-                                                    opacity: isPrivate ? 0.9 : 0.8,
-                                                    fontWeight: isPrivate ? '600' : 'normal',
-                                                    marginBottom: isPrivate ? '0' : '0',
-                                                    filter: isPrivate ? 'blur(8px)' : 'none',
-                                                    userSelect: isPrivate ? 'none' : 'auto',
-                                                    pointerEvents: isPrivate ? 'none' : 'auto'
-                                                }}>
-                                                    {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
-                                                </div>
                                                 {!isPrivate && (
                                                     <div style={{
                                                         fontSize: '0.98rem',
@@ -406,30 +464,29 @@ export default function InvestmentManager() {
                                                         {plKRW >= 0 ? '+' : ''}{formatKRW(plKRW)}
                                                     </div>
                                                 )}
+                                                <div style={{
+                                                    fontSize: isPrivate ? '1.1rem' : '0.82rem',
+                                                    opacity: isPrivate ? 0.9 : 0.8,
+                                                    fontWeight: isPrivate ? '600' : 'normal',
+                                                    marginTop: isPrivate ? '0' : '0'
+                                                }}>
+                                                    {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
+                                                </div>
                                             </div>
                                         </td>
                                         <td style={{ textAlign: 'right', paddingRight: '1rem' }}>
                                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                {editingInvestment === inv.id ? (
-                                                    <>
-                                                        <button onClick={() => saveEdit(inv.id)} style={{ color: '#10b981', background: 'none', border: 'none', cursor: 'pointer' }}><Check size={18} /></button>
-                                                        <button onClick={() => setEditingInvestment(null)} style={{ color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedInv(inv);
-                                                                setTxForm(prev => ({ ...prev, price: String(inv.currentPrice || inv.avgPrice) }));
-                                                                setShowTxModal(true);
-                                                            }}
-                                                            style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }} title="거래 기록">
-                                                            <ArrowUpRight size={18} />
-                                                        </button>
-                                                        <button onClick={() => startEditing(inv)} style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={18} /></button>
-                                                        {viewMode === 'detailed' && <button onClick={() => deleteInvestment(inv.id)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>}
-                                                    </>
-                                                )}
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedInv(inv);
+                                                        setTxForm(prev => ({ ...prev, price: String(inv.currentPrice || inv.avgPrice) }));
+                                                        setShowTxModal(true);
+                                                    }}
+                                                    style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }} title="거래 기록">
+                                                    <ArrowUpRight size={18} />
+                                                </button>
+                                                <button onClick={() => startEditing(inv)} style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={18} /></button>
+                                                <button onClick={() => deleteInvestment(inv.id)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -474,9 +531,6 @@ export default function InvestmentManager() {
                     </button>
                     <button onClick={fetchData} className="glass" style={{ padding: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}>
                         <RefreshCw size={18} /> 새로고침
-                    </button>
-                    <button onClick={takeSnapshot} className="glass" style={{ padding: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--primary)', color: 'white', border: 'none' }}>
-                        <Save size={18} /> 오늘 상태 기록
                     </button>
                 </div>
             </header>
@@ -569,6 +623,84 @@ export default function InvestmentManager() {
                         <button onClick={handleTransaction} className="glass" style={{ width: '100%', padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 'bold', marginTop: '1rem' }}>
                             기록 저장
                         </button>
+                    </div>
+                </div>
+            )}
+            {/* Edit Modal */}
+            {showEditModal && editingInvestment && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
+                    <div className="glass" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid rgba(255,255,255,0.25)', backgroundColor: '#1a1d23', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>항목 수정</h3>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>{editingInvestment.name || editingInvestment.symbol} ({editingInvestment.symbol})</p>
+                            </div>
+                            <button onClick={() => { setShowEditModal(false); setEditingInvestment(null); }} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={24} /></button>
+                        </div>
+
+                        {viewMode === 'aggregated' && (
+                            <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', color: '#eab308', fontSize: '0.8rem' }}>
+                                ⚠️ 종목별 합산 모드에서 수정 시, 해당 종목의 모든 매수 기록이 하나로 통합됩니다.
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block', marginBottom: '0.5rem' }}>자산 분류</label>
+                                <select
+                                    value={editForm.category || ''}
+                                    onChange={e => setEditForm({ ...editForm, category: e.target.value as AssetCategory })}
+                                    className="glass"
+                                    style={{ width: '100%', padding: '0.8rem', background: 'var(--card)', color: 'white', border: '1px solid var(--border)' }}
+                                >
+                                    <option value="" disabled>분류 선택</option>
+                                    <option value="Domestic Stock">국내 주식</option>
+                                    <option value="Domestic Index">국내 지수</option>
+                                    <option value="Domestic Bond">국내 채권</option>
+                                    <option value="Overseas Stock">해외 주식</option>
+                                    <option value="Overseas Index">해외 지수</option>
+                                    <option value="Overseas Bond">해외 채권</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block', marginBottom: '0.5rem' }}>수량</label>
+                                    <input
+                                        type="number" step="any"
+                                        value={editForm.shares}
+                                        onChange={e => setEditForm({ ...editForm, shares: e.target.value })}
+                                        className="glass"
+                                        style={{ width: '100%', padding: '0.8rem', color: 'white', border: '1px solid var(--border)' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block', marginBottom: '0.5rem' }}>평단가 ({editingInvestment.currency})</label>
+                                    <input
+                                        type="number" step="any"
+                                        value={editForm.avgPrice}
+                                        onChange={e => setEditForm({ ...editForm, avgPrice: e.target.value })}
+                                        className="glass"
+                                        style={{ width: '100%', padding: '0.8rem', color: 'white', border: '1px solid var(--border)' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                            <button
+                                onClick={() => setShowEditModal(false)}
+                                style={{ flex: 1, padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={saveEdit}
+                                style={{ flex: 1, padding: '1rem', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                저장하기
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -52,6 +52,7 @@ export default function PortfolioPage() {
             const res = await fetch('/api/assets');
             const data = await res.json();
 
+            const investmentsRaw = data.investments || data.stocks || [];
             let initialAllocations = data.allocations || data.others || [];
 
             const existingCategories = initialAllocations.map((a: AssetAllocation) => a.category);
@@ -76,12 +77,28 @@ export default function PortfolioPage() {
                 targetWeight: Math.round(a.targetWeight || 0)
             }));
 
-            setAssets({ investments: data.investments || data.stocks || [], allocations: initialAllocations });
-            setHasChanges(false);
-
-            const priceRes = await fetch('/api/stock');
+            // Fetch current prices to ensure "Current Value" is accurate
+            const symbols = Array.from(new Set(investmentsRaw.map((s: any) => s.symbol))).join(',');
+            const priceRes = await fetch(`/api/stock?symbols=${symbols}&t=${Date.now()}`);
             const priceData = await priceRes.json();
-            if (priceData.exchangeRate) setRate(priceData.exchangeRate);
+
+            if (priceData.exchangeRate) {
+                const r = typeof priceData.exchangeRate === 'object' ? priceData.exchangeRate.rate : priceData.exchangeRate;
+                setRate(r);
+            }
+
+            const updatedInvestments = investmentsRaw.map((inv: any) => {
+                const info = priceData.results?.find((r: any) => r.symbol === inv.symbol);
+                return {
+                    ...inv,
+                    currentPrice: info?.price || inv.avgPrice,
+                    currency: info?.currency || inv.currency || (inv.symbol.includes('.') ? 'KRW' : 'USD'),
+                    marketType: inv.marketType || (inv.symbol.includes('.') || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas')
+                };
+            });
+
+            setAssets({ investments: updatedInvestments, allocations: initialAllocations });
+            setHasChanges(false);
         } catch (e) {
             console.error('Failed to fetch data', e);
         } finally {

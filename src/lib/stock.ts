@@ -5,10 +5,18 @@ import * as cheerio from 'cheerio';
  * Prefers Naver Finance for both domestic and overseas stocks.
  */
 export async function fetchQuote(symbol: string) {
+    let res;
     if (symbol.endsWith('.KS') || symbol.endsWith('.KQ') || /^\d{6}/.test(symbol)) {
-        return fetchNaverQuote(symbol);
+        res = await fetchNaverQuote(symbol);
+    } else {
+        res = await fetchNaverOverseasQuote(symbol);
     }
-    return fetchNaverOverseasQuote(symbol);
+
+    // Ensure the output symbol matches the input symbol for correct frontend matching
+    if (res) {
+        res.symbol = symbol;
+    }
+    return res;
 }
 
 // Keep fetchGoogleQuote for backward compatibility or as a future fallback if needed
@@ -99,56 +107,93 @@ export async function fetchNaverQuote(symbol: string) {
 
 /**
  * Fetches overseas stock quotes from Naver Finance API.
+ * Handles NASDAQ (.O), NYSE (.N), and AMEX (.A) suffixes.
  */
 export async function fetchNaverOverseasQuote(symbol: string) {
-    let naverSymbol = symbol;
+    const tryFetch = async (sym: string) => {
+        const url = `https://api.stock.naver.com/stock/${sym}/basic`;
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1'
+                },
+                next: { revalidate: 30 }
+            });
+            if (!response.ok) return null;
+            const data = await response.json();
+            if (!data || !data.closePrice) return null;
+            return data;
+        } catch {
+            return null;
+        }
+    };
+
+    let data = null;
+    let finalSymbol = symbol;
+
+    // 1. Try with suffixes if not provided
     if (!symbol.includes('.')) {
-        naverSymbol = `${symbol}.O`;
+        const suffixes = ['.O', '.N', '.A'];
+        for (const suffix of suffixes) {
+            data = await tryFetch(symbol + suffix);
+            if (data) {
+                finalSymbol = symbol + suffix;
+                break;
+            }
+        }
+    } else {
+        // Already has a suffix or dot notation
+        data = await tryFetch(symbol);
+
+        // Handle common dot notation issue (e.g., BRK.B -> BRK_B.N)
+        if (!data && symbol.includes('.')) {
+            const parts = symbol.split('.');
+            const base = parts[0];
+            const sub = parts[1];
+            // Try common Naver formats for tickers with classes
+            const altSyms = [`${base}_${sub}.N`, `${base}_${sub}.O`, `${base}.${sub}`];
+            for (const alt of altSyms) {
+                data = await tryFetch(alt);
+                if (data) {
+                    finalSymbol = alt;
+                    break;
+                }
+            }
+        }
     }
 
-    const url = `https://api.stock.naver.com/stock/${naverSymbol}/basic`;
-
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1'
-            },
-            next: { revalidate: 30 }
-        });
-
-        if (!response.ok) return { symbol, error: 'Naver Overseas API failed' };
-
-        const data = await response.json();
-
-        if (!data || !data.closePrice) {
-            return { symbol, error: 'Data not found in Naver API' };
-        }
-
-        const price = parseFloat(data.closePrice.replace(/,/g, ''));
-        const change = parseFloat(String(data.compareToPreviousClosePrice || '0'));
-        const changePercent = parseFloat(String(data.fluctuationsRatio || '0'));
-        const name = data.stockName || symbol;
-        const currency = data.currencyType?.name || 'USD';
-        const exchange = data.stockExchangeName || 'Overseas';
-
-        if (isNaN(price)) {
-            return { symbol, error: 'Price is NaN' };
-        }
-
-        return {
-            symbol,
-            price,
-            currency,
-            exchange,
-            name,
-            change: isNaN(change) ? 0 : change,
-            changePercent: isNaN(changePercent) ? 0 : changePercent,
-            previousClose: price - (isNaN(change) ? 0 : change)
-        };
-    } catch (error) {
-        console.error(`Error fetching Naver Overseas API for ${symbol}:`, error);
-        return { symbol, error: 'Naver Overseas API error' };
+    if (!data) {
+        return { symbol, error: 'Data not found in Naver API' };
     }
+
+    // Use overMarketPrice if regular market is not open and over-market data exists
+    let price = parseFloat(data.closePrice.replace(/,/g, ''));
+    let change = parseFloat(String(data.compareToPreviousClosePrice || '0'));
+    let changePercent = parseFloat(String(data.fluctuationsRatio || '0'));
+
+    if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
+        const over = data.overMarketPriceInfo;
+        if (over.overMarketPrice) {
+            price = parseFloat(over.overMarketPrice.replace(/,/g, ''));
+            change = parseFloat(String(over.compareToPreviousClosePrice || '0'));
+            changePercent = parseFloat(String(over.fluctuationsRatio || '0'));
+        }
+    }
+
+    const name = data.stockName || symbol;
+    const currency = data.currencyType?.name || 'USD';
+    const exchange = data.stockExchangeName || 'Overseas';
+
+    return {
+        symbol: finalSymbol,
+        price,
+        currency,
+        exchange,
+        name,
+        change: isNaN(change) ? 0 : change,
+        changePercent: isNaN(changePercent) ? 0 : changePercent,
+        previousClose: price - (isNaN(change) ? 0 : change)
+    };
 }
 
 export async function fetchExchangeRate() {

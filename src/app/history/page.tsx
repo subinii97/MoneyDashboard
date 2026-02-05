@@ -15,6 +15,9 @@ interface DailySettlement extends HistoryEntry {
 interface MonthlySettlement {
     month: string;
     value: number;
+    cashSavings: number;
+    domestic: number;
+    overseas: number;
     change: number;
     changePercent: number;
 }
@@ -69,6 +72,37 @@ export default function HistoryPage() {
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
 
+    // Helper to get category value from an entry
+    const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory): number => {
+        const allocation = entry.allocations?.find(a => a.category === cat);
+        const entryRate = entry.exchangeRate || rate;
+        const allocationValue = allocation ? convertToKRW(allocation.value, allocation.currency, entryRate) : 0;
+
+        if (cat === 'Cash') {
+            if (allocationValue > 0) return allocationValue;
+            // Fallback: Total - others
+            const others = CATEGORIES.filter(c => c !== 'Cash');
+            const totalOthers = others.reduce((sum: number, c: AssetCategory) => sum + getCategoryValue(entry, c), 0);
+            return Math.max(0, entry.totalValue - totalOthers);
+        }
+
+        if (['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(cat)) {
+            if (allocationValue > 0) return allocationValue;
+
+            const categoryInvestments = entry.holdings?.filter((h: any) => {
+                if (h.category) return h.category === cat;
+                if (cat === 'Domestic Stock') return h.marketType === 'Domestic' || h.symbol.includes('.KS') || h.symbol.includes('.KQ') || /^\d{6}/.test(h.symbol);
+                if (cat === 'Overseas Stock') return h.marketType === 'Overseas' || (!h.symbol.includes('.KS') && !h.symbol.includes('.KQ') && !/^\d{6}/.test(h.symbol));
+                return false;
+            });
+
+            return categoryInvestments?.reduce((sum: number, h: any) =>
+                sum + convertToKRW((h.currentPrice || h.avgPrice) * h.shares, h.currency || (h.marketType === 'Domestic' ? 'KRW' : 'USD'), entryRate), 0) || 0;
+        }
+
+        return allocationValue;
+    };
+
     // Daily Calculations
     const dailySettlements: DailySettlement[] = history.map((entry, index) => {
         const prevEntry = index > 0 ? history[index - 1] : null;
@@ -80,44 +114,9 @@ export default function HistoryPage() {
     // Chart Data Processing
     const chartData = history.map(entry => {
         const data: any = { date: entry.date };
-        const otherCats = CATEGORIES.filter(c => c !== 'Cash');
-        otherCats.forEach(cat => {
-            const allocation = entry.allocations?.find(a => a.category === cat);
-            const allocationValue = allocation ? convertToKRW(allocation.value, allocation.currency, rate) : 0;
-
-            if (cat === 'Domestic Stock' || cat === 'Overseas Stock' || cat === 'Domestic Index' || cat === 'Overseas Index' || cat === 'Domestic Bond' || cat === 'Overseas Bond') {
-                if (allocationValue > 0) {
-                    data[cat] = allocationValue;
-                } else {
-                    const marketType = cat.startsWith('Domestic') ? 'Domestic' : 'Overseas';
-                    const categoryInvestments = entry.holdings?.filter((h: any) => {
-                        // Match by category if exists, otherwise fallback to marketType for Stock categories
-                        if (h.category) return h.category === cat;
-                        if (cat === 'Domestic Stock') return h.marketType === 'Domestic' || h.symbol.includes('.KS') || h.symbol.includes('.KQ') || /^\d{6}/.test(h.symbol);
-                        if (cat === 'Overseas Stock') return h.marketType === 'Overseas' || (!h.symbol.includes('.KS') && !h.symbol.includes('.KQ') && !/^\d{6}/.test(h.symbol));
-                        return false;
-                    });
-
-                    const holdingsVal = categoryInvestments?.reduce((sum: number, h: any) =>
-                        sum + convertToKRW((h.currentPrice || h.avgPrice) * h.shares, h.currency || (h.marketType === 'Domestic' ? 'KRW' : 'USD'), rate), 0);
-
-                    data[cat] = holdingsVal || 0;
-                }
-            } else {
-                data[cat] = allocationValue;
-            }
+        CATEGORIES.forEach(cat => {
+            data[cat] = getCategoryValue(entry, cat);
         });
-
-        // Finally calculate Cash as fallback if needed
-        const cashAllocation = entry.allocations?.find(a => a.category === 'Cash');
-        const cashValue = cashAllocation ? convertToKRW(cashAllocation.value, cashAllocation.currency, rate) : 0;
-
-        if (cashValue > 0) {
-            data['Cash'] = cashValue;
-        } else {
-            const otherCatsValue = otherCats.reduce((sum, c) => sum + (data[c] || 0), 0);
-            data['Cash'] = Math.max(0, entry.totalValue - otherCatsValue);
-        }
         return data;
     });
 
@@ -137,9 +136,16 @@ export default function HistoryPage() {
         const change = prevEntry ? entry.totalValue - prevEntry.totalValue : 0;
         const changePercent = prevEntry && prevEntry.totalValue !== 0 ? (change / prevEntry.totalValue) * 100 : 0;
 
+        const cashSavings = getCategoryValue(entry, 'Cash') + getCategoryValue(entry, 'Savings');
+        const domestic = getCategoryValue(entry, 'Domestic Stock') + getCategoryValue(entry, 'Domestic Index') + getCategoryValue(entry, 'Domestic Bond');
+        const overseas = getCategoryValue(entry, 'Overseas Stock') + getCategoryValue(entry, 'Overseas Index') + getCategoryValue(entry, 'Overseas Bond');
+
         return {
             month,
             value: entry.totalValue,
+            cashSavings,
+            domestic,
+            overseas,
             change,
             changePercent
         };
@@ -151,7 +157,7 @@ export default function HistoryPage() {
         const Icon = isPositive ? TrendingUp : TrendingDown;
 
         return (
-            <div style={{ color: Color, display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: '600' }}>
+            <div style={{ color: Color, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', fontWeight: '600' }}>
                 <Icon size={16} />
                 <span>{isPositive ? '+' : ''}{formatKRW(change)} ({percent.toFixed(2)}%)</span>
             </div>
@@ -164,7 +170,7 @@ export default function HistoryPage() {
                 <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
                     정산 내역
                 </h1>
-                <p style={{ color: 'var(--muted)' }}>일별, 월별 자산 변동 현황 (00:00 기준)</p>
+                <p style={{ color: 'white' }}>일별, 월별 자산 변동 현황 (00:00 기준)</p>
             </header>
 
             <section style={{ marginBottom: '4rem' }}>
@@ -289,20 +295,26 @@ export default function HistoryPage() {
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>월별 정산</h2>
                 </div>
                 <div className="glass" style={{ overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)' }}>
-                                <th style={{ padding: '1rem', width: '150px' }}>기준월</th>
-                                <th style={{ padding: '1rem', textAlign: 'right' }}>평가금액</th>
-                                <th style={{ padding: '1rem', width: '250px', textAlign: 'right' }}>대비</th>
+                                <th style={{ padding: '1rem', width: '120px', textAlign: 'center' }}>기준월</th>
+                                <th style={{ padding: '1rem', textAlign: 'center' }}>현금/예적금</th>
+                                <th style={{ padding: '1rem', textAlign: 'center' }}>국내</th>
+                                <th style={{ padding: '1rem', textAlign: 'center' }}>해외</th>
+                                <th style={{ padding: '1rem', textAlign: 'center' }}>총 평가금액</th>
+                                <th style={{ padding: '1rem', width: '220px', textAlign: 'center' }}>전월 대비</th>
                             </tr>
                         </thead>
                         <tbody>
                             {monthlySettlements.map((m) => (
                                 <tr key={m.month} style={{ borderBottom: '1px solid var(--border)' }}>
-                                    <td style={{ padding: '1rem', fontWeight: '500' }}>{m.month}</td>
-                                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(m.value)}</td>
-                                    <td style={{ padding: '1rem', textAlign: 'right' }}>{renderChange(m.change, m.changePercent)}</td>
+                                    <td style={{ padding: '1rem', fontWeight: '500', textAlign: 'center' }}>{m.month}</td>
+                                    <td style={{ padding: '1rem', textAlign: 'center' }}>{formatKRW(m.cashSavings)}</td>
+                                    <td style={{ padding: '1rem', textAlign: 'center' }}>{formatKRW(m.domestic)}</td>
+                                    <td style={{ padding: '1rem', textAlign: 'center' }}>{formatKRW(m.overseas)}</td>
+                                    <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 'bold' }}>{formatKRW(m.value)}</td>
+                                    <td style={{ padding: '1rem', textAlign: 'center' }}>{renderChange(m.change, m.changePercent)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -319,9 +331,9 @@ export default function HistoryPage() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)' }}>
-                                <th style={{ padding: '1rem', width: '150px' }}>날짜</th>
-                                <th style={{ padding: '1rem', textAlign: 'right' }}>평가금액</th>
-                                <th style={{ padding: '1rem', width: '250px', textAlign: 'right' }}>전일 대비</th>
+                                <th style={{ padding: '1rem', width: '150px', textAlign: 'center' }}>날짜</th>
+                                <th style={{ padding: '1rem', textAlign: 'center' }}>평가금액</th>
+                                <th style={{ padding: '1rem', width: '250px', textAlign: 'center' }}>전일 대비</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -332,11 +344,11 @@ export default function HistoryPage() {
                                     onClick={() => router.push(`/history/${d.date}`)}
                                     className="hover-bright"
                                 >
-                                    <td style={{ padding: '1.25rem 1rem', fontWeight: '500' }}>
+                                    <td style={{ padding: '1.25rem 1rem', fontWeight: '500', textAlign: 'center' }}>
                                         {d.date}
                                     </td>
-                                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(d.totalValue)}</td>
-                                    <td style={{ padding: '1rem', textAlign: 'right' }}>{renderChange(d.change, d.changePercent)}</td>
+                                    <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 'bold' }}>{formatKRW(d.totalValue)}</td>
+                                    <td style={{ padding: '1rem', textAlign: 'center' }}>{renderChange(d.change, d.changePercent)}</td>
                                 </tr>
                             ))}
                         </tbody>

@@ -64,15 +64,34 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
         }
 
-        // Otherwise, create a new snapshot for today
+        // Use local time for date calculation
+        const now = new Date();
+        const getLocalDateStr = (date: Date) => {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        };
+
+        const todayStr = getLocalDateStr(now);
+
+        let targetDate = todayStr;
+        if (body.auto) {
+            // Logic for 00:00 - 01:00 window: Treat as final record for yesterday
+            if (now.getHours() === 0) {
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                targetDate = getLocalDateStr(yesterday);
+                // For yesterday's final record, we don't return early so it can be updated one last time at 00:xx
+            } else {
+                // During the day, we keep updating today's snapshot
+                targetDate = todayStr;
+            }
+        }
+
         const rateInfo = await fetchExchangeRate();
         const rate = typeof rateInfo === 'object' ? rateInfo.rate : rateInfo;
 
         // Record daily exchange rate
-        const todayFull = new Date();
-        const dateStr = todayFull.toISOString().split('T')[0];
         db.prepare('INSERT OR REPLACE INTO currency_rates (date, rate) VALUES (?, ?)')
-            .run(dateStr, rate);
+            .run(targetDate, rate);
 
         // Calculate Investment Values
         const invEntries = await Promise.all(
@@ -113,16 +132,6 @@ export async function POST(request: Request) {
 
         const totalValue = totalOtherValue + totalInvValue;
 
-        const d = new Date();
-        d.setDate(d.getDate() - 1);
-        const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-        // Check if exists
-        const existing = db.prepare('SELECT date FROM history WHERE date = ?').get(todayStr);
-        if (body.auto && existing) {
-            return NextResponse.json({ success: true, message: 'Today already recorded' });
-        }
-
         const updatedAllocations = (assets.allocations || []).map(alc => {
             const categoryValue = invEntries
                 .filter(inv => inv.category === alc.category)
@@ -143,7 +152,7 @@ export async function POST(request: Request) {
         });
 
         const newEntry: HistoryEntry = {
-            date: todayStr,
+            date: targetDate,
             totalValue,
             snapshotValue: totalValue,
             manualAdjustment: 0,

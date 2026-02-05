@@ -139,9 +139,12 @@ export default function Home() {
                     <Wallet size={48} color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
                     <h2 style={{ fontSize: '1.1rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>총 순자산</h2>
                     <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: '1rem 0', filter: isPrivate ? 'blur(12px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(totalValueKRW)}</p>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', color: change >= 0 ? '#ef4444' : '#3b82f6', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', color: change >= 0 ? '#ef4444' : '#3b82f6' }}>
                         {change >= 0 ? <TrendingUp size={20} /> : <TrendingUp size={20} style={{ transform: 'rotate(180deg)' }} />}
-                        {change >= 0 ? '+' : ''}{changePercent.toFixed(2)}% ({formatKRW(Math.abs(change))})
+                        <span>{change >= 0 ? '+' : ''}{changePercent.toFixed(2)}%</span>
+                        <span style={{ fontSize: '0.9rem', opacity: 0.8, filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
+                            ({formatKRW(Math.abs(change))})
+                        </span>
                     </div>
                 </div>
 
@@ -190,7 +193,14 @@ export default function Home() {
                                 return (
                                     <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
                                         <span style={{ color: 'var(--muted)' }}>{CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP] || cat}</span>
-                                        <span style={{ fontWeight: '600', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>{formatKRW(valKRW || 0)} ({totalValueKRW > 0 ? (((valKRW || 0) / totalValueKRW) * 100).toFixed(1) : 0}%)</span>
+                                        <span style={{ fontWeight: '600' }}>
+                                            <span style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
+                                                {formatKRW(valKRW || 0)}
+                                            </span>
+                                            <span style={{ marginLeft: '4px' }}>
+                                                ({totalValueKRW > 0 ? (((valKRW || 0) / totalValueKRW) * 100).toFixed(1) : 0}%)
+                                            </span>
+                                        </span>
                                     </div>
                                 );
                             });
