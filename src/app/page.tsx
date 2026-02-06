@@ -1,140 +1,47 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import {
-    Wallet,
-    Activity,
-    Briefcase,
-    BarChart2,
-    TrendingUp,
-    ArrowRight,
-    Eye,
-    EyeOff
-} from 'lucide-react';
+import { useState } from 'react';
+import { Activity, Briefcase, BarChart2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import { Assets, HistoryEntry, CATEGORY_MAP } from '@/lib/types';
+import { CATEGORY_MAP } from '@/lib/types';
 import { formatKRW, convertToKRW } from '@/lib/utils';
+import { useAssets } from '@/hooks/useAssets';
+
+// Components
+import { HeroSection } from '@/components/dashboard/HeroSection';
+import { SpotlightCard } from '@/components/common/SpotlightCard';
 
 export default function Home() {
-    const [assets, setAssets] = useState<Assets>({ investments: [], allocations: [] });
-    const [history, setHistory] = useState<HistoryEntry[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [rate, setRate] = useState<number>(1350); // Default fallback
+    const { assets, history, loading, rate, fetchData } = useAssets();
     const [isPrivate, setIsPrivate] = useState(false);
 
-    const fetchData = useCallback(async () => {
-        try {
-            const res = await fetch('/api/assets');
-            const data = await res.json();
+    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
 
-            // Migration check: if old 'others' exists, move to 'allocations'
-            const rawAllocations = data.allocations || data.others || [];
-            const rawInvestments = data.investments || data.stocks || [];
-
-            // Always fetch exchange rate and stock data if needed
-            const symbols = Array.from(new Set(rawInvestments.map((s: any) => s.symbol))).join(',');
-            const priceRes = await fetch(`/api/stock?symbols=${symbols || 'AAPL'}&t=${Date.now()}`); // AAPL as dummy to trigger rate
-            const priceData = await priceRes.json();
-
-            if (priceData.exchangeRate) {
-                if (typeof priceData.exchangeRate === 'object' && priceData.exchangeRate !== null) {
-                    setRate(priceData.exchangeRate.rate);
-                } else {
-                    setRate(priceData.exchangeRate);
-                }
-            }
-
-            if (rawInvestments.length > 0) {
-                const updatedInvestments = rawInvestments.map((inv: any) => {
-                    const info = priceData.results?.find((r: any) => r.symbol === inv.symbol);
-                    return {
-                        ...inv,
-                        currentPrice: info?.price || inv.avgPrice,
-                        currency: info?.currency || (inv.symbol.includes('.') ? 'KRW' : 'USD'),
-                        name: info?.name,
-                        marketType: inv.marketType || (inv.symbol.includes('.') || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas')
-                    };
-                });
-                setAssets({ investments: updatedInvestments, allocations: rawAllocations });
-            } else {
-                setAssets({ investments: [], allocations: rawAllocations });
-            }
-
-            const historyRes = await fetch('/api/snapshot');
-            if (historyRes.ok) {
-                const historyData = await historyRes.json();
-                setHistory(historyData);
-
-                // Auto-snapshot trigger: check if today is missing
-                const d = new Date();
-                const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-                if (!historyData.some((h: any) => h.date === todayStr)) {
-                    fetch('/api/snapshot', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ auto: true })
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success && data.entry) {
-                                setHistory(prev => [...prev.filter(h => h.date !== data.entry.date), data.entry].sort((a, b) => a.date.localeCompare(b.date)));
-                            }
-                        })
-                        .catch(err => console.error('Auto-snapshot failed', err));
-                }
-            }
-        } catch (e) {
-            console.error('Failed to fetch data', e);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    // Total investment value calculated once
-    const totalInvestmentValueKRW = assets.investments.reduce((acc, s) => {
-        const price = s.currentPrice || s.avgPrice || 0;
-        const val = price * (s.shares || 0);
-        return acc + convertToKRW(val, s.currency || (s.marketType === 'Domestic' ? 'KRW' : 'USD'), rate);
+    // Calculations
+    const totalInvVal = assets.investments.reduce((acc, s) => {
+        const val = (s.currentPrice || s.avgPrice || 0) * (s.shares || 0);
+        return acc + convertToKRW(val, s.currency || 'KRW', rate);
     }, 0);
 
-    const totalNonInvestmentValueKRW = assets.allocations
-        .filter(a => !a.category.includes('Stock') && !a.category.includes('Index') && !a.category.includes('Bond'))
-        .reduce((acc, a) => {
-            const val = (a.details && a.details.length > 0)
-                ? a.details.reduce((sum, d) => sum + convertToKRW(d.value || 0, d.currency || 'KRW', rate), 0)
-                : convertToKRW(a.value || 0, a.currency || 'KRW', rate);
-            return acc + (val || 0);
-        }, 0);
+    const totalNonInvVal = assets.allocations.reduce((acc, a) => {
+        const val = (a.details && a.details.length > 0)
+            ? a.details.reduce((sum, d: any) => sum + convertToKRW(d.value || 0, d.currency || 'KRW', rate), 0)
+            : convertToKRW(a.value || 0, a.currency || 'KRW', rate);
+        return acc + (val || 0);
+    }, 0);
 
-    const totalValueKRW = (totalInvestmentValueKRW + totalNonInvestmentValueKRW) || 0;
-
-    const lastSnapshot = (history && history.length > 0) ? history[history.length - 1] : null;
-    const change = lastSnapshot ? totalValueKRW - (lastSnapshot.totalValue || 0) : 0;
-    const changePercent = (lastSnapshot && (lastSnapshot.totalValue || 0) > 0) ? (change / (lastSnapshot.totalValue || 0)) * 100 : 0;
-
-    // Spotlight mouse tracking logic
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    };
-
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+    const totalValue = totalInvVal + totalNonInvVal;
+    const lastSnapshot = history[history.length - 1];
+    const change = lastSnapshot ? totalValue - (lastSnapshot.totalValue || 0) : 0;
+    const changePercent = (lastSnapshot && lastSnapshot.totalValue > 0) ? (change / lastSnapshot.totalValue) * 100 : 0;
 
     return (
         <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
             <header style={{ marginBottom: '4rem', textAlign: 'center' }}>
                 <span className="section-label">Overview</span>
-                <h1 className="gradient-text" style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '1rem', letterSpacing: '-0.03em' }}>
-                    Dashboard
-                </h1>
+                <h1 className="gradient-text" style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '1rem', letterSpacing: '-0.03em' }}>Dashboard</h1>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
-                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }} title={isPrivate ? "금액 표시" : "금액 숨기기"}>
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }}>
                         {isPrivate ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                     {rate && <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500' }}>1 USD = <span style={{ color: 'var(--primary)' }}>{rate.toLocaleString()}</span> KRW</p>}
@@ -142,119 +49,55 @@ export default function Home() {
             </header>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2.5rem', marginBottom: '5rem' }}>
-                {/* Hero Section: Total Net Worth */}
-                <div
-                    className="glass"
-                    onMouseMove={handleMouseMove}
-                    style={{ padding: '3rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gridColumn: '1 / -1', background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%)' }}
-                >
-                    <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
-                    <span className="section-label" style={{ marginBottom: '1.5rem', opacity: 0.8 }}>Total Net Worth</span>
-                    <div className="hero-value" style={{ filter: isPrivate ? 'blur(16px)' : 'none', transition: 'filter 0.3s ease', marginBottom: '1.5rem' }}>
-                        {formatKRW(totalValueKRW)}
-                    </div>
+                <HeroSection totalValueKRW={totalValue} change={change} changePercent={changePercent} isPrivate={isPrivate} />
 
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        padding: '0.6rem 1.25rem',
-                        borderRadius: '100px',
-                        backgroundColor: change >= 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                        color: change >= 0 ? '#ef4444' : '#60a5fa',
-                        fontWeight: '700',
-                        fontSize: '1.1rem'
-                    }}>
-                        {change >= 0 ? <TrendingUp size={22} /> : <TrendingUp size={22} style={{ transform: 'rotate(180deg)' }} />}
-                        <span>{change >= 0 ? '+' : ''}{changePercent.toFixed(2)}%</span>
-                        <span style={{ fontSize: '0.9rem', opacity: 0.7, filter: isPrivate ? 'blur(8px)' : 'none', marginLeft: '0.2rem' }}>
-                            ({formatKRW(Math.abs(change))})
-                        </span>
-                    </div>
-                </div>
-
-                <div className="glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <SpotlightCard style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h2 style={{ fontSize: '1.25rem', fontWeight: '700' }}>자산별 비중</h2>
                         <Activity size={24} color="var(--accent)" />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {(() => {
-                            // Collect all possible categories from allocations and investments
-                            const allocationCats = assets.allocations.map(a => a.category);
-                            const investmentCats = Array.from(new Set(assets.investments.map(s => s.category).filter(Boolean))) as string[];
-                            const allCategories = Array.from(new Set([...allocationCats, ...investmentCats]));
+                        {[...new Set([...assets.allocations.map(a => a.category), ...assets.investments.map(s => s.category).filter(Boolean)])].map(cat => {
+                            let val = 0;
+                            if (cat?.includes('Stock') || cat?.includes('Index') || cat?.includes('Bond')) {
+                                val = assets.investments.filter(s => s.category === cat).reduce((sum, s) => sum + convertToKRW((s.currentPrice || s.avgPrice) * s.shares, s.currency || 'KRW', rate), 0);
+                            } else {
+                                const a = assets.allocations.find(al => al.category === cat);
+                                if (a) val = (a.details?.length ? a.details.reduce((s, d: any) => s + convertToKRW(d.value, d.currency, rate), 0) : convertToKRW(a.value, a.currency || 'KRW', rate)) || 0;
+                            }
+                            if (val === 0) return null;
 
-                            return allCategories.map(cat => {
-                                let valKRW = 0;
-                                const isInvestmentCategory = cat.includes('Stock') || cat.includes('Index') || cat.includes('Bond');
-
-                                if (isInvestmentCategory) {
-                                    valKRW = assets.investments
-                                        .filter(s => {
-                                            if (s.category) return s.category === cat;
-                                            if (cat === 'Domestic Stock') return s.marketType === 'Domestic';
-                                            if (cat === 'Overseas Stock') return s.marketType === 'Overseas';
-                                            return false;
-                                        })
-                                        .reduce((sum, s) => {
-                                            const price = s.currentPrice || s.avgPrice || 0;
-                                            return sum + convertToKRW(price * (s.shares || 0), s.currency || (s.marketType === 'Domestic' ? 'KRW' : 'USD'), rate);
-                                        }, 0);
-                                } else {
-                                    const alloc = assets.allocations.find(a => a.category === cat);
-                                    if (alloc) {
-                                        valKRW = (alloc.details && alloc.details.length > 0)
-                                            ? alloc.details.reduce((sum, d) => sum + convertToKRW(d.value || 0, d.currency || 'KRW', rate), 0)
-                                            : convertToKRW(alloc.value || 0, alloc.currency || 'KRW', rate);
-                                    }
-                                }
-
-                                if (valKRW === 0) {
-                                    const alloc = assets.allocations.find(a => a.category === cat);
-                                    if (!alloc || (alloc.targetWeight || 0) === 0) return null;
-                                }
-
-                                return (
-                                    <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
-                                        <span style={{ color: 'var(--muted)' }}>{CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP] || cat}</span>
-                                        <span style={{ fontWeight: '600' }}>
-                                            <span style={{ filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
-                                                {formatKRW(valKRW || 0)}
-                                            </span>
-                                            <span style={{ marginLeft: '4px' }}>
-                                                ({totalValueKRW > 0 ? (((valKRW || 0) / totalValueKRW) * 100).toFixed(1) : 0}%)
-                                            </span>
-                                        </span>
-                                    </div>
-                                );
-                            });
-                        })()}
+                            return (
+                                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
+                                    <span style={{ color: 'var(--muted)' }}>{CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP] || cat}</span>
+                                    <span style={{ fontWeight: '600' }}>
+                                        <span style={{ filter: isPrivate ? 'blur(8px)' : 'none' }}>{formatKRW(val)}</span>
+                                        <span style={{ marginLeft: '4px', fontSize: '0.85rem', opacity: 0.7 }}>({totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) : 0}%)</span>
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
+                </SpotlightCard>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
                 <Link href="/portfolio" style={{ textDecoration: 'none' }}>
-                    <div className="glass" style={{ padding: '2rem', transition: 'transform 0.2s', cursor: 'pointer' }}>
+                    <SpotlightCard style={{ padding: '2rem', transition: 'transform 0.2s', cursor: 'pointer' }}>
                         <BarChart2 size={32} color="var(--accent)" style={{ marginBottom: '1.5rem' }} />
                         <h3 style={{ fontSize: '1.5rem', color: 'white', marginBottom: '0.75rem' }}>포트폴리오 비중 관리</h3>
                         <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>자산군별 목표 비중을 설정하고 효율적인 자산 배분 전략을 확인하세요.</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent)' }}>
-                            이동하기 <ArrowRight size={18} />
-                        </div>
-                    </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent)' }}>이동하기 <ArrowRight size={18} /></div>
+                    </SpotlightCard>
                 </Link>
 
                 <Link href="/investment" style={{ textDecoration: 'none' }}>
-                    <div className="glass" style={{ padding: '2rem', transition: 'transform 0.2s', cursor: 'pointer' }}>
+                    <SpotlightCard style={{ padding: '2rem', transition: 'transform 0.2s', cursor: 'pointer' }}>
                         <Briefcase size={32} color="var(--primary)" style={{ marginBottom: '1.5rem' }} />
                         <h3 style={{ fontSize: '1.5rem', color: 'white', marginBottom: '0.75rem' }}>종목별 상세 관리</h3>
                         <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>개별 주식 종목의 단가, 수량, 수익률을 확인하고 신규 종목을 추가하세요.</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)' }}>
-                            이동하기 <ArrowRight size={18} />
-                        </div>
-                    </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)' }}>이동하기 <ArrowRight size={18} /></div>
+                    </SpotlightCard>
                 </Link>
             </div>
         </main>

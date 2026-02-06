@@ -7,6 +7,7 @@
     --card-hover: rgba(51, 65, 85, 0.6);
     --primary: #38bdf8;
     --primary-glow: rgba(56, 189, 248, 0.15);
+    --primary-glow-rgb: 56, 189, 248;
     --accent: #818cf8;
     --muted: #94a3b8;
     --border: rgba(255, 255, 255, 0.1);
@@ -114,7 +115,7 @@ input.glass:focus {
     position: absolute;
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
+    background: radial-gradient(circle, rgba(var(--primary-glow-rgb), 0.1) 0%, rgba(255, 255, 255, 0) 70%);
     border-radius: 50%;
     pointer-events: none;
     z-index: 0;
