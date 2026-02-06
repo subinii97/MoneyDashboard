@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Activity, Briefcase, BarChart2, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Activity, Briefcase, BarChart2, ArrowRight, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { CATEGORY_MAP } from '@/lib/types';
 import { formatKRW, convertToKRW } from '@/lib/utils';
@@ -12,7 +12,7 @@ import { HeroSection } from '@/components/dashboard/HeroSection';
 import { SpotlightCard } from '@/components/common/SpotlightCard';
 
 export default function Home() {
-    const { assets, history, loading, rate, fetchData } = useAssets();
+    const { assets, history, loading, isRefreshing, rate, fetchData } = useAssets();
     const [isPrivate, setIsPrivate] = useState(false);
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
@@ -43,6 +43,9 @@ export default function Home() {
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }}>
                         {isPrivate ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                    <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isRefreshing ? 'not-allowed' : 'pointer', color: 'white', opacity: isRefreshing ? 0.7 : 1 }}>
+                        <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                     </button>
                     {rate && <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500' }}>1 USD = <span style={{ color: 'var(--primary)' }}>{rate.toLocaleString()}</span> KRW</p>}
                 </div>

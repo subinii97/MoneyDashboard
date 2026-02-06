@@ -5,16 +5,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const symbolsParam = searchParams.get('symbols');
 
-    if (!symbolsParam) {
-        return NextResponse.json({ error: 'Missing symbols' }, { status: 400 });
-    }
-
-    const symbols = symbolsParam.split(',');
+    const isForce = searchParams.get('refresh') === 'true';
+    const symbols = symbolsParam ? symbolsParam.split(',').filter(Boolean) : [];
 
     try {
         const [exchangeRate, ...stockResults] = await Promise.all([
-            fetchExchangeRate(),
-            ...symbols.map(s => fetchQuote(s))
+            fetchExchangeRate(isForce),
+            ...symbols.map(s => fetchQuote(s, isForce))
         ]);
 
         return NextResponse.json({

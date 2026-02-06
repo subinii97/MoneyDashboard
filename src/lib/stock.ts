@@ -2,16 +2,18 @@ import * as cheerio from 'cheerio';
 
 // In-memory cache for stock quotes and exchange rates
 const quoteCache: Record<string, { data: any, timestamp: number }> = {};
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+const CACHE_TTL = 30 * 1000; // 30 seconds
 
 /**
  * Main entry point for fetching stock quotes using Naver Finance.
  * Automatically handles both domestic (KRX/KOSDAQ) and overseas stocks.
  */
-export async function fetchQuote(symbol: string) {
-    const cached = quoteCache[symbol];
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        return cached.data;
+export async function fetchQuote(symbol: string, forceRefresh = false) {
+    if (!forceRefresh) {
+        const cached = quoteCache[symbol];
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            return cached.data;
+        }
     }
 
     // Sanitize symbol: handle Google Finance style prefixes (e.g., NASDAQ:AAPL -> AAPL)
@@ -224,11 +226,13 @@ export async function fetchNaverOverseasQuote(symbol: string) {
 }
 
 let rateCacheObj: { data: any, timestamp: number } | null = null;
-const RATE_CACHE_TTL = 5 * 60 * 1000;
+const RATE_CACHE_TTL = 30 * 1000;
 
-export async function fetchExchangeRate() {
-    if (rateCacheObj && Date.now() - rateCacheObj.timestamp < RATE_CACHE_TTL) {
-        return rateCacheObj.data;
+export async function fetchExchangeRate(forceRefresh = false) {
+    if (!forceRefresh) {
+        if (rateCacheObj && Date.now() - rateCacheObj.timestamp < RATE_CACHE_TTL) {
+            return rateCacheObj.data;
+        }
     }
 
     try {

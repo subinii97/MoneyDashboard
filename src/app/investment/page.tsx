@@ -13,7 +13,7 @@ import { EditModal } from '@/components/investment/EditModal';
 import { TransactionModal } from '@/components/investment/TransactionModal';
 
 export default function InvestmentManager() {
-    const { assets, loading, rate, rateTime, fetchData, setAssets } = useAssets();
+    const { assets, loading, isRefreshing, rate, rateTime, fetchData, setAssets } = useAssets();
     const [viewMode, setViewMode] = useState<'aggregated' | 'detailed'>('aggregated');
     const [isPrivate, setIsPrivate] = useState(false);
 
@@ -211,8 +211,8 @@ export default function InvestmentManager() {
                     <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', fontWeight: '600', fontSize: '0.9rem' }}>
                         {viewMode === 'aggregated' ? <List size={18} /> : <Layers size={18} />} {viewMode === 'aggregated' ? '상세 내역' : '합산 내역'}
                     </button>
-                    <button onClick={fetchData} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', fontWeight: '600', fontSize: '0.9rem' }}>
-                        <RefreshCw size={18} /> 새로고침
+                    <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: isRefreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', fontWeight: '600', fontSize: '0.9rem', opacity: isRefreshing ? 0.7 : 1 }}>
+                        <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? '갱신 중...' : '새로고침'}
                     </button>
                 </div>
             </header>

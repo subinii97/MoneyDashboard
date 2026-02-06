@@ -17,7 +17,7 @@ const FIXED_CATEGORIES: AssetCategory[] = [
 ];
 
 export default function PortfolioPage() {
-    const { assets, loading, rate, fetchData, setAssets } = useAssets();
+    const { assets, loading, isRefreshing, rate, fetchData, setAssets } = useAssets();
     const [isSaving, setIsSaving] = useState(false);
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
@@ -112,8 +112,8 @@ export default function PortfolioPage() {
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }}>
                         {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
-                    <button onClick={fetchData} className="glass" style={{ padding: '0.75rem 1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white' }}>
-                        <RefreshCw size={18} /> 새로고침
+                    <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ padding: '0.75rem 1.5rem', cursor: isRefreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', opacity: isRefreshing ? 0.7 : 1 }}>
+                        <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? '갱신 중...' : '새로고침'}
                     </button>
                     <button onClick={saveChanges} disabled={isSaving} className="glass" style={{ padding: '0.75rem 1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--primary)', color: 'white', border: 'none' }}>
                         <Save size={18} /> {isSaving ? '저장 중...' : '설정 저장'}
