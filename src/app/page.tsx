@@ -12,7 +12,7 @@ import { HeroSection } from '@/components/dashboard/HeroSection';
 import { SpotlightCard } from '@/components/common/SpotlightCard';
 
 export default function Home() {
-    const { assets, history, loading, isRefreshing, rate, fetchData } = useAssets();
+    const { assets, history, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData } = useAssets();
     const [isPrivate, setIsPrivate] = useState(false);
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
@@ -47,7 +47,13 @@ export default function Home() {
                     <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isRefreshing ? 'not-allowed' : 'pointer', color: 'white', opacity: isRefreshing ? 0.7 : 1 }}>
                         <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                     </button>
-                    {rate && <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500' }}>1 USD = <span style={{ color: 'var(--primary)' }}>{rate.toLocaleString()}</span> KRW</p>}
+                    {rate && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            💵 1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
+                            {lastUpdated && <span style={{ opacity: 0.8 }}>• {lastUpdated} 갱신</span>}
+                            {rateTime && <span style={{ opacity: 0.5, fontSize: '0.75rem' }}>(시장 {rateTime})</span>}
+                        </p>
+                    )}
                 </div>
             </header>
 

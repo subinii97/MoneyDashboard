@@ -8,6 +8,7 @@ export function useAssets() {
     const [rate, setRate] = useState<number>(1350);
     const [rateTime, setRateTime] = useState<string>('');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<string>('');
 
     const fetchData = useCallback(async (force = false) => {
         setIsRefreshing(true);
@@ -35,7 +36,9 @@ export function useAssets() {
             }
 
             const updatedInvestments = investmentsRaw.map((inv: Investment) => {
-                const info = priceData.results?.find((r: any) => r.symbol === inv.symbol);
+                const info = priceData.results?.find((r: any) =>
+                    r.symbol.trim().toUpperCase() === inv.symbol.trim().toUpperCase()
+                );
                 return {
                     ...inv,
                     currentPrice: info?.price || inv.avgPrice,
@@ -55,12 +58,13 @@ export function useAssets() {
                 setHistory(historyData);
             }
 
-            // Also trigger auto-snapshot on every data fetch/refresh
             fetch('/api/snapshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ auto: true })
             }).catch(() => { });
+
+            setLastUpdated(new Date().toLocaleTimeString('ko-KR', { hour12: false }));
 
         } catch (e) {
             console.error('Failed to fetch data', e);
@@ -74,5 +78,5 @@ export function useAssets() {
         fetchData();
     }, [fetchData]);
 
-    return { assets, history, loading, isRefreshing, rate, rateTime, fetchData, setAssets };
+    return { assets, history, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets };
 }

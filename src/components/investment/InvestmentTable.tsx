@@ -69,20 +69,20 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     </div>
                     <div style={{ textAlign: 'left' }}>
                         <span className="section-label" style={{ marginBottom: '0.2rem' }}>Daily Change</span>
-                        <div style={{ fontSize: '1.2rem', color: dailyChange >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
-                            {dailyChange >= 0 ? '+' : ''}{formatKRW(dailyChange)}
+                        <div style={{ fontSize: '1.2rem', color: dailyChange > 0 ? '#ef4444' : (dailyChange < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
+                            {dailyChange > 0 ? '+' : ''}{formatKRW(dailyChange)}
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: dailyChange >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '600', opacity: 0.8 }}>
-                            {dailyChange >= 0 ? '▲' : '▼'}{Math.abs(dailyChangePercent).toFixed(2)}%
+                        <div style={{ fontSize: '0.8rem', color: dailyChange > 0 ? '#ef4444' : (dailyChange < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '600', opacity: 0.8 }}>
+                            {dailyChange > 0 ? '▲' : (dailyChange < 0 ? '▼' : '')}{Math.abs(dailyChangePercent).toFixed(2)}%
                         </div>
                     </div>
                     <div style={{ textAlign: 'left' }}>
                         <span className="section-label" style={{ marginBottom: '0.2rem' }}>Total Gain/Loss</span>
-                        <div style={{ fontSize: '1.2rem', color: totalPL >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
-                            {totalPL >= 0 ? '+' : ''}{formatKRW(totalPL)}
+                        <div style={{ fontSize: '1.2rem', color: totalPL > 0 ? '#ef4444' : (totalPL < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
+                            {totalPL > 0 ? '+' : ''}{formatKRW(totalPL)}
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: totalPL >= 0 ? '#ef4444' : '#60a5fa', fontWeight: '600', opacity: 0.8 }}>
-                            {totalPL >= 0 ? '▲' : '▼'}{Math.abs(totalPLPercent).toFixed(2)}%
+                        <div style={{ fontSize: '0.8rem', color: totalPL > 0 ? '#ef4444' : (totalPL < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '600', opacity: 0.8 }}>
+                            {totalPL > 0 ? '▲' : (totalPL < 0 ? '▼' : '')}{Math.abs(totalPLPercent).toFixed(2)}%
                         </div>
                     </div>
                 </div>
@@ -103,11 +103,11 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     </thead>
                     <tbody>
                         {investments.map((inv) => {
-                            const isUSD = inv.currency === 'USD' || (!inv.symbol.includes('.') && inv.symbol !== '');
+                            const isUSD = inv.currency === 'USD';
                             const currentPrice = inv.currentPrice || inv.avgPrice;
                             const marketValRaw = currentPrice * inv.shares;
-                            const marketValKRW = convertToKRW(marketValRaw, isUSD ? 'USD' : 'KRW', rate);
-                            const costBasisKRW = convertToKRW(inv.avgPrice * inv.shares, isUSD ? 'USD' : 'KRW', rate);
+                            const marketValKRW = convertToKRW(marketValRaw, inv.currency || 'KRW', rate);
+                            const costBasisKRW = convertToKRW(inv.avgPrice * inv.shares, inv.currency || 'KRW', rate);
                             const plKRW = marketValKRW - costBasisKRW;
                             const plPercent = costBasisKRW > 0 ? ((marketValKRW / costBasisKRW) - 1) * 100 : 0;
                             const ex = getExchangeStyle(inv.exchange || '');

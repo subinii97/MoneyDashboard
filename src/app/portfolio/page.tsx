@@ -17,7 +17,7 @@ const FIXED_CATEGORIES: AssetCategory[] = [
 ];
 
 export default function PortfolioPage() {
-    const { assets, loading, isRefreshing, rate, fetchData, setAssets } = useAssets();
+    const { assets, loading, isRefreshing, rate, lastUpdated, fetchData, setAssets } = useAssets();
     const [isSaving, setIsSaving] = useState(false);
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
@@ -106,7 +106,10 @@ export default function PortfolioPage() {
             <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                     <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800' }}>자산 배분 및 리밸런싱</h1>
-                    <p style={{ color: 'var(--muted)' }}>전체 자산군별 비중을 관리하고 리밸런싱 전략을 확인하세요</p>
+                    <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        전체 자산군별 비중을 관리하고 리밸런싱 전략을 확인하세요
+                        {lastUpdated && <span style={{ opacity: 0.7, fontSize: '0.85rem' }}>• {lastUpdated} 갱신</span>}
+                    </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }}>

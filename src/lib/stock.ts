@@ -25,10 +25,10 @@ export async function fetchQuote(symbol: string, forceRefresh = false) {
     let res;
     // Domestic: Ends with .KS/.KQ or is 6 digits
     if (cleanSymbol.endsWith('.KS') || cleanSymbol.endsWith('.KQ') || /^\d{6}/.test(cleanSymbol)) {
-        res = await fetchNaverQuote(cleanSymbol);
+        res = await fetchNaverQuote(cleanSymbol, forceRefresh);
     } else {
         // Overseas
-        res = await fetchNaverOverseasQuote(cleanSymbol);
+        res = await fetchNaverOverseasQuote(cleanSymbol, forceRefresh);
     }
 
     if (res) {
@@ -58,7 +58,7 @@ const extractNumber = (text: string) => {
     return parseFloat(valString);
 };
 
-export async function fetchNaverQuote(symbol: string) {
+export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
     const code = symbol.split('.')[0];
     const url = `https://finance.naver.com/item/main.naver?code=${code}`;
 
@@ -67,7 +67,8 @@ export async function fetchNaverQuote(symbol: string) {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             },
-            next: { revalidate: 30 }
+            cache: forceRefresh ? 'no-store' : undefined,
+            next: forceRefresh ? undefined : { revalidate: 30 }
         });
 
         if (!response.ok) return { symbol, error: 'Naver Finance access failed' };
@@ -83,25 +84,16 @@ export async function fetchNaverQuote(symbol: string) {
         const $ = cheerio.load(html);
 
         const name = $('.wrap_company h2 a').text().trim() || $('.wrap_company h2').text().trim();
-        const priceText = $('.no_today .blind').first().text();
+        const priceText = $('.no_today .blind').first().text() || $('.no_today em').first().text();
         const price = extractNumber(priceText);
 
         if (price === 0) return { symbol, error: 'Price not found on Naver' };
 
-        const isDown = $('.no_exday .ico.down').length > 0 || $('.no_exday .no_down').length > 0;
-        const isUp = $('.no_exday .ico.up').length > 0 || $('.no_exday .no_up').length > 0;
-
-        const changeText = $('.no_exday em:nth-of-type(1)').text();
-        const changePercentText = $('.no_exday em:nth-of-type(2)').text();
-
-        const changeValue = extractNumber(changeText);
-        const changePercentValue = extractNumber(changePercentText);
-
-        const change = changeValue * (isDown ? -1 : (isUp ? 1 : 0));
-        const changePercent = changePercentValue * (isDown ? -1 : (isUp ? 1 : 0));
-
-        const previousCloseText = $('.no_info tr:nth-of-type(1) td em').first().text();
+        const previousCloseText = $('.no_info td.first em').first().text() || $('.no_info tr:nth-of-type(1) td em').first().text();
         const previousClose = extractNumber(previousCloseText);
+
+        const change = price - previousClose;
+        const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
 
         return {
             symbol,
@@ -126,7 +118,7 @@ const overseasSymbolMap: Record<string, string> = {};
  * Fetches overseas stock quotes from Naver Finance API.
  * Handles NASDAQ (.O), NYSE (.N), and AMEX (.A) suffixes.
  */
-export async function fetchNaverOverseasQuote(symbol: string) {
+export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = false) {
     const tryFetch = async (sym: string) => {
         const url = `https://api.stock.naver.com/stock/${sym}/basic`;
         try {
@@ -134,7 +126,8 @@ export async function fetchNaverOverseasQuote(symbol: string) {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1'
                 },
-                next: { revalidate: 30 }
+                cache: forceRefresh ? 'no-store' : undefined,
+                next: forceRefresh ? undefined : { revalidate: 30 }
             });
             if (!response.ok) return null;
             const data = await response.json();
@@ -196,22 +189,27 @@ export async function fetchNaverOverseasQuote(symbol: string) {
     }
 
     // Use overMarketPrice if regular market is not open and over-market data exists
-    let price = parseFloat(data.closePrice.replace(/,/g, ''));
-    let change = parseFloat(String(data.compareToPreviousClosePrice || '0'));
-    let changePercent = parseFloat(String(data.fluctuationsRatio || '0'));
+    let price = extractNumber(data.closePrice);
+
+    // Naver Overseas API provides signed strings (e.g. "-8.53"), so we just need extractNumber
+    let change = extractNumber(String(data.compareToPreviousClosePrice || '0'));
+    let changePercent = extractNumber(String(data.fluctuationsRatio || '0'));
 
     if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
         const over = data.overMarketPriceInfo;
-        if (over.overMarketPrice) {
-            price = parseFloat(over.overMarketPrice.replace(/,/g, ''));
-            change = parseFloat(String(over.compareToPreviousClosePrice || '0'));
-            changePercent = parseFloat(String(over.fluctuationsRatio || '0'));
+        if (over.overMarketPrice && over.overMarketPrice !== '0' && over.overMarketPrice !== '') {
+            price = extractNumber(over.overMarketPrice);
+            change = extractNumber(String(over.compareToPreviousClosePrice || '0'));
+            changePercent = extractNumber(String(over.fluctuationsRatio || '0'));
         }
     }
 
     const name = data.stockName || symbol;
     const currency = data.currencyType?.name || 'USD';
     const exchange = data.stockExchangeName || 'Overseas';
+
+    // Fallback: if previousClose is needed but missing, calculate from change
+    const previousClose = price - change;
 
     return {
         symbol: finalSymbol,
@@ -221,7 +219,7 @@ export async function fetchNaverOverseasQuote(symbol: string) {
         name,
         change: isNaN(change) ? 0 : change,
         changePercent: isNaN(changePercent) ? 0 : changePercent,
-        previousClose: price - (isNaN(change) ? 0 : change)
+        previousClose: isNaN(previousClose) ? price : previousClose
     };
 }
 
@@ -241,7 +239,8 @@ export async function fetchExchangeRate(forceRefresh = false) {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             },
-            next: { revalidate: 60 }
+            cache: forceRefresh ? 'no-store' : undefined,
+            next: forceRefresh ? undefined : { revalidate: 60 }
         });
 
         const contentType = response.headers.get('content-type');

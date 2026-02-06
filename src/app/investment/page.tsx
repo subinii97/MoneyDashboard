@@ -13,7 +13,7 @@ import { EditModal } from '@/components/investment/EditModal';
 import { TransactionModal } from '@/components/investment/TransactionModal';
 
 export default function InvestmentManager() {
-    const { assets, loading, isRefreshing, rate, rateTime, fetchData, setAssets } = useAssets();
+    const { assets, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets } = useAssets();
     const [viewMode, setViewMode] = useState<'aggregated' | 'detailed'>('aggregated');
     const [isPrivate, setIsPrivate] = useState(false);
 
@@ -41,6 +41,8 @@ export default function InvestmentManager() {
         setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     };
 
+    const isUSD = (inv: Investment) => inv.currency === 'USD' || (inv.marketType === 'Overseas' && !inv.symbol.includes('.KS') && !inv.symbol.includes('.KQ'));
+
     const saveAssets = async (updatedAssets: any) => {
         await fetch('/api/assets', {
             method: 'POST',
@@ -55,7 +57,7 @@ export default function InvestmentManager() {
         const symbol = newInvestment.symbol.toUpperCase();
         const shares = Number(newInvestment.shares);
         const price = Number(newInvestment.avgPrice);
-        const currency = symbol.includes('.') || newInvestment.marketType === 'Domestic' ? 'KRW' : 'USD';
+        const currency = newInvestment.marketType === 'Overseas' ? 'USD' : 'KRW';
 
         const invToAdd: Investment = {
             id: Date.now().toString(),
@@ -201,7 +203,8 @@ export default function InvestmentManager() {
                     <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Assets</h1>
                     <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.9rem' }}>
                         <DollarSign size={14} /> 1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
-                        {rateTime && <span style={{ opacity: 0.6, marginLeft: '4px' }}>({rateTime})</span>}
+                        {lastUpdated && <span style={{ opacity: 0.8, marginLeft: '4px' }}>• {lastUpdated} 갱신</span>}
+                        {rateTime && <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>(시장 {rateTime})</span>}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
