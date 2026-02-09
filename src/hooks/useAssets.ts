@@ -44,7 +44,7 @@ export function useAssets() {
                     currentPrice: info?.price || inv.avgPrice,
                     currency: info?.currency || inv.currency || (inv.symbol.includes('.') ? 'KRW' : 'USD'),
                     exchange: inv.exchange || info?.exchange,
-                    name: inv.name || info?.name,
+                    name: (inv.name && inv.name !== inv.symbol) ? inv.name : (info?.name || inv.name),
                     change: info?.change,
                     changePercent: info?.changePercent,
                     marketType: inv.marketType || (inv.symbol.includes('.') || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas')

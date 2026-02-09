@@ -16,6 +16,7 @@ interface TransactionModalProps {
     onFormChange: (field: string, value: string) => void;
     onMaxSell: () => void;
     onSubmit: () => Promise<void>;
+    isEditing?: boolean;
 }
 
 export const TransactionModal: React.FC<TransactionModalProps> = ({
@@ -25,13 +26,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     onTypeChange,
     onFormChange,
     onMaxSell,
-    onSubmit
+    onSubmit,
+    isEditing
 }) => {
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
             <div className="glass" style={{ width: '400px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>거래 기록: {selectedInv.name || selectedInv.symbol}</h3>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{isEditing ? '거래 수정' : '거래 기록'}: {selectedInv.name || selectedInv.symbol}</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={24} /></button>
                 </div>
 
@@ -74,8 +76,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     </div>
                 </div>
 
+                <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>메모</label>
+                    <textarea
+                        value={txForm.notes || ''}
+                        onChange={e => onFormChange('notes', e.target.value)}
+                        className="glass"
+                        style={{ width: '100%', padding: '0.75rem', color: 'white', height: '80px', resize: 'none' }}
+                        placeholder="거래 메모를 입력하세요"
+                    />
+                </div>
+
                 <button onClick={onSubmit} className="glass" style={{ width: '100%', padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 'bold', marginTop: '1rem' }}>
-                    기록 저장
+                    {isEditing ? '수정 완료' : '기록 저장'}
                 </button>
             </div>
         </div>

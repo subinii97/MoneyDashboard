@@ -97,34 +97,40 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px', tableLayout: 'fixed' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--muted)', fontSize: '0.875rem' }}>
-                            <th style={{ padding: '0.85rem', width: '95px', textAlign: 'center' }}>시장</th>
-                            <th style={{ width: 'auto', paddingLeft: '0.85rem', paddingRight: '0.85rem' }}>항목 정보</th>
-                            <th style={{ width: '120px', textAlign: 'right', paddingRight: '1.2rem' }}>평단가</th>
-                            <th style={{ width: '120px', textAlign: 'right', paddingRight: '1.2rem', paddingLeft: '0.8rem' }}>현재가</th>
-                            <th style={{ width: '90px', textAlign: 'right', paddingRight: '1.2rem' }}>수량</th>
-                            <th style={{ width: '150px', textAlign: 'right', paddingRight: '1.2rem' }}>평가액 (KRW)</th>
-                            <th style={{ width: '190px', textAlign: 'right', paddingRight: '1.8rem' }}>수익률 (평가손익)</th>
-                            <th style={{ textAlign: 'right', width: '90px', paddingRight: '1.2rem' }}>작업</th>
+                            <th style={{ padding: '0.85rem', width: '95px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>거래소</th>
+                            <th style={{ width: 'auto', paddingLeft: '0.85rem', paddingRight: '0.85rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>종목 정보</th>
+                            <th style={{ width: '120px', paddingRight: '1.2rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>평단가</th>
+                            <th style={{ width: '120px', paddingRight: '1.2rem', paddingLeft: '0.8rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>현재가</th>
+                            <th style={{ width: '90px', padding: '0.85rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>수량</th>
+                            <th style={{ width: '150px', paddingRight: '1.2rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>평가액</th>
+                            <th style={{ width: '190px', paddingRight: '1.8rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>수익</th>
+                            <th style={{ width: '90px', padding: '0.85rem', textAlign: 'center' }}>작업</th>
                         </tr>
                     </thead>
                     <tbody>
                         {investments.map((inv) => {
                             const isUSD = inv.currency === 'USD';
                             const currentPrice = inv.currentPrice || inv.avgPrice;
-                            const marketValRaw = currentPrice * inv.shares;
-                            const marketValKRW = convertToKRW(marketValRaw, inv.currency || 'KRW', rate);
-                            const costBasisKRW = convertToKRW(inv.avgPrice * inv.shares, inv.currency || 'KRW', rate);
-                            const plKRW = marketValKRW - costBasisKRW;
-                            const plPercent = costBasisKRW > 0 ? ((marketValKRW / costBasisKRW) - 1) * 100 : 0;
+
+                            // Raw values (in original currency)
+                            const marketVal = currentPrice * inv.shares;
+                            const costBasis = inv.avgPrice * inv.shares;
+                            const pl = marketVal - costBasis;
+                            const plPercent = costBasis > 0 ? ((marketVal / costBasis) - 1) * 100 : 0;
+
+                            // KRW values for sorting/aggregation if needed (though aggregation is done in parent)
+                            const marketValKRW = convertToKRW(marketVal, inv.currency || 'KRW', rate);
+                            const plKRW = marketValKRW - convertToKRW(costBasis, inv.currency || 'KRW', rate); // Approx for summary consistency
+
                             const ex = getExchangeStyle(inv.exchange || '');
 
                             return (
                                 <tr key={inv.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                    <td style={{ padding: '1rem 0.85rem', textAlign: 'center' }}>
+                                    <td style={{ padding: '1rem 0.85rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
                                         <span style={{ padding: '0.25rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: '800', color: ex.color, backgroundColor: ex.bg, border: `1px solid ${ex.color}33` }}>{ex.label}</span>
                                     </td>
-                                    <td style={{ paddingLeft: '0.85rem', paddingRight: '0.85rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                    <td style={{ paddingLeft: '0.85rem', paddingRight: '0.85rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', justifyContent: 'center' }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '0.98rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{inv.name || inv.symbol}</div>
                                             {(inv.category || inv.marketType) && (
                                                 <span style={{ fontSize: '0.62rem', padding: '1px 3px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.6, fontWeight: 'bold' }}>
@@ -137,20 +143,20 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                         </div>
                                         <div style={{ fontSize: '0.72rem', color: 'var(--primary)', opacity: 0.8 }}>{inv.symbol}</div>
                                     </td>
-                                    <td style={{ fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem' }}>
+                                    <td style={{ fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
                                         {isUSD
                                             ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem' }}>
                                                 ${inv.avgPrice.toLocaleString(undefined, { minimumFractionDigits: inv.avgPrice < 100 ? 4 : 2, maximumFractionDigits: inv.avgPrice < 100 ? 4 : 2 })}
                                             </div>
-                                            : formatKRW(inv.avgPrice)}
+                                            : Math.floor(inv.avgPrice).toLocaleString()}
                                     </td>
-                                    <td style={{ fontSize: '0.98rem', fontWeight: '500', textAlign: 'right', paddingRight: '1.2rem', paddingLeft: '0.8rem' }}>
+                                    <td style={{ fontSize: '0.98rem', fontWeight: '500', textAlign: 'right', paddingRight: '1.2rem', paddingLeft: '0.8rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
                                         <div>
                                             {isUSD
                                                 ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem' }}>
                                                     ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: currentPrice < 100 ? 4 : 2, maximumFractionDigits: currentPrice < 100 ? 4 : 2 })}
                                                 </div>
-                                                : formatKRW(currentPrice)}
+                                                : Math.floor(currentPrice).toLocaleString()}
                                         </div>
                                         {inv.change !== undefined && (
                                             <div style={{ fontSize: '0.72rem', color: inv.change >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
@@ -162,17 +168,24 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                             </div>
                                         )}
                                     </td>
-                                    <td className={isPrivate ? 'private-blur' : ''} style={{ textAlign: 'right', paddingRight: '1.2rem' }}>
-                                        {inv.shares}
+                                    <td style={{ textAlign: 'center', padding: '0.85rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                        {!isPrivate && inv.shares}
                                     </td>
-                                    <td className={isPrivate ? 'private-blur' : ''} style={{ fontWeight: '600', fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem' }}>
-                                        {formatKRW(marketValKRW)}
+                                    <td style={{ fontWeight: '600', fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                        {!isPrivate && (isUSD
+                                            ? `$${marketVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                            : Math.floor(marketVal).toLocaleString()
+                                        )}
                                     </td>
-                                    <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
+                                    <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', whiteSpace: 'nowrap' }}>
                                             {!isPrivate && (
                                                 <div style={{ fontSize: '0.98rem', fontWeight: '700', opacity: 1 }}>
-                                                    {plKRW >= 0 ? '+' : ''}{formatKRW(plKRW)}
+                                                    {pl >= 0 ? '+' : ''}
+                                                    {isUSD
+                                                        ? `$${pl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                                        : Math.floor(pl).toLocaleString()
+                                                    }
                                                 </div>
                                             )}
                                             <div style={{
@@ -184,8 +197,8 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                             </div>
                                         </div>
                                     </td>
-                                    <td style={{ textAlign: 'right', paddingRight: '1rem' }}>
-                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <td style={{ textAlign: 'center', padding: '0.85rem' }}>
+                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                             <button
                                                 onClick={() => onTransaction(inv)}
                                                 style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}

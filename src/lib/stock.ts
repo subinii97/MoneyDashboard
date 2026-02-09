@@ -38,15 +38,17 @@ export async function fetchQuote(symbol: string, forceRefresh = false) {
     return res;
 }
 
-const extractNumber = (text: string) => {
+const extractNumber = (val: any) => {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === 'number') return val;
+    const text = String(val);
     const cleaned = text.replace(/,/g, '').trim();
     const match = cleaned.match(/[-+]?[0-9]*\.?[0-9]+/);
     if (!match) return 0;
 
     const valString = match[0];
-
     // Naver Double Fix: if the string is like "65006500" or "4.114.11"
-    if (valString.length >= 2 && valString.length % 2 === 0) {
+    if (valString.length >= 2 && valString.indexOf('.') === -1 && valString.length % 2 === 0) {
         const half = valString.length / 2;
         const firstHalf = valString.substring(0, half);
         const secondHalf = valString.substring(half);
@@ -54,7 +56,6 @@ const extractNumber = (text: string) => {
             return parseFloat(firstHalf);
         }
     }
-
     return parseFloat(valString);
 };
 
@@ -277,5 +278,116 @@ export async function fetchExchangeRate(forceRefresh = false) {
     } catch (e) {
         console.error('Naver Finance fetch error:', e);
         return { rate: 1350, time: '' };
+    }
+}
+
+
+
+export async function fetchMarketIndex(code: string, forceRefresh = false) {
+    const isDomestic = !code.startsWith('.');
+    const url = isDomestic
+        ? `https://polling.finance.naver.com/api/realtime/domestic/index/${code}`
+        : `https://api.stock.naver.com/index/${code}/basic`;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1'
+            },
+            cache: 'no-cache'
+        });
+        if (!response.ok) return null;
+        const json = await response.json();
+
+        if (isDomestic) {
+            const data = (json.datas && json.datas[0]) || (json.result && json.result[0]) || json;
+            let name = data.stockName || data.indexName || data.itemCode || data.symbolCode || code;
+            if (code === 'KOSPI') name = '코스피';
+            if (code === 'KOSDAQ') name = '코스닥';
+
+            return {
+                name,
+                price: extractNumber(data.closePriceRaw || data.closePrice || data.nowValue),
+                change: extractNumber(String(data.compareToPreviousClosePriceRaw || data.compareToPreviousClosePrice || data.compareToPreviousCloseValue || '0')),
+                changePercent: extractNumber(String(data.fluctuationsRatioRaw || data.fluctuationsRatio || '0')),
+                status: data.marketStatus,
+                time: data.localTradedAt || data.time || new Date().toISOString()
+            };
+        } else if (!isDomestic) {
+            const data = (json.result && json.result[0]) || json;
+            let name = data.indexName || data.itemCode || data.stockName || code;
+            if (code === '.IXIC') name = '나스닥';
+            if (code === '.DJI') name = '다우존스';
+
+            return {
+                name,
+                price: extractNumber(data.nowValue || data.closePrice || data.closePriceRaw),
+                change: extractNumber(String(data.compareToPreviousCloseValue || data.compareToPreviousClosePrice || '0')),
+                changePercent: extractNumber(String(data.fluctuationsRatio || '0')),
+                status: data.marketStatus,
+                time: data.localTradedAt || data.time || new Date().toISOString()
+            };
+        }
+        return null;
+    } catch (e) {
+        console.error(`Error fetching index ${code}:`, e);
+        return null;
+    }
+}
+
+export async function fetchMarketExchangeRate(code: string, forceRefresh = false) {
+    // Specialized handling for EURUSD which often fails on basic API
+    if (code === 'FX_EURUSD') {
+        try {
+            const res = await fetch('https://stock.naver.com/api/securityService/marketindex/exchangeWorld/EURUSD', {
+                headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1' },
+                cache: 'no-cache'
+            });
+            if (res.ok) {
+                const item = await res.json();
+                if (item) {
+                    return {
+                        name: '달러유로 (EUR/USD)',
+                        price: extractNumber(item.closePrice),
+                        change: extractNumber(item.fluctuations),
+                        changePercent: extractNumber(item.fluctuationsRatio),
+                        time: item.localTradedAt || item.time || new Date().toISOString()
+                    };
+                }
+            }
+        } catch (e) { console.error('EURUSD fallback failed', e); }
+    }
+
+    const url = `https://api.stock.naver.com/marketindex/exchange/${code}`;
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1'
+            },
+            cache: 'no-cache'
+        });
+        if (!response.ok) return null;
+        const json = await response.json();
+
+        const target = json.exchangeInfo || (json.result ? json.result : json);
+        let name = target.currencyName || target.itemSymbol || target.itemCode || target.name || code;
+        if (code === 'FX_USDKRW') name = '원달러 (USD/KRW)';
+        if (code === 'FX_EURKRW') name = '원유로 (EUR/KRW)';
+        if (code === 'FX_JPYKRW') name = '원엔 (JPY/KRW 100)';
+        if (code === 'FX_EURUSD') name = '달러유로 (EUR/USD)';
+
+        let price = extractNumber(target.closePrice || target.calcPrice || target.nowValue || target.closePriceRaw);
+        let change = extractNumber(String(target.fluctuations || target.compareToPreviousClosePriceBase || target.compareToPreviousClosePrice || target.compareToPreviousCloseValue || '0'));
+
+        return {
+            name,
+            price,
+            change,
+            changePercent: extractNumber(String(target.fluctuationsRatio || '0')),
+            time: target.localTradedAt || target.time || new Date().toISOString()
+        };
+    } catch (e) {
+        console.error(`Error fetching exchange rate ${code}:`, e);
+        return null;
     }
 }

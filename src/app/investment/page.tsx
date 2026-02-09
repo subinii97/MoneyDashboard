@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { RefreshCw, Layers, List, Eye, EyeOff, DollarSign } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, Layers, List, Eye, EyeOff, DollarSign, Edit } from 'lucide-react';
 import { Investment, MarketType, Transaction, AssetCategory } from '@/lib/types';
 import { convertToKRW } from '@/lib/utils';
 import { useAssets } from '@/hooks/useAssets';
@@ -15,7 +15,7 @@ import { TransactionModal } from '@/components/investment/TransactionModal';
 export default function InvestmentManager() {
     const { assets, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets } = useAssets();
     const [viewMode, setViewMode] = useState<'aggregated' | 'detailed'>('aggregated');
-    const [isPrivate, setIsPrivate] = useState(false);
+    const [isPrivate, setIsPrivate] = useState(true);
 
     // Form/Modal states
     const [newInvestment, setNewInvestment] = useState({
@@ -34,6 +34,187 @@ export default function InvestmentManager() {
         date: new Date().toISOString().split('T')[0],
         notes: ''
     });
+
+    const [todayTransactions, setTodayTransactions] = useState<Transaction[]>([]);
+    const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+    const [knownNames, setKnownNames] = useState<Record<string, string>>({});
+
+    // Update known names from assets
+    useEffect(() => {
+        const map: Record<string, string> = {};
+        assets.investments.forEach(inv => {
+            if (inv.name && inv.name !== inv.symbol) {
+                map[inv.symbol] = inv.name;
+            }
+        });
+        setKnownNames(prev => ({ ...prev, ...map }));
+    }, [assets.investments]);
+
+    // Fetch today's transactions and missing names
+    useEffect(() => {
+        const fetchTodayTx = async () => {
+            const today = new Date().toISOString().split('T')[0];
+            const res = await fetch(`/api/transactions?date=${today}`);
+            if (res.ok) {
+                const data = await res.json();
+                setTodayTransactions(data);
+
+                // Identify symbols needing name resolution
+                const symbolsToCheck = [...new Set(data.map((t: Transaction) => t.symbol))] as string[];
+                const missingSymbols = symbolsToCheck.filter(sym => !knownNames[sym] && !assets.investments.find(i => i.symbol === sym));
+
+                if (missingSymbols.length > 0) {
+                    const priceRes = await fetch(`/api/stock?symbols=${missingSymbols.join(',')}`);
+                    if (priceRes.ok) {
+                        const priceData = await priceRes.json();
+                        const newNames: Record<string, string> = {};
+                        priceData.results?.forEach((r: any) => {
+                            if (r.name && r.name !== r.symbol) {
+                                newNames[r.symbol] = r.name;
+                            }
+                        });
+                        setKnownNames(prev => ({ ...prev, ...newNames }));
+                    }
+                }
+            }
+        };
+        fetchTodayTx();
+    }, [lastUpdated, assets.investments]); // Add assets dependency to avoid re-fetching if already known via assets
+
+    const revertTransaction = (inv: Investment, tx: Transaction): Investment => {
+        if (tx.type === 'BUY') {
+            const prevShares = inv.shares - (tx.shares || 0);
+            if (prevShares <= 0) return { ...inv, shares: 0, avgPrice: 0 };
+            const currentTotalCost = inv.shares * inv.avgPrice;
+            const prevTotalCost = currentTotalCost - (tx.amount);
+            return { ...inv, shares: prevShares, avgPrice: prevTotalCost / prevShares };
+        } else {
+            return { ...inv, shares: inv.shares + (tx.shares || 0) };
+        }
+    };
+
+    const saveTxEdit = async () => {
+        if (!editingTx || !selectedInv) return;
+
+        // 1. Revert Old Transaction
+        let tempInvestments = assets.investments.map(inv => {
+            if (inv.symbol === editingTx.symbol) return revertTransaction(inv, editingTx);
+            return inv;
+        }).filter(inv => inv.shares > 0);
+
+        // Handle case where investment was fully sold/removed and needs to be restored for revert
+        if (!assets.investments.find(inv => inv.symbol === editingTx.symbol) && editingTx.type === 'SELL') {
+            // Basic restoration - we might lack category/marketType if not stored in Tx. 
+            // We try to use selectedInv which we tried to populate in startEditingTx
+            // Try to find name again
+            const sym = editingTx.symbol || '';
+            const nameToUse = knownNames[sym] || sym;
+
+            tempInvestments.push({
+                ...selectedInv,
+                name: nameToUse,
+                shares: editingTx.shares || 0,
+                // AvgPrice is lost if fully sold. fallback to sale price or 0? 
+                // If we are reverting a SELL, we are adding shares back.
+                // Ideally we shouldn't have lost the avgPrice, but we did. 
+                // Let's assume current selectedInv has what we need or 0.
+                avgPrice: 0
+            });
+        }
+
+        let tempAllocations = assets.allocations.map((a: any) => {
+            if (a.category === 'Cash') {
+                const txVal = convertToKRW(editingTx.amount, editingTx.currency as any, rate);
+                return { ...a, value: editingTx.type === 'BUY' ? a.value + txVal : a.value - txVal }; // Revert cash
+            }
+            return a;
+        });
+
+        // 2. Apply New Transaction (Logic similar to handleTransaction)
+        const newTx: Transaction = {
+            ...editingTx,
+            date: txForm.date, type: txForm.type,
+            amount: Number(txForm.shares) * Number(txForm.price),
+            shares: Number(txForm.shares),
+            price: Number(txForm.price),
+            notes: txForm.notes
+        };
+
+        // Check if investment exists in tempInvestments (it might have been removed if revert set shares to 0)
+        let invExists = false;
+        tempInvestments = tempInvestments.map(inv => {
+            if (inv.symbol === newTx.symbol) {
+                invExists = true;
+                if (newTx.type === 'BUY') {
+                    const totalShares = inv.shares + (newTx.shares || 0);
+                    const totalCost = (inv.shares * inv.avgPrice) + (newTx.amount);
+                    return { ...inv, shares: totalShares, avgPrice: totalCost / totalShares };
+                } else {
+                    return { ...inv, shares: Math.max(0, inv.shares - (newTx.shares || 0)) };
+                }
+            }
+            return inv;
+        }).filter(inv => inv.shares > 0);
+
+        if (!invExists && newTx.type === 'BUY') {
+            // New buy on non-existent (or reverted-to-zero) investment
+            const sym = newTx.symbol || '';
+            const nameToUse = knownNames[sym] || sym;
+
+            tempInvestments.push({
+                ...selectedInv,
+                name: nameToUse,
+                shares: newTx.shares || 0,
+                avgPrice: newTx.price || 0,
+                id: Date.now().toString() // New ID or keep old?
+            });
+        }
+
+        tempAllocations = tempAllocations.map((a: any) => {
+            if (a.category === 'Cash') {
+                const txVal = convertToKRW(newTx.amount, newTx.currency as any, rate);
+                return { ...a, value: newTx.type === 'BUY' ? a.value - txVal : a.value + txVal };
+            }
+            return a;
+        });
+
+        await fetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newTx),
+        });
+
+        await saveAssets({ investments: tempInvestments, allocations: tempAllocations });
+        setShowTxModal(false);
+        setEditingTx(null);
+    };
+
+    const startEditingTx = (tx: Transaction) => {
+        setEditingTx(tx);
+        const invSymbol = tx.symbol || '';
+        const existingInv = assets.investments.find(i => i.symbol === invSymbol);
+
+        const inv = existingInv || {
+            id: 'temp',
+            symbol: invSymbol,
+            name: knownNames[invSymbol] || invSymbol, // Use knownNames or fallback to symbol
+            shares: 0,
+            avgPrice: 0,
+            currency: tx.currency,
+            marketType: 'Domestic', // Fallback, user might need to correct
+            category: 'Domestic Stock'
+        } as Investment;
+
+        setSelectedInv(inv);
+        setTxForm({
+            type: tx.type,
+            shares: String(tx.shares || ''),
+            price: String(tx.price || ''),
+            date: tx.date,
+            notes: tx.notes || ''
+        });
+        setShowTxModal(true);
+    };
 
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -222,12 +403,65 @@ export default function InvestmentManager() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2.5rem', marginBottom: '3rem' }}>
                 <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
-                    <InvestmentTable investments={filtered('Domestic')} title="Domestic Portfolios" rate={rate} isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment} onTransaction={(inv) => { setSelectedInv(inv); setTxForm(p => ({ ...p, price: String(inv.currentPrice || inv.avgPrice) })); setShowTxModal(true); }} />
+                    <InvestmentTable investments={filtered('Domestic')} title="Domestic Portfolios" rate={rate} isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment} onTransaction={(inv) => { setSelectedInv(inv); setEditingTx(null); setTxForm(p => ({ ...p, price: String(inv.currentPrice || inv.avgPrice), date: new Date().toISOString().split('T')[0], type: 'BUY', shares: '' })); setShowTxModal(true); }} />
                 </div>
                 <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
-                    <InvestmentTable investments={filtered('Overseas')} title="Overseas Portfolios" rate={rate} isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment} onTransaction={(inv) => { setSelectedInv(inv); setTxForm(p => ({ ...p, price: String(inv.currentPrice || inv.avgPrice) })); setShowTxModal(true); }} />
+                    <InvestmentTable investments={filtered('Overseas')} title="Overseas Portfolios" rate={rate} isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment} onTransaction={(inv) => { setSelectedInv(inv); setEditingTx(null); setTxForm(p => ({ ...p, price: String(inv.currentPrice || inv.avgPrice), date: new Date().toISOString().split('T')[0], type: 'BUY', shares: '' })); setShowTxModal(true); }} />
                 </div>
+
+                {todayTransactions.length > 0 && !isPrivate && (
+                    <div className="glass" style={{ padding: '1.5rem' }}>
+                        <span className="section-label" style={{ marginBottom: '1rem' }}>Today's Activity</span>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                                <tr style={{ color: 'var(--muted)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                                    <th style={{ padding: '0.75rem' }}>거래소</th>
+                                    <th style={{ padding: '0.75rem' }}>종목 정보</th>
+                                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>수량</th>
+                                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>단가</th>
+                                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>금액</th>
+                                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {todayTransactions.map(tx => (
+                                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                        <td style={{ padding: '0.75rem' }}>
+                                            <span style={{
+                                                color: tx.type === 'BUY' ? '#ef4444' : '#3b82f6',
+                                                fontWeight: 'bold',
+                                                fontSize: '0.75rem',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                backgroundColor: tx.type === 'BUY' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)'
+                                            }}>{tx.type}</span>
+                                        </td>
+                                        <td style={{ padding: '0.75rem', fontWeight: '600' }}>
+                                            {(() => {
+                                                const inv = assets.investments.find(i => i.symbol === tx.symbol);
+                                                const name = (inv && inv.name) || knownNames[tx.symbol || ''];
+                                                return name ? `${name} (${tx.symbol})` : tx.symbol;
+                                            })()}
+                                        </td>
+                                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>{tx.shares}</td>
+                                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                                            {tx.currency === 'USD' ? '$' : '₩'}{Number(tx.price).toLocaleString()}
+                                        </td>
+                                        <td style={{ padding: '0.75rem', textAlign: 'right', opacity: 0.8 }}>
+                                            {tx.currency === 'USD' ? '$' : '₩'}{Number(tx.amount).toLocaleString()}
+                                        </td>
+                                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                            <button onClick={() => startEditingTx(tx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', opacity: 0.8 }}>
+                                                <Edit size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
 
                 <AddAssetCard
                     newInvestment={newInvestment}
@@ -246,7 +480,8 @@ export default function InvestmentManager() {
                     onTypeChange={(t) => setTxForm(p => ({ ...p, type: t }))}
                     onFormChange={(f, v) => setTxForm(p => ({ ...p, [f]: v }))}
                     onMaxSell={() => setTxForm(p => ({ ...p, shares: String(selectedInv.shares) }))}
-                    onSubmit={handleTransaction}
+                    onSubmit={editingTx ? saveTxEdit : handleTransaction}
+                    isEditing={!!editingTx}
                 />
             )}
 
