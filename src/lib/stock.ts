@@ -287,7 +287,7 @@ export async function fetchMarketIndex(code: string, forceRefresh = false) {
     const isDomestic = !code.startsWith('.');
     const url = isDomestic
         ? `https://polling.finance.naver.com/api/realtime/domestic/index/${code}`
-        : `https://api.stock.naver.com/index/${code}/basic`;
+        : `https://polling.finance.naver.com/api/realtime/worldstock/index/${code}`;
 
     try {
         const response = await fetch(url, {
@@ -314,16 +314,16 @@ export async function fetchMarketIndex(code: string, forceRefresh = false) {
                 time: data.localTradedAt || data.time || new Date().toISOString()
             };
         } else if (!isDomestic) {
-            const data = (json.result && json.result[0]) || json;
+            const data = (json.datas && json.datas[0]) || (json.result && json.result[0]) || json;
             let name = data.indexName || data.itemCode || data.stockName || code;
             if (code === '.IXIC') name = '나스닥';
             if (code === '.DJI') name = '다우존스';
 
             return {
                 name,
-                price: extractNumber(data.nowValue || data.closePrice || data.closePriceRaw),
-                change: extractNumber(String(data.compareToPreviousCloseValue || data.compareToPreviousClosePrice || '0')),
-                changePercent: extractNumber(String(data.fluctuationsRatio || '0')),
+                price: extractNumber(data.nowValue || data.nowPrice || data.closePrice || data.closePriceRaw),
+                change: extractNumber(String(data.compareToPreviousCloseValue || data.compareToPreviousClosePrice || data.compareToPreviousPrice?.value || '0')),
+                changePercent: extractNumber(String(data.fluctuationsRatio || data.fluctuationsRatioRaw || '0')),
                 status: data.marketStatus,
                 time: data.localTradedAt || data.time || new Date().toISOString()
             };

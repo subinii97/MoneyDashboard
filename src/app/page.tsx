@@ -15,7 +15,7 @@ import { MarketSection } from '@/components/dashboard/MarketSection';
 
 export default function Home() {
     const { assets, history, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData } = useAssets();
-    const { marketData, loading: marketLoading, fetchMarketData } = useMarketData();
+    const { marketData, loading: marketLoading, lastFetched, fetchMarketData } = useMarketData();
     const [isPrivate, setIsPrivate] = useState(false);
 
     const handleRefresh = async () => {
@@ -70,7 +70,7 @@ export default function Home() {
                 <HeroSection totalValueKRW={totalValue} change={change} changePercent={changePercent} isPrivate={isPrivate} />
             </div>
 
-            <MarketSection data={marketData} loading={marketLoading} />
+            <MarketSection data={marketData} loading={marketLoading} lastFetched={lastFetched} />
         </main>
     );
 }

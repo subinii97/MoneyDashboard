@@ -61,6 +61,27 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                             const currentWeight = totalValue > 0 ? (currentVal / totalValue) * 100 : 0;
                             const color = CATEGORY_COLORS[a.category as keyof typeof CATEGORY_COLORS] || 'var(--primary)';
 
+                            const diff = currentWeight - a.targetWeight;
+
+                            const getDiffColor = (val: number) => {
+                                const absVal = Math.abs(val);
+                                if (absVal <= 2) return '#10b981'; // Green
+                                if (absVal >= 5) return val > 0 ? '#ef4444' : '#3b82f6'; // Solid Red/Blue
+
+                                // Interpolation (2% to 5%)
+                                const ratio = (absVal - 2) / 3;
+                                const start = { r: 16, g: 185, b: 129 }; // #10b981
+                                const end = val > 0
+                                    ? { r: 239, g: 68, b: 68 }  // #ef4444
+                                    : { r: 59, g: 130, b: 246 }; // #3b82f6
+
+                                const r = Math.round(start.r + (end.r - start.r) * ratio);
+                                const g = Math.round(start.g + (end.g - start.g) * ratio);
+                                const b = Math.round(start.b + (end.b - start.b) * ratio);
+
+                                return `rgb(${r}, ${g}, ${b})`;
+                            };
+
                             return (
                                 <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                     <td style={{ padding: '1.25rem 0' }}>
@@ -83,8 +104,8 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                                         </div>
                                     </td>
                                     <td style={{ textAlign: 'right', paddingRight: '1.5rem' }}>
-                                        <div style={{ color: currentWeight > a.targetWeight ? '#ef4444' : '#3b82f6', fontSize: '0.9rem' }}>
-                                            {(currentWeight - a.targetWeight).toFixed(1)}%
+                                        <div style={{ color: getDiffColor(diff), fontSize: '0.9rem', fontWeight: '700' }}>
+                                            {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
                                         </div>
                                     </td>
                                 </tr>

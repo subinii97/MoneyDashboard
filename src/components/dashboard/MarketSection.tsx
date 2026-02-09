@@ -9,9 +9,10 @@ interface MarketSectionProps {
         rates: any[];
     };
     loading: boolean;
+    lastFetched: Date | null;
 }
 
-export function MarketSection({ data, loading }: MarketSectionProps) {
+export function MarketSection({ data, loading, lastFetched }: MarketSectionProps) {
     const formatMarketTime = (timeStr: string) => {
         if (!timeStr) return '실시간';
         try {
@@ -102,7 +103,7 @@ export function MarketSection({ data, loading }: MarketSectionProps) {
                     </h2>
                     <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
                         <div>자동 갱신 중</div>
-                        <div style={{ fontWeight: '600' }}>{formatMarketTime(getLatestTime(data.indices))}</div>
+                        <div style={{ fontWeight: '600' }}>{lastFetched ? lastFetched.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '조회 중'}</div>
                     </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -128,7 +129,7 @@ export function MarketSection({ data, loading }: MarketSectionProps) {
                     </h2>
                     <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
                         <div>자동 갱신 중</div>
-                        <div style={{ fontWeight: '600' }}>{formatMarketTime(getLatestTime(data.rates))}</div>
+                        <div style={{ fontWeight: '600' }}>{lastFetched ? lastFetched.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '조회 중'}</div>
                     </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>

@@ -9,6 +9,7 @@ export function useMarketData() {
     const [marketData, setMarketData] = useState<MarketData>({ indices: [], rates: [] });
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [lastFetched, setLastFetched] = useState<Date | null>(null);
 
     const fetchMarketData = useCallback(async (force = false) => {
         setIsRefreshing(true);
@@ -17,6 +18,7 @@ export function useMarketData() {
             if (res.ok) {
                 const data = await res.json();
                 setMarketData(data);
+                setLastFetched(new Date());
             }
         } catch (e) {
             console.error('Failed to fetch market data', e);
@@ -34,5 +36,5 @@ export function useMarketData() {
         return () => clearInterval(interval);
     }, [fetchMarketData]);
 
-    return { marketData, loading, isRefreshing, fetchMarketData };
+    return { marketData, loading, isRefreshing, lastFetched, fetchMarketData };
 }

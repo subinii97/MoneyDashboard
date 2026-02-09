@@ -97,14 +97,14 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px', tableLayout: 'fixed' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--muted)', fontSize: '0.875rem' }}>
-                            <th style={{ padding: '0.85rem', width: '95px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>거래소</th>
+                            <th style={{ padding: '0.85rem', width: '90px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>거래소</th>
                             <th style={{ width: 'auto', paddingLeft: '0.85rem', paddingRight: '0.85rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>종목 정보</th>
-                            <th style={{ width: '120px', paddingRight: '1.2rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>평단가</th>
-                            <th style={{ width: '120px', paddingRight: '1.2rem', paddingLeft: '0.8rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>현재가</th>
-                            <th style={{ width: '90px', padding: '0.85rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>수량</th>
+                            <th style={{ width: '150px', paddingRight: '1.2rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>평단가</th>
+                            <th style={{ width: '150px', paddingRight: '1.2rem', paddingLeft: '0.8rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>현재가</th>
+                            <th style={{ width: '75px', padding: '0.85rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>수량</th>
                             <th style={{ width: '150px', paddingRight: '1.2rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>평가액</th>
-                            <th style={{ width: '190px', paddingRight: '1.8rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>수익</th>
-                            <th style={{ width: '90px', padding: '0.85rem', textAlign: 'center' }}>작업</th>
+                            <th style={{ width: '150px', paddingRight: '1.2rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>수익</th>
+                            <th style={{ width: '85px', padding: '0.85rem', textAlign: 'center' }}>작업</th>
                         </tr>
                     </thead>
                     <tbody>
