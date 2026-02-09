@@ -42,7 +42,7 @@ export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
                                         return (
                                             <div className="glass" style={{ padding: '0.5rem 1rem', border: '1px solid var(--border)', textAlign: 'left' }}>
                                                 <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{data.name}</div>
-                                                <div style={{ color: 'var(--primary)', fontWeight: 'bold', filter: isPrivate ? 'blur(6px)' : 'none' }}>{formatKRW(data.value)}</div>
+                                                <div className={isPrivate ? 'private-blur' : ''} style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{formatKRW(data.value)}</div>
                                                 <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{percent.toFixed(1)}%</div>
                                             </div>
                                         );
@@ -79,7 +79,7 @@ export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
                                         return (
                                             <div className="glass" style={{ padding: '0.5rem 1rem', border: '1px solid var(--border)', textAlign: 'left' }}>
                                                 <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{data.name} (목표)</div>
-                                                <div style={{ color: 'var(--primary)', fontWeight: 'bold', filter: isPrivate ? 'blur(6px)' : 'none' }}>{formatKRW(targetVal)}</div>
+                                                <div className={isPrivate ? 'private-blur' : ''} style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{formatKRW(targetVal)}</div>
                                                 <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{targetWeight.toFixed(1)}%</div>
                                             </div>
                                         );

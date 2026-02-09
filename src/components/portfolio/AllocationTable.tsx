@@ -34,7 +34,11 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                 <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>자산배분 상세 현황</h2>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>총 자산 평가액</div>
-                    <div style={{ fontSize: '2rem', fontWeight: '800', filter: isPrivate ? 'blur(10px)' : 'none' }}>{formatKRW(totalValue)}</div>
+                    {!isPrivate ? (
+                        <div style={{ fontSize: '2rem', fontWeight: '800' }}>{formatKRW(totalValue)}</div>
+                    ) : (
+                        <div style={{ fontSize: '2rem', fontWeight: '800', opacity: 0.3 }}>••••••</div>
+                    )}
                 </div>
             </div>
 
@@ -65,7 +69,7 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                                             <span style={{ fontWeight: '600' }}>{CATEGORY_MAP[a.category as keyof typeof CATEGORY_MAP] || a.category}</span>
                                         </div>
                                     </td>
-                                    <td style={{ textAlign: 'right', filter: isPrivate ? 'blur(8px)' : 'none' }}>{formatKRW(currentVal)}</td>
+                                    <td className={isPrivate ? 'private-blur' : ''} style={{ textAlign: 'right' }}>{formatKRW(currentVal)}</td>
                                     <td style={{ textAlign: 'right' }}>{currentWeight.toFixed(1)}%</td>
                                     <td style={{ textAlign: 'right', padding: '1rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -113,7 +117,7 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                 <tfoot>
                     <tr style={{ fontWeight: '800', fontSize: '1.1rem' }}>
                         <td style={{ padding: '1.5rem 0' }}>합계</td>
-                        <td style={{ textAlign: 'right', filter: isPrivate ? 'blur(10px)' : 'none' }}>{formatKRW(totalValue)}</td>
+                        <td className={isPrivate ? 'private-blur' : ''} style={{ textAlign: 'right' }}>{formatKRW(totalValue)}</td>
                         <td style={{ textAlign: 'right' }}>100.0%</td>
                         <td style={{ textAlign: 'right', color: Math.round(totalTargetWeight) === 100 ? '#10b981' : '#ef4444' }}>
                             {Math.round(totalTargetWeight)}%

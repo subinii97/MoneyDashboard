@@ -202,9 +202,8 @@ export default function InvestmentManager() {
                     <span className="section-label">Management</span>
                     <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Assets</h1>
                     <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                        <DollarSign size={14} /> 1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
+                        1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
                         {lastUpdated && <span style={{ opacity: 0.8, marginLeft: '4px' }}>• {lastUpdated} 갱신</span>}
-                        {rateTime && <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>(시장 {rateTime})</span>}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>

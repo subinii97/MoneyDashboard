@@ -29,26 +29,30 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             }}
         >
             <span className="section-label" style={{ marginBottom: '1.5rem', opacity: 0.8 }}>Total Net Worth</span>
-            <div className="hero-value" style={{ filter: isPrivate ? 'blur(16px)' : 'none', transition: 'filter 0.3s ease', marginBottom: '1.5rem' }}>
-                {formatKRW(totalValueKRW)}
-            </div>
+            {!isPrivate && (
+                <div className="hero-value" style={{ marginBottom: '1.5rem' }}>
+                    {formatKRW(totalValueKRW)}
+                </div>
+            )}
 
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.75rem',
-                padding: '0.6rem 1.25rem',
+                padding: isPrivate ? '1rem 2rem' : '0.6rem 1.25rem',
                 borderRadius: '100px',
                 backgroundColor: change >= 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                 color: change >= 0 ? '#ef4444' : '#60a5fa',
                 fontWeight: '700',
-                fontSize: '1.1rem'
+                fontSize: isPrivate ? '1.5rem' : '1.1rem'
             }}>
-                {change >= 0 ? <TrendingUp size={22} /> : <TrendingUp size={22} style={{ transform: 'rotate(180deg)' }} />}
+                {change >= 0 ? <TrendingUp size={isPrivate ? 28 : 22} /> : <TrendingUp size={isPrivate ? 28 : 22} style={{ transform: 'rotate(180deg)' }} />}
                 <span>{change >= 0 ? '+' : ''}{changePercent.toFixed(2)}%</span>
-                <span style={{ fontSize: '0.9rem', opacity: 0.7, filter: isPrivate ? 'blur(8px)' : 'none', marginLeft: '0.2rem' }}>
-                    ({formatKRW(Math.abs(change))})
-                </span>
+                {!isPrivate && (
+                    <span style={{ fontSize: '0.9rem', opacity: 0.7, marginLeft: '0.2rem' }}>
+                        ({formatKRW(Math.abs(change))})
+                    </span>
+                )}
             </div>
         </SpotlightCard>
     );

@@ -63,25 +63,31 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.01em' }}>{title}</h3>
                 </div>
                 <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
-                    <div style={{ textAlign: 'left' }}>
-                        <span className="section-label" style={{ marginBottom: '0.2rem' }}>Sub Total</span>
-                        <div className="hero-value" style={{ fontSize: '1.75rem', filter: isPrivate ? 'blur(10px)' : 'none' }}>{formatKRW(subTotal)}</div>
-                    </div>
+                    {!isPrivate && (
+                        <div style={{ textAlign: 'left' }}>
+                            <span className="section-label" style={{ marginBottom: '0.2rem' }}>Sub Total</span>
+                            <div className="hero-value" style={{ fontSize: '1.75rem' }}>{formatKRW(subTotal)}</div>
+                        </div>
+                    )}
                     <div style={{ textAlign: 'left' }}>
                         <span className="section-label" style={{ marginBottom: '0.2rem' }}>Daily Change</span>
-                        <div style={{ fontSize: '1.2rem', color: dailyChange > 0 ? '#ef4444' : (dailyChange < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
-                            {dailyChange > 0 ? '+' : ''}{formatKRW(dailyChange)}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: dailyChange > 0 ? '#ef4444' : (dailyChange < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '600', opacity: 0.8 }}>
+                        {!isPrivate && (
+                            <div style={{ fontSize: '1.2rem', color: dailyChange > 0 ? '#ef4444' : (dailyChange < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '800' }}>
+                                {dailyChange > 0 ? '+' : ''}{formatKRW(dailyChange)}
+                            </div>
+                        )}
+                        <div style={{ fontSize: '1.1rem', color: dailyChange > 0 ? '#ef4444' : (dailyChange < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '700', padding: isPrivate ? '0.5rem 0' : '0' }}>
                             {dailyChange > 0 ? '▲' : (dailyChange < 0 ? '▼' : '')}{Math.abs(dailyChangePercent).toFixed(2)}%
                         </div>
                     </div>
                     <div style={{ textAlign: 'left' }}>
                         <span className="section-label" style={{ marginBottom: '0.2rem' }}>Total Gain/Loss</span>
-                        <div style={{ fontSize: '1.2rem', color: totalPL > 0 ? '#ef4444' : (totalPL < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '800', filter: isPrivate ? 'blur(8px)' : 'none' }}>
-                            {totalPL > 0 ? '+' : ''}{formatKRW(totalPL)}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: totalPL > 0 ? '#ef4444' : (totalPL < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '600', opacity: 0.8 }}>
+                        {!isPrivate && (
+                            <div style={{ fontSize: '1.2rem', color: totalPL > 0 ? '#ef4444' : (totalPL < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '800' }}>
+                                {totalPL > 0 ? '+' : ''}{formatKRW(totalPL)}
+                            </div>
+                        )}
+                        <div style={{ fontSize: '1.1rem', color: totalPL > 0 ? '#ef4444' : (totalPL < 0 ? '#60a5fa' : 'var(--muted)'), fontWeight: '700', padding: isPrivate ? '0.5rem 0' : '0' }}>
                             {totalPL > 0 ? '▲' : (totalPL < 0 ? '▼' : '')}{Math.abs(totalPLPercent).toFixed(2)}%
                         </div>
                     </div>
@@ -133,13 +139,17 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                     </td>
                                     <td style={{ fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem' }}>
                                         {isUSD
-                                            ? `$${inv.avgPrice.toLocaleString(undefined, { minimumFractionDigits: inv.avgPrice < 100 ? 4 : 2, maximumFractionDigits: inv.avgPrice < 100 ? 4 : 2 })}`
+                                            ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem' }}>
+                                                ${inv.avgPrice.toLocaleString(undefined, { minimumFractionDigits: inv.avgPrice < 100 ? 4 : 2, maximumFractionDigits: inv.avgPrice < 100 ? 4 : 2 })}
+                                            </div>
                                             : formatKRW(inv.avgPrice)}
                                     </td>
                                     <td style={{ fontSize: '0.98rem', fontWeight: '500', textAlign: 'right', paddingRight: '1.2rem', paddingLeft: '0.8rem' }}>
                                         <div>
                                             {isUSD
-                                                ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: currentPrice < 100 ? 4 : 2, maximumFractionDigits: currentPrice < 100 ? 4 : 2 })}`
+                                                ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem' }}>
+                                                    ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: currentPrice < 100 ? 4 : 2, maximumFractionDigits: currentPrice < 100 ? 4 : 2 })}
+                                                </div>
                                                 : formatKRW(currentPrice)}
                                         </div>
                                         {inv.change !== undefined && (
@@ -152,10 +162,10 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                             </div>
                                         )}
                                     </td>
-                                    <td style={{ textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
+                                    <td className={isPrivate ? 'private-blur' : ''} style={{ textAlign: 'right', paddingRight: '1.2rem' }}>
                                         {inv.shares}
                                     </td>
-                                    <td style={{ fontWeight: '600', fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem', filter: isPrivate ? 'blur(8px)' : 'none', userSelect: isPrivate ? 'none' : 'auto', pointerEvents: isPrivate ? 'none' : 'auto' }}>
+                                    <td className={isPrivate ? 'private-blur' : ''} style={{ fontWeight: '600', fontSize: '0.98rem', textAlign: 'right', paddingRight: '1.2rem' }}>
                                         {formatKRW(marketValKRW)}
                                     </td>
                                     <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
@@ -193,6 +203,6 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div >
     );
 };

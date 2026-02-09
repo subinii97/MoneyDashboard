@@ -141,3 +141,9 @@ input.glass:focus {
 .animate-spin {
     animation: spin 1s linear infinite;
 }
+
+.private-blur {
+    filter: blur(8px);
+    pointer-events: none;
+    user-select: none;
+}

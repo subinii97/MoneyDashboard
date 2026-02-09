@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Activity, Briefcase, BarChart2, ArrowRight, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Activity, Briefcase, BarChart2, ArrowRight, Eye, EyeOff, RefreshCw, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { CATEGORY_MAP } from '@/lib/types';
 import { formatKRW, convertToKRW } from '@/lib/utils';
@@ -49,9 +49,8 @@ export default function Home() {
                     </button>
                     {rate && (
                         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            💵 1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
+                            <DollarSign size={14} /> 1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
                             {lastUpdated && <span style={{ opacity: 0.8 }}>• {lastUpdated} 갱신</span>}
-                            {rateTime && <span style={{ opacity: 0.5, fontSize: '0.75rem' }}>(시장 {rateTime})</span>}
                         </p>
                     )}
                 </div>
