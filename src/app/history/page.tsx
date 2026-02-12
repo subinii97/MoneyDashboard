@@ -19,6 +19,7 @@ export default function HistoryPage() {
 
     const [showAddMonthly, setShowAddMonthly] = useState(false);
     const [newMonthly, setNewMonthly] = useState({ month: '', value: '', cash: '', domestic: '', overseas: '' });
+    const [dailyMonthIndex, setDailyMonthIndex] = useState(0);
     const [comparisonData, setComparisonData] = useState<any[]>([]);
     const [comparisonScope, setComparisonScope] = useState<'1w' | '2w' | '1m' | '3m'>('1m');
 
@@ -88,6 +89,8 @@ export default function HistoryPage() {
             <DailySettlementTable
                 dailyGroupedByMonth={dailyGroupedByMonth}
                 getDayOfWeek={getDayOfWeek}
+                monthIndex={dailyMonthIndex}
+                setMonthIndex={setDailyMonthIndex}
             />
 
             <WeeklySettlementTable

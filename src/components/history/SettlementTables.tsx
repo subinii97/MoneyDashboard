@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { formatKRW } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Calendar, ArrowLeftRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface RenderChangeProps {
     val: number;
@@ -38,13 +38,44 @@ const RenderChange: React.FC<RenderChangeProps> = ({ val, percent, showPercentOn
     );
 };
 
-export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek }: any) => {
+export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthIndex, setMonthIndex }: any) => {
+    const months = Object.keys(dailyGroupedByMonth).sort((a, b) => b.localeCompare(a));
+    const currentMonth = months[monthIndex];
+    const entries = dailyGroupedByMonth[currentMonth] || [];
+
     return (
         <section style={{ marginBottom: '4rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <Calendar size={24} color="var(--primary)" />
-                <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>일별 정산</h2>
+            <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <Calendar size={24} color="var(--primary)" />
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>일별 정산</h2>
+                </div>
+
+                {months.length > 1 && (
+                    <div className="glass flex-center" style={{ gap: '1rem', padding: '0.4rem 0.8rem' }}>
+                        <button
+                            onClick={() => monthIndex < months.length - 1 && setMonthIndex(monthIndex + 1)}
+                            disabled={monthIndex >= months.length - 1}
+                            className="flex-center"
+                            style={{ background: 'none', border: 'none', color: monthIndex >= months.length - 1 ? 'var(--border)' : 'white', cursor: 'pointer' }}
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <span style={{ fontSize: '0.9rem', fontWeight: '700', minWidth: '80px', textAlign: 'center' }}>
+                            {currentMonth?.replace('-', '년 ')}월
+                        </span>
+                        <button
+                            onClick={() => monthIndex > 0 && setMonthIndex(monthIndex - 1)}
+                            disabled={monthIndex <= 0}
+                            className="flex-center"
+                            style={{ background: 'none', border: 'none', color: monthIndex <= 0 ? 'var(--border)' : 'white', cursor: 'pointer' }}
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                )}
             </div>
+
             <div className="glass" style={{ overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                     <thead>
@@ -56,39 +87,30 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek }: any)
                         </tr>
                     </thead>
                     <tbody>
-                        {Object.entries(dailyGroupedByMonth).sort((a, b) => b[0].localeCompare(a[0])).map(([month, entries]: any) => (
-                            <React.Fragment key={month}>
-                                <tr style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
-                                    <td colSpan={4} style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', fontWeight: '700', color: 'var(--primary)', borderBottom: '1px solid var(--border)' }}>
-                                        {month.replace('-', '년 ')}월
-                                    </td>
-                                </tr>
-                                {entries.map((d: any) => (
-                                    <tr key={d.date} style={{ borderBottom: '1px solid var(--border)' }}>
-                                        <td style={{ padding: '1rem' }}>
-                                            <div style={{ fontWeight: '600' }}>{d.date.substring(5)}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{getDayOfWeek(d.date)}요일</div>
-                                        </td>
-                                        <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700' }}>{formatKRW(d.totalValue)}</td>
-                                        <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                            <RenderChange val={d.change} percent={d.changePercent} />
-                                        </td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                                {['cash', 'domestic', 'overseas'].map((key) => (
-                                                    <div key={key} style={{ fontSize: '0.8rem' }}>
-                                                        <div style={{ color: 'var(--muted)', fontSize: '0.7rem', marginBottom: '0.2rem' }}>
-                                                            {key === 'cash' ? '현금/예금' : key === 'domestic' ? '국내투자' : '해외투자'}
-                                                        </div>
-                                                        <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(d.metrics[key].current)}</div>
-                                                        <RenderChange val={d.metrics[key].change} percent={d.metrics[key].percent} showPercentOnly />
-                                                    </div>
-                                                ))}
+                        {entries.map((d: any) => (
+                            <tr key={d.date} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '1rem' }}>
+                                    <div style={{ fontWeight: '600' }}>{d.date.substring(5)}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{getDayOfWeek(d.date)}요일</div>
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700' }}>{formatKRW(d.totalValue)}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                    <RenderChange val={d.change} percent={d.changePercent} />
+                                </td>
+                                <td style={{ padding: '1rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                                        {['cash', 'domestic', 'overseas'].map((key) => (
+                                            <div key={key} style={{ fontSize: '0.8rem' }}>
+                                                <div style={{ color: 'var(--muted)', fontSize: '0.7rem', marginBottom: '0.2rem' }}>
+                                                    {key === 'cash' ? '현금/예금' : key === 'domestic' ? '국내투자' : '해외투자'}
+                                                </div>
+                                                <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(d.metrics[key].current)}</div>
+                                                <RenderChange val={d.metrics[key].change} percent={d.metrics[key].percent} showPercentOnly />
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                </td>
+                            </tr>
                         ))}
                     </tbody>
                 </table>
