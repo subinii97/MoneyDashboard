@@ -133,15 +133,27 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
                     </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {data.rates.map((rate: any) => (
-                        <div key={rate.id} style={rowStyle}>
-                            <div>
-                                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'rgba(255,255,255,0.9)', marginBottom: '0.2rem' }}>{rate.name || rate.id}</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: '500' }}>{formatMarketTime(rate.time)}</div>
+                    {data.rates.map((rate: any) => {
+                        const timeStatus = formatMarketTime(rate.time);
+                        const isLive = timeStatus === '실시간';
+                        return (
+                            <div key={rate.id} style={rowStyle}>
+                                <div>
+                                    <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'rgba(255,255,255,0.9)', marginBottom: '0.2rem' }}>{rate.name || rate.id}</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: '500' }}>
+                                        <span style={{ color: isLive ? '#22c55e' : 'var(--muted)', marginRight: '0.3rem' }}>{isLive ? '●' : '○'}</span>
+                                        {isLive ? '실시간' : timeStatus}
+                                        {isLive && rate.time && (
+                                            <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '0.2rem' }}>
+                                                ({new Date(rate.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })})
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                {renderPriceInfo(rate)}
                             </div>
-                            {renderPriceInfo(rate)}
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </SpotlightCard>
         </div>

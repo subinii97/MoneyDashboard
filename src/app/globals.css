@@ -147,3 +147,21 @@ input.glass:focus {
     pointer-events: none;
     user-select: none;
 }
+/* Layout Utilities */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-col { display: flex; flex-direction: column; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+
+/* Table Styling */
+.dashboard-table { width: 100%; border-collapse: collapse; text-align: left; }
+.dashboard-table th { 
+    padding: 1rem; 
+    background: rgba(255, 255, 255, 0.03); 
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.dashboard-table td { padding: 1rem; border-bottom: 1px solid var(--border); }
+.dashboard-table tr:last-child td { border-bottom: none; }
