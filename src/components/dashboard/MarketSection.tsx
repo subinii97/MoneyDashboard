@@ -112,7 +112,7 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
                             <div>
                                 <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'rgba(255,255,255,0.9)', marginBottom: '0.2rem' }}>{idx.name || idx.id}</div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: '500' }}>
-                                    {idx.status === 'OPEN' ? <span style={{ color: '#22c55e' }}>● 장중</span> : <span>○ {formatMarketTime(idx.time)}</span>}
+                                    {idx.status === 'OPEN' ? <span style={{ color: '#22c55e' }}>● 장중</span> : (idx.status === 'CLOSE' ? <span>○ 장마감</span> : <span>○ {formatMarketTime(idx.time)}</span>)}
                                 </div>
                             </div>
                             {renderPriceInfo(idx)}

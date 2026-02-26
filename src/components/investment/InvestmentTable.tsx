@@ -88,7 +88,13 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {investments.map((inv) => (
+                        {[...investments].sort((a, b) => {
+                            const getRate = (inv: Investment) => {
+                                const curr = inv.currentPrice || inv.avgPrice;
+                                return inv.avgPrice > 0 ? ((curr - inv.avgPrice) / inv.avgPrice) : 0;
+                            };
+                            return getRate(b) - getRate(a);
+                        }).map((inv) => (
                             <InvestmentTableRow
                                 key={inv.id}
                                 inv={inv}

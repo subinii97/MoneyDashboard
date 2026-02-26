@@ -6,10 +6,12 @@ import { ChevronLeft } from 'lucide-react';
 import { useHistoryData } from '@/hooks/useHistoryData';
 import CumulativeReturnChart from '@/components/history/CumulativeReturnChart';
 import { DailySettlementTable, WeeklySettlementTable, MonthlySettlementTable } from '@/components/history/SettlementTables';
+import SettlementTrendChart from '@/components/history/SettlementTrendChart';
 
 export default function HistoryPage() {
     const router = useRouter();
     const {
+        dailySettlements,
         dailyGroupedByMonth,
         weeklySettlements,
         monthlySettlements,
@@ -79,6 +81,12 @@ export default function HistoryPage() {
                 </button>
                 <h1 style={{ fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em' }}>내역 관리</h1>
             </div>
+
+            <SettlementTrendChart
+                dailyData={dailySettlements}
+                weeklyData={weeklySettlements}
+                monthlyData={monthlySettlements}
+            />
 
             <CumulativeReturnChart
                 data={comparisonData}

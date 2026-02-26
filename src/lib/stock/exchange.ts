@@ -44,7 +44,7 @@ export async function fetchExchangeRate(forceRefresh = false) {
     }
 }
 
-export async function fetchMarketExchangeRate(code: string) {
+export async function fetchMarketExchangeRate(code: string, forceRefresh = false) {
     // Specialized handling for EURUSD
     if (code === 'FX_EURUSD') {
         const googlePrice = await fetchEURUSDFromGoogle();

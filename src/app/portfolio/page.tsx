@@ -59,10 +59,18 @@ export default function PortfolioPage() {
     const saveChanges = async () => {
         setIsSaving(true);
         try {
+            const syncedAllocations = assets.allocations.map(a => {
+                if (a.details && a.details.length > 0) {
+                    const sum = a.details.reduce((acc, d) => acc + convertToKRW(d.value, d.currency || (a.currency as any), rate), 0);
+                    const baseSum = a.currency === 'USD' ? sum / rate : sum;
+                    return { ...a, value: baseSum };
+                }
+                return a;
+            });
             await fetch('/api/assets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...assets, allocations: assets.allocations.filter(a => FIXED_CATEGORIES.includes(a.category)) }),
+                body: JSON.stringify({ ...assets, allocations: syncedAllocations.filter(a => FIXED_CATEGORIES.includes(a.category)) }),
             });
             setHasChanges(false);
             alert('저장되었습니다.');

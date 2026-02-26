@@ -56,8 +56,8 @@ export async function fetchMarketIndex(code: string, forceRefresh = false) {
     return fetchOverseasIndex(code);
 }
 
-export async function fetchMarketExchangeRate(code: string) {
-    return fetchMktRate(code);
+export async function fetchMarketExchangeRate(code: string, forceRefresh = false) {
+    return fetchMktRate(code, forceRefresh);
 }
 
 /**
@@ -89,18 +89,25 @@ export async function fetchMarketIndexHistory(code: string, days: number = 30) {
     } else if (code === 'NASDAQ' || code === 'DOW') {
         const symbol = code === 'NASDAQ' ? 'NAS@IXIC' : 'DJI@DJI';
         try {
-            const pages = [1, 2, 3, 4, 5];
+            // Calculate required pages (1 page = 10 items)
+            const pagesCount = Math.ceil(days / 10) + 1;
+            const pages = Array.from({ length: Math.min(pagesCount, 20) }, (_, i) => i + 1);
+
             const allItems = await Promise.all(pages.map(async (page) => {
                 const url = `https://finance.naver.com/world/worldDayListJson.naver?symbol=${symbol}&fdtc=0&page=${page}`;
                 const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
                 return response.json();
             }));
 
-            const flattened = allItems.flat();
-            return flattened.map((item: any) => ({
+            const flattened = allItems.flat().filter(item => item && item.xymd && item.clos);
+            const data = flattened.map((item: any) => ({
                 date: `${item.xymd.substring(0, 4)}-${item.xymd.substring(4, 6)}-${item.xymd.substring(6, 8)}`,
                 close: parseFloat(item.clos)
-            })).sort((a, b) => a.date.localeCompare(b.date));
+            }));
+
+            // Remove duplicates and sort
+            const uniqueData = Array.from(new Map(data.map(item => [item.date, item])).values());
+            return uniqueData.sort((a, b) => a.date.localeCompare(b.date));
         } catch (e) {
             console.error(`Error fetching historical ${code}:`, e);
             return [];

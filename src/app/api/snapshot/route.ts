@@ -91,8 +91,9 @@ export async function POST(request: Request) {
                 // If yesterday is missing, we MUST settle it now using the first prices we find today
                 targetDate = yesterdayStr;
                 shouldSaveToHistory = true;
-            } else if (now.getHours() === 0) {
-                // During the 00:00 - 00:59 window, we are finalizing yesterday's settlement
+            } else if (now.getHours() < 7) {
+                // Before 07:00 AM, we are finalizing yesterday's settlement
+                // This captures US market close prices for overseas stocks (US market closes around 05:00-06:00 AM KST)
                 targetDate = yesterdayStr;
                 shouldSaveToHistory = true;
             } else {
@@ -143,27 +144,44 @@ export async function POST(request: Request) {
                 'Domestic Bond', 'Overseas Bond'
             ].includes(a.category))
             .reduce((acc, a) => {
-                const val = a.value || 0;
+                let val = a.value || 0;
+                if (a.details && a.details.length > 0) {
+                    val = a.details.reduce((sum, d) => {
+                        const dVal = d.value || 0;
+                        const dRate = (d.currency === 'USD' ? rate : 1);
+                        const aRate = (a.currency === 'USD' ? rate : 1);
+                        return sum + (dVal * dRate / aRate);
+                    }, 0);
+                }
                 return acc + (a.currency === 'USD' ? val * rate : val);
             }, 0);
 
         const totalValue = totalOtherValue + totalInvValue;
 
         const updatedAllocations = (assets.allocations || []).map(alc => {
-            const categoryValue = invEntries
-                .filter(inv => inv.category === alc.category)
-                .reduce((sum, inv) => {
-                    const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
-                    return sum + (inv.currency === 'USD' ? val * rate : val);
-                }, 0);
-
             if (alc.category === 'Domestic Stock' ||
                 alc.category === 'Overseas Stock' ||
                 alc.category === 'Domestic Index' ||
                 alc.category === 'Overseas Index' ||
                 alc.category === 'Domestic Bond' ||
                 alc.category === 'Overseas Bond') {
+                const categoryValue = invEntries
+                    .filter(inv => inv.category === alc.category)
+                    .reduce((sum, inv) => {
+                        const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
+                        return sum + (inv.currency === 'USD' ? val * rate : val);
+                    }, 0);
                 return { ...alc, value: categoryValue / (alc.currency === 'USD' ? rate : 1) };
+            }
+
+            if (alc.details && alc.details.length > 0) {
+                const sumValue = alc.details.reduce((sum, d) => {
+                    const dVal = d.value || 0;
+                    const dRate = (d.currency === 'USD' ? rate : 1);
+                    const aRate = (alc.currency === 'USD' ? rate : 1);
+                    return sum + (dVal * dRate / aRate);
+                }, 0);
+                return { ...alc, value: sumValue };
             }
             return alc;
         });

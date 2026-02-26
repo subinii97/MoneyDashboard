@@ -57,9 +57,10 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
         const prevHoldings = (yesterday.holdings ? JSON.parse(typeof yesterday.holdings === 'string' ? yesterday.holdings : JSON.stringify(yesterday.holdings)) : [])
             .filter((h: any) => h.marketType === type || h.category?.startsWith(type) || h.category?.includes(type));
 
-        const currHoldings = (today.holdings ? JSON.parse(typeof today.holdings === 'string' ? today.holdings : JSON.stringify(today.holdings)) : []);
+        const currHoldingsAll = (today.holdings ? JSON.parse(typeof today.holdings === 'string' ? today.holdings : JSON.stringify(today.holdings)) : []);
+        const currHoldings = currHoldingsAll.filter((h: any) => h.marketType === type || h.category?.startsWith(type) || h.category?.includes(type));
 
-        if (prevHoldings.length === 0) {
+        if (prevHoldings.length === 0 && currHoldings.length === 0) {
             multipliersMap[today.date] = cumReturn;
             continue;
         }
@@ -80,6 +81,28 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
             const cVal = cPrice * ph.shares;
             const cValKRW = convertToKRW(cVal, ph.currency || (type === 'Domestic' ? 'KRW' : 'USD'), rateCurr);
             projectedMarketValue += cValKRW;
+        });
+
+        // Add profit of new shares bought today
+        currHoldings.forEach((ch: any) => {
+            const ph = prevHoldings.find((h: any) => h.symbol === ch.symbol);
+            const prevShares = ph ? ph.shares : 0;
+
+            if (ch.shares > prevShares) {
+                const newShares = ch.shares - prevShares;
+                const cPrice = ch.currentPrice || ch.avgPrice;
+                const currency = ch.currency || (type === 'Domestic' ? 'KRW' : 'USD');
+
+                const prevCost = ph ? ph.shares * ph.avgPrice : 0;
+                const currCost = ch.shares * ch.avgPrice;
+                const costOfNewShares = currCost - prevCost;
+
+                const costOfNewSharesKRW = convertToKRW(costOfNewShares, currency, rateCurr);
+                const currentValueOfNewSharesKRW = convertToKRW(newShares * cPrice, currency, rateCurr);
+
+                prevMarketValue += costOfNewSharesKRW;
+                projectedMarketValue += currentValueOfNewSharesKRW;
+            }
         });
 
         const dayReturn = prevMarketValue > 0 ? (projectedMarketValue / prevMarketValue) : 1;
