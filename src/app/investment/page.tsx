@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { RefreshCw, Layers, List, Eye, EyeOff } from 'lucide-react';
+import { RefreshCw, Layers, List, Eye, EyeOff, PlusCircle } from 'lucide-react';
 import { Investment, MarketType, Transaction, AssetCategory } from '@/lib/types';
 import { useAssets } from '@/hooks/useAssets';
 import { useInvestmentActions } from '@/hooks/useInvestmentActions';
@@ -28,6 +28,7 @@ export default function InvestmentManager() {
 
     const [viewMode, setViewMode] = useState<'aggregated' | 'detailed'>('aggregated');
     const [isPrivate, setIsPrivate] = useState(false);
+    const [showAddModal, setShowAddModal] = useState(false);
 
 
     // New asset form
@@ -137,11 +138,12 @@ export default function InvestmentManager() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={() => setShowAddModal(true)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--primary)', fontWeight: '600', fontSize: '0.9rem' }}>
+                        <PlusCircle size={18} /> 종목 추가
+                    </button>
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
                         {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
-
                     </button>
-
                     <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem' }}>
                         {viewMode === 'aggregated' ? <List size={18} /> : <Layers size={18} />} {viewMode === 'aggregated' ? '상세 내역' : '합산 내역'}
                     </button>
@@ -178,20 +180,7 @@ export default function InvestmentManager() {
                     />
                 )}
 
-                <AddAssetCard
-                    newInvestment={newInvestment}
-                    mousePos={mousePos}
-                    onMouseMove={handleMouseMove}
-                    onFormChange={(f, v) => setNewInvestment(p => ({
-                        ...p, [f]: v,
-                        marketType: f === 'category'
-                            ? (v.includes('Overseas') ? 'Overseas' : 'Domestic')
-                            : p.marketType
-                    }))}
-                    onSubmit={() => addInvestment(newInvestment).then(() =>
-                        setNewInvestment({ symbol: '', shares: '', avgPrice: '', marketType: 'Domestic', category: 'Domestic Stock' })
-                    )}
-                />
+
             </div>
 
             {showTxModal && selectedInv && (
@@ -226,6 +215,26 @@ export default function InvestmentManager() {
                         await saveEdit(editingInvestment, editForm, viewMode);
                         setShowEditModal(false);
                     }}
+                />
+            )}
+
+            {showAddModal && (
+                <AddAssetCard
+                    newInvestment={newInvestment}
+                    mousePos={mousePos}
+                    onMouseMove={handleMouseMove}
+                    onFormChange={(f, v) => setNewInvestment(p => ({
+                        ...p, [f]: v,
+                        marketType: f === 'category'
+                            ? (v.includes('Overseas') ? 'Overseas' : 'Domestic')
+                            : p.marketType
+                    }))}
+                    onSubmit={async () => {
+                        await addInvestment(newInvestment);
+                        setNewInvestment({ symbol: '', shares: '', avgPrice: '', marketType: 'Domestic', category: 'Domestic Stock' });
+                        setShowAddModal(false);
+                    }}
+                    onCancel={() => setShowAddModal(false)}
                 />
             )}
         </main>
