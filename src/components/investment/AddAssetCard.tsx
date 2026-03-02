@@ -91,7 +91,7 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
-            <div className="glass" onMouseMove={onMouseMove} style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--primary-glow)', backgroundColor: '#1a1d23', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', overflow: 'visible', position: 'relative' }}>
+            <div className="glass" onMouseMove={onMouseMove} style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--primary-glow)', backgroundColor: 'var(--card)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', overflow: 'visible', position: 'relative' }}>
                 <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
