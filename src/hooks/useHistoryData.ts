@@ -1,61 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
-import { HistoryEntry, AssetCategory } from '@/lib/types';
+import {
+    HistoryEntry,
+    AssetCategory,
+    DailySettlement,
+    WeeklySettlement,
+    MonthlySettlement,
+    FullSettlementMetrics,
+    SettlementMetric,
+} from '@/lib/types';
 import { getCategoryValue } from '@/lib/settlement';
 import { convertToKRW } from '@/lib/utils';
 
-export interface DailySettlement extends HistoryEntry {
-    change: number;
-    changePercent: number;
-    metrics: {
-        cash: { current: number; change: number; percent: number };
-        domStock: { current: number; change: number; percent: number };
-        domIndex: { current: number; change: number; percent: number };
-        domBond: { current: number; change: number; percent: number };
-        osStock: { current: number; change: number; percent: number };
-        osIndex: { current: number; change: number; percent: number };
-        osBond: { current: number; change: number; percent: number };
-        domestic: { current: number; change: number; percent: number };
-        overseas: { current: number; change: number; percent: number };
-    };
-}
-
-export interface WeeklySettlement {
-    period: string;
-    value: number;
-    change: number;
-    changePercent: number;
-    metrics: {
-        cash: { current: number; change: number; percent: number };
-        domStock: { current: number; change: number; percent: number };
-        domIndex: { current: number; change: number; percent: number };
-        domBond: { current: number; change: number; percent: number };
-        osStock: { current: number; change: number; percent: number };
-        osIndex: { current: number; change: number; percent: number };
-        osBond: { current: number; change: number; percent: number };
-        domestic: { current: number; change: number; percent: number };
-        overseas: { current: number; change: number; percent: number };
-    };
-}
-
-export interface MonthlySettlement {
-    month: string;
-    value: number;
-    cashSavings: number;
-    domestic: number;
-    overseas: number;
-    change: number;
-    changePercent: number;
-    metrics: {
-        cash: number;
-        domStock: number;
-        domIndex: number;
-        domBond: number;
-        osStock: number;
-        osIndex: number;
-        osBond: number;
-    };
-    isManual?: boolean;
-}
+export type { DailySettlement, WeeklySettlement, MonthlySettlement };
 
 export function useHistoryData() {
     const [history, setHistory] = useState<HistoryEntry[]>([]);

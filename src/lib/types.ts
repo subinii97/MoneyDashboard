@@ -1,5 +1,42 @@
+// ── Primitive types ──────────────────────────────────────────────────────────
 export type MarketType = 'Domestic' | 'Overseas';
+export type TransactionType = 'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW';
+export type Currency = 'KRW' | 'USD';
 
+export type AssetCategory =
+    | 'Cash'
+    | 'Savings'
+    | 'Domestic Stock'
+    | 'Domestic Index'
+    | 'Domestic Bond'
+    | 'Overseas Stock'
+    | 'Overseas Bond'
+    | 'Overseas Index';
+
+// ── Constants ────────────────────────────────────────────────────────────────
+export const CATEGORY_MAP: Record<AssetCategory, string> = {
+    'Cash': '현금',
+    'Savings': '예적금',
+    'Domestic Stock': '국내 주식',
+    'Domestic Index': '국내 지수',
+    'Domestic Bond': '국내 채권',
+    'Overseas Stock': '해외 주식',
+    'Overseas Bond': '해외 채권',
+    'Overseas Index': '해외 지수'
+};
+
+export const CATEGORY_COLORS: Record<AssetCategory, string> = {
+    'Cash': '#059669',
+    'Savings': '#34d399',
+    'Domestic Stock': '#2563eb',
+    'Domestic Index': '#3b82f6',
+    'Domestic Bond': '#93c5fd',
+    'Overseas Stock': '#8b5cf6',
+    'Overseas Bond': '#a78bfa',
+    'Overseas Index': '#c4b5fd'
+};
+
+// ── Core domain interfaces ────────────────────────────────────────────────────
 export interface Investment {
     id: string;
     symbol: string;
@@ -18,50 +55,18 @@ export interface Investment {
     previousClose?: number;
 }
 
-export type AssetCategory =
-    | 'Cash'
-    | 'Savings'
-    | 'Domestic Stock'
-    | 'Domestic Index'
-    | 'Domestic Bond'
-    | 'Overseas Stock'
-    | 'Overseas Bond'
-    | 'Overseas Index';
-
-export const CATEGORY_MAP: Record<AssetCategory, string> = {
-    'Cash': '현금',
-    'Savings': '예적금',
-    'Domestic Stock': '국내 주식',
-    'Domestic Index': '국내 지수',
-    'Domestic Bond': '국내 채권',
-    'Overseas Stock': '해외 주식',
-    'Overseas Bond': '해외 채권',
-    'Overseas Index': '해외 지수'
-};
-
-export const CATEGORY_COLORS: Record<AssetCategory, string> = {
-    'Cash': '#059669',           // Emerald
-    'Savings': '#34d399',         // Medium Emerald/Green
-    'Domestic Stock': '#2563eb',  // Blue
-    'Domestic Index': '#3b82f6',  // Light Blue
-    'Domestic Bond': '#93c5fd',   // Very Light Blue
-    'Overseas Stock': '#8b5cf6',  // Violet
-    'Overseas Bond': '#a78bfa',   // Light Violet
-    'Overseas Index': '#c4b5fd'    // Very Light Violet
-};
-
 export interface AssetDetail {
     id: string;
     name: string;
     value: number;
-    currency?: 'KRW' | 'USD';
+    currency?: Currency;
 }
 
 export interface AssetAllocation {
     id: string;
     category: AssetCategory;
-    value: number; // Sum of details or manual value if no details
-    currency: 'KRW' | 'USD';
+    value: number;
+    currency: Currency;
     targetWeight: number;
     details?: AssetDetail[];
 }
@@ -71,17 +76,15 @@ export interface Assets {
     allocations: AssetAllocation[];
 }
 
-export type TransactionType = 'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW';
-
 export interface Transaction {
     id: string;
     date: string;
     type: TransactionType;
-    symbol?: string; // For BUY/SELL
-    amount: number; // For DEPOSIT/WITHDRAW or total price for BUY/SELL
-    shares?: number; // For BUY/SELL
-    price?: number; // For BUY/SELL
-    currency: 'KRW' | 'USD';
+    symbol?: string;
+    amount: number;
+    shares?: number;
+    price?: number;
+    currency: Currency;
     notes?: string;
 }
 
@@ -97,3 +100,55 @@ export interface HistoryEntry {
     isLive?: boolean;
 }
 
+// ── Settlement types ──────────────────────────────────────────────────────────
+export interface SettlementMetric {
+    current: number;
+    change: number;
+    percent: number;
+}
+
+export interface FullSettlementMetrics {
+    cash: SettlementMetric;
+    domStock: SettlementMetric;
+    domIndex: SettlementMetric;
+    domBond: SettlementMetric;
+    osStock: SettlementMetric;
+    osIndex: SettlementMetric;
+    osBond: SettlementMetric;
+    domestic: SettlementMetric;
+    overseas: SettlementMetric;
+}
+
+export interface DailySettlement extends HistoryEntry {
+    change: number;
+    changePercent: number;
+    metrics: FullSettlementMetrics;
+}
+
+export interface WeeklySettlement {
+    period: string;
+    value: number;
+    change: number;
+    changePercent: number;
+    metrics: FullSettlementMetrics;
+}
+
+export interface MonthlySettlement {
+    month: string;
+    value: number;
+    cashSavings: number;
+    domestic: number;
+    overseas: number;
+    change: number;
+    changePercent: number;
+    metrics: {
+        cash: number;
+        domStock: number;
+        domIndex: number;
+        domBond: number;
+        osStock: number;
+        osIndex: number;
+        osBond: number;
+    };
+    isManual?: boolean;
+}
