@@ -76,7 +76,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-                <table className="dashboard-table" style={{ tableLayout: 'fixed', width: '100%', maxWidth: '680px' }}>
+                <table className="dashboard-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                     <thead>
                         <tr>
                             <th style={{ textAlign: 'center' }}>종목</th>

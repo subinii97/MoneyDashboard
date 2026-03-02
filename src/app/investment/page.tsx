@@ -126,7 +126,7 @@ export default function InvestmentManager() {
 
 
     return (
-        <main style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem' }}>
                 <div>
                     <span className="section-label">자산 관리</span>
