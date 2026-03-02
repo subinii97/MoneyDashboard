@@ -152,7 +152,7 @@ export default function InvestmentManager() {
                 <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }} />
                     <InvestmentTable
-                        investments={filtered('Domestic')} title="국내 포트폴리오" rate={rate}
+                        investments={filtered('Domestic')} title="국내 시장" rate={rate}
                         isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment}
                         onTransaction={openTxModal}
                     />
@@ -160,7 +160,7 @@ export default function InvestmentManager() {
                 <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }} />
                     <InvestmentTable
-                        investments={filtered('Overseas')} title="해외 포트폴리오" rate={rate}
+                        investments={filtered('Overseas')} title="해외 시장" rate={rate}
                         isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment}
                         onTransaction={openTxModal}
                     />
