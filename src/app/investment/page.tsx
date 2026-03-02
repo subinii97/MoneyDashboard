@@ -137,9 +137,10 @@ export default function InvestmentManager() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: isPrivate ? 'var(--primary)' : 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem' }}>
-                        {isPrivate ? <Eye size={18} /> : <EyeOff size={18} />} {isPrivate ? '금액 보기' : '금액 숨기기'}
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
+                        {isPrivate ? <Eye size={20} /> : <EyeOff size={20} />}
                     </button>
+
                     <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem' }}>
                         {viewMode === 'aggregated' ? <List size={18} /> : <Layers size={18} />} {viewMode === 'aggregated' ? '상세 내역' : '합산 내역'}
                     </button>
