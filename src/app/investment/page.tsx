@@ -27,7 +27,8 @@ export default function InvestmentManager() {
     } = useInvestmentActions({ assets, rate, lastUpdated, fetchData, setAssets });
 
     const [viewMode, setViewMode] = useState<'aggregated' | 'detailed'>('aggregated');
-    const [isPrivate, setIsPrivate] = useState(true);
+    const [isPrivate, setIsPrivate] = useState(false);
+
 
     // New asset form
     const [newInvestment, setNewInvestment] = useState({
