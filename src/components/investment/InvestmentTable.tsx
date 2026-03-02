@@ -79,11 +79,13 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <table className="dashboard-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: 'center' }}>종목</th>
-                            <th style={{ textAlign: 'center', width: '130px' }}>가격 / 전일대비 / 평단가</th>
-                            <th style={{ textAlign: 'center', width: '50px' }}>수량</th>
-                            <th style={{ textAlign: 'center', width: '130px' }}>평가 / 변동</th>
-                            <th style={{ textAlign: 'center', width: '70px' }}>작업</th>
+                            <th style={{ textAlign: 'center', width: '28%' }}>종목</th>
+                            <th style={{ textAlign: 'center', width: '28%' }}>가격 / 전일대비 / 평단가</th>
+                            <th style={{ textAlign: 'center', width: '8%' }}>수량</th>
+                            <th style={{ textAlign: 'center', width: '28%' }}>평가 / 변동</th>
+                            <th style={{ textAlign: 'center', width: '8%' }}>작업</th>
+
+
                         </tr>
                     </thead>
                     <tbody>
