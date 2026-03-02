@@ -121,7 +121,8 @@ export default function InvestmentManager() {
         return viewMode === 'aggregated' ? getAggregated(list) : list;
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+    if (loading) return <div className="flex-center" style={{ height: '60vh', color: 'var(--muted)' }}>Loading...</div>;
+
 
     return (
         <main style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>

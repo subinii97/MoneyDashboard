@@ -107,13 +107,14 @@ export default function PortfolioPage() {
         setHasChanges(true);
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+    if (loading) return <div className="flex-center" style={{ height: '60vh', color: 'var(--muted)' }}>Loading...</div>;
 
     return (
-        <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-            <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', color: 'var(--foreground)' }}>
+            <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div>
-                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800' }}>자산 배분 및 리밸런싱</h1>
+                    <span className="section-label">Portfolio</span>
+                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-0.03em' }}>자산 배분 및 리밸런싱</h1>
                     <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         전체 자산군별 비중을 관리하고 리밸런싱 전략을 확인하세요
                         {lastUpdated && <span style={{ opacity: 0.7, fontSize: '0.85rem' }}>• {lastUpdated} 갱신</span>}

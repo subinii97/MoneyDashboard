@@ -38,10 +38,15 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
     const ex = getExchangeStyle(inv.exchange || '');
 
     const formatPrice = (price: number) => {
-        return isUSD
-            ? `$${price.toLocaleString(undefined, { minimumFractionDigits: price < 100 ? 4 : 2, maximumFractionDigits: price < 100 ? 4 : 2 })}`
-            : Math.floor(price).toLocaleString();
+        const abs = Math.abs(price);
+        const sign = price < 0 ? '-' : '';
+        if (isUSD) {
+            const digits = abs < 100 ? 4 : 2;
+            return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+        }
+        return `${sign}${Math.floor(abs).toLocaleString()}`;
     };
+
 
     return (
         <tr style={{ borderBottom: '1px solid var(--border)' }}>

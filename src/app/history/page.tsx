@@ -71,16 +71,19 @@ export default function HistoryPage() {
         return days[date.getDay()];
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+    if (loading) return <div className="flex-center" style={{ height: '60vh', color: 'var(--muted)' }}>Loading...</div>;
 
     return (
         <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', color: 'var(--foreground)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                <button onClick={() => router.push('/')} className="glass" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                    <span className="section-label">Analytics</span>
+                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-0.03em' }}>내역 관리</h1>
+                </div>
+                <button onClick={() => router.push('/')} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--muted)', flexShrink: 0 }}>
                     <ChevronLeft size={20} />
                 </button>
-                <h1 style={{ fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em' }}>내역 관리</h1>
-            </div>
+            </header>
 
             <SettlementTrendChart
                 dailyData={dailySettlements}

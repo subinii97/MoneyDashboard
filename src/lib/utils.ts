@@ -1,7 +1,9 @@
 export const formatKRW = (value: number) => {
     if (isNaN(value) || !isFinite(value)) return '₩0';
-    return '₩' + Math.floor(value).toLocaleString();
+    const abs = Math.floor(Math.abs(value));
+    return (value < 0 ? '-₩' : '₩') + abs.toLocaleString();
 };
+
 
 export const convertToKRW = (value: number, currency: string, rate: number) => {
     if (isNaN(value) || !isFinite(value)) return 0;
