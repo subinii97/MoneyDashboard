@@ -76,14 +76,14 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-                <table className="dashboard-table" style={{ tableLayout: 'fixed', minWidth: '600px' }}>
+                <table className="dashboard-table" style={{ tableLayout: 'fixed', minWidth: '500px' }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: 'left', paddingLeft: '0.75rem' }}>종목</th>
-                            <th style={{ textAlign: 'right', width: '160px', paddingRight: '0.75rem' }}>가격</th>
-                            <th style={{ textAlign: 'center', width: '60px' }}>수량</th>
-                            <th style={{ textAlign: 'right', width: '160px', paddingRight: '0.75rem' }}>평가 / 손익</th>
-                            <th style={{ textAlign: 'center', width: '80px' }}>작업</th>
+                            <th style={{ textAlign: 'center', width: '180px' }}>종목</th>
+                            <th style={{ textAlign: 'center', width: '140px' }}>가격</th>
+                            <th style={{ textAlign: 'center', width: '55px' }}>수량</th>
+                            <th style={{ textAlign: 'center', width: '140px' }}>평가 / 손익</th>
+                            <th style={{ textAlign: 'center', width: '75px' }}>작업</th>
                         </tr>
                     </thead>
                     <tbody>
