@@ -76,17 +76,14 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-                <table className="dashboard-table" style={{ tableLayout: 'fixed', minWidth: '800px' }}>
+                <table className="dashboard-table" style={{ tableLayout: 'fixed', minWidth: '600px' }}>
                     <thead>
                         <tr>
-                            <th style={{ width: '90px', textAlign: 'center' }}>거래소</th>
-                            <th style={{ width: '220px', textAlign: 'left', paddingLeft: '0.75rem' }}>종목</th>
-                            <th style={{ width: '150px', textAlign: 'center' }}>평단가</th>
-                            <th style={{ width: '150px', textAlign: 'center' }}>현재가</th>
-                            <th style={{ width: '75px', textAlign: 'center' }}>수량</th>
-                            <th style={{ width: '150px', textAlign: 'center' }}>평가액</th>
-                            <th style={{ width: '150px', textAlign: 'center' }}>수익</th>
-                            <th style={{ width: '85px', textAlign: 'center' }}>작업</th>
+                            <th style={{ textAlign: 'left', paddingLeft: '0.75rem' }}>종목</th>
+                            <th style={{ textAlign: 'right', width: '160px', paddingRight: '0.75rem' }}>가격</th>
+                            <th style={{ textAlign: 'center', width: '60px' }}>수량</th>
+                            <th style={{ textAlign: 'right', width: '160px', paddingRight: '0.75rem' }}>평가 / 손익</th>
+                            <th style={{ textAlign: 'center', width: '80px' }}>작업</th>
                         </tr>
                     </thead>
                     <tbody>

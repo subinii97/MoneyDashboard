@@ -47,69 +47,73 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
         return `${sign}${Math.floor(abs).toLocaleString()}`;
     };
 
+    const plColor = plKRW >= 0 ? '#dc2626' : '#2563eb';
 
     return (
         <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <td style={{ textAlign: 'center', borderRight: '1px solid var(--border)' }}>
-                <span style={{ padding: '0.25rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: '800', color: ex.color, backgroundColor: ex.bg, border: `1px solid ${ex.color}33` }}>{ex.label}</span>
-            </td>
-            <td style={{ borderRight: '1px solid var(--border)', paddingLeft: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{inv.name || inv.symbol}</div>
+
+            {/* ── 종목 (거래소 배지 + 이름 + 티커) ── */}
+            <td style={{ borderRight: '1px solid var(--border)', padding: '0.75rem 0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <span style={{
+                        padding: '1px 5px', borderRadius: '4px',
+                        fontSize: '0.62rem', fontWeight: '800',
+                        color: ex.color, backgroundColor: ex.bg,
+                        border: `1px solid ${ex.color}33`, flexShrink: 0,
+                    }}>{ex.label}</span>
+                    <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{inv.name || inv.symbol}</span>
                     {(inv.category || inv.marketType) && (
-                        <span style={{ fontSize: '0.6rem', padding: '1px 4px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.55, flexShrink: 0 }}>
+                        <span style={{ fontSize: '0.58rem', padding: '1px 3px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.5, flexShrink: 0 }}>
                             {inv.category?.includes('Stock') ? '주식' : inv.category?.includes('Index') ? '지수' : '주식'}
                         </span>
                     )}
                 </div>
-                <div style={{ marginTop: '0.15rem' }}>
-                    <span style={{
-                        fontFamily: 'monospace',
-                        fontSize: '0.68rem',
-                        fontWeight: '600',
-                        letterSpacing: '0.03em',
-                        color: 'var(--muted)',
-                        opacity: 0.75,
-                    }}>
-                        {inv.symbol}
+                <div style={{ marginTop: '0.1rem', fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: '600', color: 'var(--muted)', opacity: 0.7, letterSpacing: '0.03em' }}>
+                    {inv.symbol}
+                </div>
+            </td>
+
+            {/* ── 가격 (현재가 + 변동\n평단가) ── */}
+            <td style={{ textAlign: 'right', padding: '0.75rem 0.75rem', borderRight: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{formatPrice(currentPrice)}</div>
+                {inv.change !== undefined && (
+                    <div style={{ fontSize: '0.68rem', color: inv.change >= 0 ? '#dc2626' : '#2563eb', fontWeight: '600' }}>
+                        {inv.change >= 0 ? '▲' : '▼'}{Math.abs(inv.change).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({Math.abs(inv.changePercent || 0).toFixed(2)}%)
+                    </div>
+                )}
+                <div style={{ fontSize: '0.66rem', color: 'var(--muted)', marginTop: '0.1rem', opacity: 0.7 }}>
+                    평단 {formatPrice(inv.avgPrice)}
+                </div>
+            </td>
+
+            {/* ── 수량 ── */}
+            <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', borderRight: '1px solid var(--border)', fontSize: '0.88rem' }}>
+                {!isPrivate && inv.shares}
+            </td>
+
+            {/* ── 평가 / 손익 ── */}
+            <td style={{ textAlign: 'right', padding: '0.75rem 0.75rem', borderRight: '1px solid var(--border)', color: plColor }}>
+                {!isPrivate && (
+                    <div style={{ fontSize: '0.88rem', fontWeight: '600' }}>{formatPrice(marketVal)}</div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem' }}>
+                    {!isPrivate && (
+                        <span style={{ fontSize: '0.72rem', fontWeight: '600' }}>
+                            {pl >= 0 ? '+' : ''}{formatPrice(pl)}
+                        </span>
+                    )}
+                    <span style={{ fontSize: isPrivate ? '1rem' : '0.7rem', fontWeight: '700' }}>
+                        {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
                     </span>
                 </div>
             </td>
 
-            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid var(--border)' }}>
-                {formatPrice(inv.avgPrice)}
-            </td>
-            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: '500' }}>{formatPrice(currentPrice)}</div>
-                {inv.change !== undefined && (
-                    <div style={{ fontSize: '0.72rem', color: inv.change >= 0 ? '#dc2626' : '#2563eb', fontWeight: 'bold' }}>
-                        {inv.change >= 0 ? '▲' : '▼'}{Math.abs(inv.change).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({Math.abs(inv.changePercent || 0).toFixed(2)}%)
-                    </div>
-                )}
-            </td>
-            <td style={{ textAlign: 'center', borderRight: '1px solid var(--border)' }}>
-                {!isPrivate && inv.shares}
-            </td>
-            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid var(--border)' }}>
-                {!isPrivate && formatPrice(marketVal)}
-            </td>
-            <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#dc2626' : '#2563eb', borderRight: '1px solid var(--border)' }}>
-                <div className="flex-col" style={{ alignItems: 'flex-end' }}>
-                    {!isPrivate && (
-                        <div style={{ fontSize: '0.98rem', fontWeight: '700' }}>
-                            {pl >= 0 ? '+' : ''}{formatPrice(pl)}
-                        </div>
-                    )}
-                    <div style={{ fontSize: isPrivate ? '1.1rem' : '0.82rem', fontWeight: isPrivate ? '600' : 'normal' }}>
-                        {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
-                    </div>
-                </div>
-            </td>
-            <td>
-                <div className="flex-center" style={{ gap: '0.5rem' }}>
-                    <button onClick={() => onTransaction(inv)} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}><ArrowUpRight size={18} /></button>
-                    <button onClick={() => onEdit(inv)} style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={18} /></button>
-                    <button onClick={() => onDelete(inv.id)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>
+            {/* ── 작업 ── */}
+            <td style={{ padding: '0.75rem 0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                    <button onClick={() => onTransaction(inv)} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><ArrowUpRight size={16} /></button>
+                    <button onClick={() => onEdit(inv)} style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><Edit2 size={16} /></button>
+                    <button onClick={() => onDelete(inv.id)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><Trash2 size={16} /></button>
                 </div>
             </td>
         </tr>
