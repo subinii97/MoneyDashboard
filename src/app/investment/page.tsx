@@ -138,7 +138,8 @@ export default function InvestmentManager() {
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
-                        {isPrivate ? <Eye size={20} /> : <EyeOff size={20} />}
+                        {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
+
                     </button>
 
                     <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem' }}>
