@@ -73,15 +73,15 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                 </div>
             </td>
 
-            {/* ── 가격 (현재가 + 변동\n평단가) ── */}
-            <td style={{ textAlign: 'right', padding: '0.75rem 0.75rem', borderRight: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{formatPrice(currentPrice)}</div>
-                {inv.change !== undefined && (
-                    <div style={{ fontSize: '0.68rem', color: inv.change >= 0 ? '#dc2626' : '#2563eb', fontWeight: '600' }}>
+            {/* ── 가격 3행: 현재가 / 전일대비 / 평단가 ── */}
+            <td style={{ textAlign: 'right', padding: '0.6rem 0.6rem', borderRight: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>{formatPrice(currentPrice)}</div>
+                {inv.change !== undefined ? (
+                    <div style={{ fontSize: '0.65rem', color: inv.change >= 0 ? '#dc2626' : '#2563eb', fontWeight: '600', marginTop: '0.1rem' }}>
                         {inv.change >= 0 ? '▲' : '▼'}{Math.abs(inv.change).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({Math.abs(inv.changePercent || 0).toFixed(2)}%)
                     </div>
-                )}
-                <div style={{ fontSize: '0.66rem', color: 'var(--muted)', marginTop: '0.1rem', opacity: 0.7 }}>
+                ) : <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: '0.1rem' }}>—</div>}
+                <div style={{ fontSize: '0.63rem', color: 'var(--muted)', marginTop: '0.15rem', opacity: 0.7 }}>
                     평단 {formatPrice(inv.avgPrice)}
                 </div>
             </td>
@@ -91,22 +91,21 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                 {!isPrivate && inv.shares}
             </td>
 
-            {/* ── 평가 / 손익 ── */}
-            <td style={{ textAlign: 'right', padding: '0.75rem 0.75rem', borderRight: '1px solid var(--border)', color: plColor }}>
+            {/* ── 평가 / 변동액 / 변동률 ── */}
+            <td style={{ textAlign: 'right', padding: '0.6rem 0.6rem', borderRight: '1px solid var(--border)', color: plColor }}>
                 {!isPrivate && (
-                    <div style={{ fontSize: '0.88rem', fontWeight: '600' }}>{formatPrice(marketVal)}</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: '700' }}>{formatPrice(marketVal)}</div>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem' }}>
-                    {!isPrivate && (
-                        <span style={{ fontSize: '0.72rem', fontWeight: '600' }}>
-                            {pl >= 0 ? '+' : ''}{formatPrice(pl)}
-                        </span>
-                    )}
-                    <span style={{ fontSize: isPrivate ? '1rem' : '0.7rem', fontWeight: '700' }}>
-                        {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
-                    </span>
+                {!isPrivate && (
+                    <div style={{ fontSize: '0.65rem', fontWeight: '600', marginTop: '0.1rem' }}>
+                        {pl >= 0 ? '+' : ''}{formatPrice(pl)}
+                    </div>
+                )}
+                <div style={{ fontSize: isPrivate ? '0.95rem' : '0.65rem', fontWeight: '700', marginTop: '0.1rem' }}>
+                    {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
                 </div>
             </td>
+
 
             {/* ── 작업 ── */}
             <td style={{ padding: '0.75rem 0.5rem' }}>
