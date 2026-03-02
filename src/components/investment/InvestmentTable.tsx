@@ -39,25 +39,27 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
     const renderSummaryItem = (label: string, value: number, percent: number, isSubTotal = false) => (
         <div style={{ textAlign: 'left' }}>
             <span className="section-label" style={{ marginBottom: '0.2rem' }}>{label}</span>
-            {(!isPrivate || isSubTotal === false) && (
+            {!isPrivate && (
                 <div style={{
                     fontSize: isSubTotal ? '1.75rem' : '1.2rem',
                     fontWeight: '800',
                     color: !isSubTotal ? (value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)')) : 'inherit'
                 }}>
-                    {!isPrivate && (value > 0 && !isSubTotal ? '+' : '') + formatKRW(value)}
+                    {(value > 0 && !isSubTotal ? '+' : '') + formatKRW(value)}
                 </div>
             )}
-            <div style={{
-                fontSize: '1.1rem',
-                fontWeight: '700',
-                color: value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)'),
-                padding: isPrivate && !isSubTotal ? '0.5rem 0' : '0'
-            }}>
-                {!isSubTotal && (value > 0 ? '▲' : (value < 0 ? '▼' : '')) + Math.abs(percent).toFixed(2) + '%'}
-            </div>
+            {!isSubTotal && (
+                <div style={{
+                    fontSize: isPrivate ? '1.6rem' : '1.15rem',
+                    fontWeight: '800',
+                    color: value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)'),
+                }}>
+                    {(value > 0 ? '▲' : (value < 0 ? '▼' : '')) + Math.abs(percent).toFixed(2) + '%'}
+                </div>
+            )}
         </div>
     );
+
 
     return (
         <div style={{ padding: '1.5rem' }}>
