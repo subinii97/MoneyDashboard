@@ -62,17 +62,14 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                         </span>
                     )}
                 </div>
-                <div style={{ marginTop: '0.2rem' }}>
+                <div style={{ marginTop: '0.15rem' }}>
                     <span style={{
                         fontFamily: 'monospace',
-                        fontSize: '0.72rem',
-                        fontWeight: '700',
-                        letterSpacing: '0.04em',
-                        color: 'var(--primary)',
-                        background: 'var(--primary-glow)',
-                        border: '1px solid rgba(var(--primary-glow-rgb), 0.4)',
-                        borderRadius: '4px',
-                        padding: '0px 5px',
+                        fontSize: '0.68rem',
+                        fontWeight: '600',
+                        letterSpacing: '0.03em',
+                        color: 'var(--muted)',
+                        opacity: 0.75,
                     }}>
                         {inv.symbol}
                     </span>

@@ -80,7 +80,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     <thead>
                         <tr>
                             <th style={{ width: '90px', textAlign: 'center' }}>거래소</th>
-                            <th style={{ width: 'auto', textAlign: 'center' }}>종목 정보</th>
+                            <th style={{ width: '160px', textAlign: 'left', paddingLeft: '0.75rem' }}>종목</th>
                             <th style={{ width: '150px', textAlign: 'center' }}>평단가</th>
                             <th style={{ width: '150px', textAlign: 'center' }}>현재가</th>
                             <th style={{ width: '75px', textAlign: 'center' }}>수량</th>
