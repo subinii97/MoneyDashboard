@@ -82,7 +82,7 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                     </div>
                 ) : <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.15rem' }}>—</div>}
                 {!isPrivate && (
-                    <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.15rem', opacity: 0.8 }}>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.2rem', opacity: 0.8, fontWeight: '500' }}>
                         평단 {formatPrice(inv.avgPrice)}
                     </div>
                 )}
