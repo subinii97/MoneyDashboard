@@ -53,17 +53,32 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
             <td style={{ textAlign: 'center', borderRight: '1px solid var(--border)' }}>
                 <span style={{ padding: '0.25rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: '800', color: ex.color, backgroundColor: ex.bg, border: `1px solid ${ex.color}33` }}>{ex.label}</span>
             </td>
-            <td style={{ borderRight: '1px solid var(--border)' }}>
-                <div className="flex-center" style={{ gap: '0.45rem' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.98rem' }}>{inv.name || inv.symbol}</div>
+            <td style={{ borderRight: '1px solid var(--border)', paddingLeft: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{inv.name || inv.symbol}</div>
                     {(inv.category || inv.marketType) && (
-                        <span style={{ fontSize: '0.62rem', padding: '1px 3px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.6 }}>
+                        <span style={{ fontSize: '0.6rem', padding: '1px 4px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.55, flexShrink: 0 }}>
                             {inv.category?.includes('Stock') ? '주식' : inv.category?.includes('Index') ? '지수' : '주식'}
                         </span>
                     )}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--primary)', opacity: 0.8, textAlign: 'center' }}>{inv.symbol}</div>
+                <div style={{ marginTop: '0.2rem' }}>
+                    <span style={{
+                        fontFamily: 'monospace',
+                        fontSize: '0.72rem',
+                        fontWeight: '700',
+                        letterSpacing: '0.04em',
+                        color: 'var(--primary)',
+                        background: 'var(--primary-glow)',
+                        border: '1px solid rgba(var(--primary-glow-rgb), 0.4)',
+                        borderRadius: '4px',
+                        padding: '0px 5px',
+                    }}>
+                        {inv.symbol}
+                    </span>
+                </div>
             </td>
+
             <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid var(--border)' }}>
                 {formatPrice(inv.avgPrice)}
             </td>
