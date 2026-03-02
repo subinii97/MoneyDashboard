@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { AssetAllocation, CATEGORY_MAP, CATEGORY_COLORS, AssetDetail } from '@/lib/types';
 import { formatKRW, convertToKRW } from '@/lib/utils';
@@ -22,6 +22,7 @@ export const AssetDetailManager: React.FC<AssetDetailManagerProps> = ({
     onDeleteDetail,
     onUpdateDetail
 }) => {
+    const [focusedId, setFocusedId] = useState<string | null>(null);
     const cashCategories = allocations.filter(a => a.category === 'Cash' || a.category === 'Savings');
 
     return (
@@ -86,13 +87,21 @@ export const AssetDetailManager: React.FC<AssetDetailManagerProps> = ({
                                                 padding: '0.6rem 0.75rem',
                                                 borderRadius: '10px',
                                                 background: 'var(--input-bg)',
-                                                border: '1px solid var(--border)',
+                                                border: focusedId === d.id
+                                                    ? '1.5px solid var(--primary)'
+                                                    : '1px solid var(--border)',
+                                                boxShadow: focusedId === d.id
+                                                    ? '0 0 0 3px var(--primary-glow)'
+                                                    : 'none',
+                                                transition: 'border-color 0.15s, box-shadow 0.15s',
                                             }}
                                         >
                                             <input
                                                 placeholder="항목명 (예: KB 보통예금)"
                                                 value={d.name}
                                                 onChange={e => onUpdateDetail(a.category, d.id, { name: e.target.value })}
+                                                onFocus={() => setFocusedId(d.id)}
+                                                onBlur={() => setFocusedId(null)}
                                                 style={{
                                                     background: 'transparent', border: 'none', outline: 'none',
                                                     color: 'var(--foreground)', fontSize: '0.88rem', fontWeight: '500',
@@ -108,6 +117,8 @@ export const AssetDetailManager: React.FC<AssetDetailManagerProps> = ({
                                                     const raw = e.target.value.replace(/,/g, '');
                                                     if (!isNaN(Number(raw))) onUpdateDetail(a.category, d.id, { value: Number(raw) });
                                                 }}
+                                                onFocus={() => setFocusedId(d.id)}
+                                                onBlur={() => setFocusedId(null)}
                                                 style={{
                                                     background: 'transparent', border: 'none', outline: 'none',
                                                     color: 'var(--foreground)', fontSize: '0.88rem', textAlign: 'right',
