@@ -54,8 +54,8 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
     useEffect(() => {
         const timer = setTimeout(async () => {
             const query = searchQuery.trim();
-            // Don't search if it perfectly matches the selected symbol to avoid re-fetching on selection
-            if (query && query !== newInvestment.symbol && showResults) {
+            // Search when typed, relying on showResults to prevent auto-searching after selection
+            if (query && showResults) {
                 setIsSearching(true);
                 try {
                     const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
