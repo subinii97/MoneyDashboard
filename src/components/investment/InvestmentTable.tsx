@@ -69,7 +69,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>{title}</h3>
                 </div>
                 <div className="flex-center" style={{ gap: '3rem', alignItems: 'flex-start' }}>
-                    {renderSummaryItem('평가금액', subTotal, 0, true)}
+                    {!isPrivate && renderSummaryItem('평가금액', subTotal, 0, true)}
                     {renderSummaryItem('일간 변동', dailyChange, dailyChangePercent)}
                     {renderSummaryItem('총 손익', totalPL, totalPLPercent)}
                 </div>
