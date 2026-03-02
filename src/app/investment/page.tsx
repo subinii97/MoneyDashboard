@@ -128,8 +128,8 @@ export default function InvestmentManager() {
         <main style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem' }}>
                 <div>
-                    <span className="section-label">Management</span>
-                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>Assets</h1>
+                    <span className="section-label">자산 관리</span>
+                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>투자 현황</h1>
                     <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.9rem' }}>
                         1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
                         {lastUpdated && <span style={{ opacity: 0.8, marginLeft: '4px' }}>• {lastUpdated} 갱신</span>}
@@ -152,7 +152,7 @@ export default function InvestmentManager() {
                 <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }} />
                     <InvestmentTable
-                        investments={filtered('Domestic')} title="Domestic Portfolios" rate={rate}
+                        investments={filtered('Domestic')} title="국내 포트폴리오" rate={rate}
                         isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment}
                         onTransaction={openTxModal}
                     />
@@ -160,7 +160,7 @@ export default function InvestmentManager() {
                 <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }} />
                     <InvestmentTable
-                        investments={filtered('Overseas')} title="Overseas Portfolios" rate={rate}
+                        investments={filtered('Overseas')} title="해외 포트폴리오" rate={rate}
                         isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment}
                         onTransaction={openTxModal}
                     />

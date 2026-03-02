@@ -26,7 +26,8 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
     return (
         <div className="glass" onMouseMove={onMouseMove} style={{ padding: '1.5rem', border: '1px solid var(--primary-glow)' }}>
             <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }}></div>
-            <span className="section-label" style={{ marginBottom: '1.5rem' }}>Add Asset</span>
+            <span className="section-label" style={{ marginBottom: '1.5rem' }}>종목 추가</span>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
                 <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>티커 (AAPL, 005930.KS, 114800.KS)</label>

@@ -63,13 +63,13 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         <div style={{ padding: '1.5rem' }}>
             <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '2rem' }}>
                 <div>
-                    <span className="section-label" style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>Portfolio</span>
+                    <span className="section-label" style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>포트폴리오</span>
                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>{title}</h3>
                 </div>
                 <div className="flex-center" style={{ gap: '3rem', alignItems: 'flex-start' }}>
-                    {renderSummaryItem('Sub Total', subTotal, 0, true)}
-                    {renderSummaryItem('Daily Change', dailyChange, dailyChangePercent)}
-                    {renderSummaryItem('Total Gain/Loss', totalPL, totalPLPercent)}
+                    {renderSummaryItem('평가금액', subTotal, 0, true)}
+                    {renderSummaryItem('일간 변동', dailyChange, dailyChangePercent)}
+                    {renderSummaryItem('총 손익', totalPL, totalPLPercent)}
                 </div>
             </div>
 
