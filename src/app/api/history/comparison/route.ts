@@ -9,10 +9,16 @@ export async function GET(request: Request) {
         const scope = searchParams.get('scope') || '1m';
 
         let daysCount = 30;
+        let isWeekly = false;
         if (scope === '1w') daysCount = 7;
         else if (scope === '2w') daysCount = 14;
         else if (scope === '1m') daysCount = 30;
         else if (scope === '3m') daysCount = 90;
+        else if (scope === '1y') daysCount = 365;
+        else if (scope === 'weekly') {
+            daysCount = 730;
+            isWeekly = true;
+        }
 
         const now = new Date();
         const start = new Date(now);
@@ -27,6 +33,31 @@ export async function GET(request: Request) {
         ]);
 
         const allRows = db.prepare('SELECT * FROM history WHERE date >= ? ORDER BY date ASC').all(startDate) as any[];
+
+        try {
+            const snapshotUrl = new URL('/api/snapshot', request.url);
+            const liveSnapshotRes = await fetch(snapshotUrl.toString(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ auto: true })
+            });
+            if (liveSnapshotRes.ok) {
+                const liveData = await liveSnapshotRes.json();
+                if (liveData && liveData.success && liveData.entry && !liveData.isSettled) {
+                    const liveEntry = liveData.entry;
+                    liveEntry.isLive = true; // Mark as live for potential UI usage
+                    const existingIndex = allRows.findIndex(r => r.date === liveEntry.date);
+                    if (existingIndex >= 0) {
+                        allRows[existingIndex] = liveEntry;
+                    } else {
+                        allRows.push(liveEntry);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch live snapshot for comparison:', e);
+        }
+
         if (allRows.length === 0) return NextResponse.json([]);
 
         const visibleRows = allRows.filter(row => {
@@ -68,6 +99,7 @@ export async function GET(request: Request) {
 
             return {
                 date: date,
+                isLive: row.isLive || false,
                 kospi: calcRelReturn(getIndexPrice(kospi, date), kospiBase),
                 kosdaq: calcRelReturn(getIndexPrice(kosdaq, date), kosdaqBase),
                 nasdaq: calcRelReturn(getIndexPrice(nasdaq, date), nasdaqBase),
@@ -77,7 +109,12 @@ export async function GET(request: Request) {
             };
         });
 
-        return NextResponse.json(result);
+        let finalResult = result;
+        if (isWeekly) {
+            finalResult = result.filter(r => new Date(r.date).getDay() === 5 || r.isLive);
+        }
+
+        return NextResponse.json(finalResult);
     } catch (error) {
         console.error('Comparison API failed:', error);
         return NextResponse.json({ error: 'Failed to fetch comparison data' }, { status: 500 });

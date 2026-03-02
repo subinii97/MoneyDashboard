@@ -15,7 +15,7 @@ const RenderChange: React.FC<RenderChangeProps> = ({ val, percent, showPercentOn
     if (val === 0 && percent === 0) return <span style={{ color: 'var(--muted)' }}>-</span>;
     const isUp = val > 0 || (percent > 0 && !hidePercent);
     const Icon = isUp ? TrendingUp : TrendingDown;
-    const color = isUp ? '#ef4444' : '#3b82f6';
+    const color = isUp ? '#dc2626' : '#2563eb';
 
     if (showPercentOnly) {
         if (hidePercent) return null;
@@ -61,7 +61,7 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
                             onClick={() => monthIndex < months.length - 1 && setMonthIndex(monthIndex + 1)}
                             disabled={monthIndex >= months.length - 1}
                             className="flex-center"
-                            style={{ background: 'none', border: 'none', color: monthIndex >= months.length - 1 ? 'var(--border)' : 'white', cursor: 'pointer' }}
+                            style={{ background: 'none', border: 'none', color: monthIndex >= months.length - 1 ? 'var(--muted)' : 'var(--foreground)', cursor: 'pointer' }}
                         >
                             <ChevronLeft size={18} />
                         </button>
@@ -72,7 +72,7 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
                             onClick={() => monthIndex > 0 && setMonthIndex(monthIndex - 1)}
                             disabled={monthIndex <= 0}
                             className="flex-center"
-                            style={{ background: 'none', border: 'none', color: monthIndex <= 0 ? 'var(--border)' : 'white', cursor: 'pointer' }}
+                            style={{ background: 'none', border: 'none', color: monthIndex <= 0 ? 'var(--muted)' : 'var(--foreground)', cursor: 'pointer' }}
                         >
                             <ChevronRight size={18} />
                         </button>
@@ -83,35 +83,37 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
             <div className="glass" style={{ overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                     <thead>
-                        <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>날짜</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>현금/예금</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>국내투자</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>해외투자</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>합계</th>
+                        <tr style={{ background: 'var(--border)', borderBottom: '1px solid var(--border)' }}>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>날짜</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>현금/예금</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>국내투자</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>해외투자</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>합계</th>
                             <th style={{ padding: '1rem', textAlign: 'center' }}>전일 대비</th>
                         </tr>
                     </thead>
                     <tbody>
                         {entries.map((d: any) => (
                             <tr key={d.date} style={{ borderBottom: '1px solid var(--border)' }}>
-                                <td style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
                                     <div style={{ fontWeight: '600' }}>{d.date.substring(5)}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{getDayOfWeek(d.date)}요일</div>
+                                    <div style={{ fontSize: '0.75rem', color: d.isLive ? 'var(--primary)' : 'var(--muted)', fontWeight: d.isLive ? '600' : 'normal' }}>
+                                        {d.isLive ? '미정' : `${getDayOfWeek(d.date)}요일`}
+                                    </div>
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(d.metrics.cash.current)}</div>
                                     <RenderChange val={d.metrics.cash.change} percent={d.metrics.cash.percent} hidePercent />
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(d.metrics.domestic.current)}</div>
                                     <RenderChange val={d.metrics.domestic.change} percent={d.metrics.domestic.percent} showPercentOnly />
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(d.metrics.overseas.current)}</div>
                                     <RenderChange val={d.metrics.overseas.change} percent={d.metrics.overseas.percent} showPercentOnly />
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>
                                     {formatKRW(d.totalValue)}
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
@@ -141,23 +143,23 @@ export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly }
             <div className="glass" style={{ overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                     <thead>
-                        <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>월</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>현금/예금</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>국내투자</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>해외투자</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>합계</th>
+                        <tr style={{ background: 'var(--border)', borderBottom: '1px solid var(--border)' }}>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>월</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>현금/예금</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>국내투자</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>해외투자</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>합계</th>
                             <th style={{ padding: '1rem', textAlign: 'center' }}>전월 대비</th>
                         </tr>
                     </thead>
                     <tbody>
                         {monthlySettlements.map((m: any) => (
                             <tr key={m.month} style={{ borderBottom: '1px solid var(--border)' }}>
-                                <td style={{ padding: '1rem', fontWeight: '600', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{m.month}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{formatKRW(m.cashSavings)}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{formatKRW(m.domestic)}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{formatKRW(m.overseas)}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{formatKRW(m.value)}</td>
+                                <td style={{ padding: '1rem', fontWeight: '600', textAlign: 'center', borderRight: '1px solid var(--border)' }}>{m.month}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>{formatKRW(m.cashSavings)}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>{formatKRW(m.domestic)}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>{formatKRW(m.overseas)}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{formatKRW(m.value)}</td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <RenderChange val={m.change} percent={m.changePercent} />
                                 </td>
@@ -180,32 +182,32 @@ export const WeeklySettlementTable = ({ weeklySettlements }: any) => {
             <div className="glass" style={{ overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                     <thead>
-                        <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>기간</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>현금/예금</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>국내투자</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>해외투자</th>
-                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>합계</th>
+                        <tr style={{ background: 'var(--border)', borderBottom: '1px solid var(--border)' }}>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>기간</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>현금/예금</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>국내투자</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>해외투자</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>합계</th>
                             <th style={{ padding: '1rem', textAlign: 'center' }}>전주 대비</th>
                         </tr>
                     </thead>
                     <tbody>
                         {weeklySettlements.map((w: any) => (
                             <tr key={w.period} style={{ borderBottom: '1px solid var(--border)' }}>
-                                <td style={{ padding: '1rem', fontWeight: '600', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{w.period}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', fontWeight: '600', textAlign: 'center', borderRight: '1px solid var(--border)' }}>{w.period}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(w.metrics.cash.current)}</div>
                                     <RenderChange val={w.metrics.cash.change} percent={w.metrics.cash.percent} hidePercent />
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(w.metrics.domestic.current)}</div>
                                     <RenderChange val={w.metrics.domestic.change} percent={w.metrics.domestic.percent} showPercentOnly />
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(w.metrics.overseas.current)}</div>
                                     <RenderChange val={w.metrics.overseas.change} percent={w.metrics.overseas.percent} showPercentOnly />
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{formatKRW(w.value)}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{formatKRW(w.value)}</td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <RenderChange val={w.change} percent={w.changePercent} />
                                 </td>

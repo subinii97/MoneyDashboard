@@ -24,8 +24,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 flexDirection: 'column',
                 alignItems: 'center',
                 textAlign: 'center',
-                gridColumn: '1 / -1',
-                background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%)'
+                gridColumn: '1 / -1'
             }}
         >
             <span className="section-label" style={{ marginBottom: '1.5rem', opacity: 0.8 }}>Total Net Worth</span>
@@ -42,7 +41,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 padding: isPrivate ? '1rem 2rem' : '0.6rem 1.25rem',
                 borderRadius: '100px',
                 backgroundColor: change >= 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                color: change >= 0 ? '#ef4444' : '#60a5fa',
+                color: change >= 0 ? '#dc2626' : '#3b82f6',
                 fontWeight: '700',
                 fontSize: isPrivate ? '1.5rem' : '1.1rem'
             }}>

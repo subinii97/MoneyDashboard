@@ -57,7 +57,7 @@ export default function HistoryDetailPage() {
         const percent = cost > 0 ? (change / cost) * 100 : 0;
         const isPositive = change >= 0;
         return (
-            <div style={{ color: isPositive ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
+            <div style={{ color: isPositive ? '#dc2626' : '#2563eb', fontWeight: 'bold' }}>
                 {isPositive ? '+' : ''}{percent.toFixed(1)}% ({formatKRW(change)})
             </div>
         );
@@ -68,7 +68,7 @@ export default function HistoryDetailPage() {
             <button
                 onClick={() => router.back()}
                 className="glass"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', marginBottom: '2rem', cursor: 'pointer', color: 'white' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', marginBottom: '2rem', cursor: 'pointer', color: 'var(--foreground)' }}
             >
                 <ArrowLeft size={18} /> 뒤로가기
             </button>
@@ -78,7 +78,7 @@ export default function HistoryDetailPage() {
                     {date} 정산 상세
                 </h1>
                 <div style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--muted)' }}>
-                    총 자산: <span style={{ color: 'white' }}>{formatKRW(entry.totalValue)}</span>
+                    총 자산: <span style={{ color: 'var(--foreground)' }}>{formatKRW(entry.totalValue)}</span>
                 </div>
             </header>
 
@@ -185,7 +185,7 @@ export default function HistoryDetailPage() {
                                                     fontSize: '0.75rem',
                                                     fontWeight: 'bold',
                                                     background: tx.type === 'BUY' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                                                    color: tx.type === 'BUY' ? '#ef4444' : '#3b82f6'
+                                                    color: tx.type === 'BUY' ? '#dc2626' : '#2563eb'
                                                 }}>
                                                     {tx.type === 'BUY' ? '매수 (+)' : '매도 (-)'}
                                                 </span>
@@ -206,7 +206,7 @@ export default function HistoryDetailPage() {
                                                             setTransactions(transactions.filter(t => t.id !== tx.id));
                                                         }
                                                     }}
-                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}
+                                                    style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}
                                                 >
                                                     삭제
                                                 </button>
@@ -215,14 +215,14 @@ export default function HistoryDetailPage() {
                                     ))}
                                 </tbody>
                             </table>
-                            <div style={{ padding: '1rem', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', display: 'flex', justifyContent: 'flex-end', gap: '2rem' }}>
+                            <div style={{ padding: '1rem', borderRadius: '8px', background: 'var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '2rem' }}>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>총 매수 (+)</div>
-                                    <div style={{ fontWeight: 'bold', color: '#ef4444' }}>{formatKRW(transactions.filter(t => t.type === 'BUY').reduce((acc, t) => acc + convertToKRW(t.amount, t.currency, rate), 0))}</div>
+                                    <div style={{ fontWeight: 'bold', color: '#dc2626' }}>{formatKRW(transactions.filter(t => t.type === 'BUY').reduce((acc, t) => acc + convertToKRW(t.amount, t.currency, rate), 0))}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>총 매도 (-)</div>
-                                    <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>{formatKRW(transactions.filter(t => t.type === 'SELL').reduce((acc, t) => acc + convertToKRW(t.amount, t.currency, rate), 0))}</div>
+                                    <div style={{ fontWeight: 'bold', color: '#2563eb' }}>{formatKRW(transactions.filter(t => t.type === 'SELL').reduce((acc, t) => acc + convertToKRW(t.amount, t.currency, rate), 0))}</div>
                                 </div>
                             </div>
                         </>

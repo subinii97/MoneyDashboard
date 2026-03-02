@@ -20,8 +20,8 @@ interface AllocationTableProps {
 
 const getDiffColor = (val: number) => {
     const absVal = Math.abs(val);
-    if (absVal <= 2) return '#10b981';
-    if (absVal >= 5) return val > 0 ? '#ef4444' : '#3b82f6';
+    if (absVal <= 2) return '#059669';
+    if (absVal >= 5) return val > 0 ? '#dc2626' : '#2563eb';
 
     const ratio = (absVal - 2) / 3;
     const start = { r: 16, g: 185, b: 129 };
@@ -85,7 +85,7 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                                                 type="number" step="5" value={Math.round(a.targetWeight)}
                                                 onChange={(e) => onWeightChange(a.category, Number(e.target.value))}
                                                 className="glass"
-                                                style={{ width: '75px', padding: '0.4rem', textAlign: 'right', background: 'transparent', color: 'white', border: '1px solid var(--border)' }}
+                                                style={{ width: '75px', padding: '0.4rem', textAlign: 'right', background: 'transparent', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                                             />
                                             <span style={{ fontSize: '0.8rem' }}>%</span>
                                         </div>
@@ -112,7 +112,7 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                                     {fixedCategories.filter(cat => !allocations.some(a => a.category === cat && (getCurrentValue(a) > 0 || a.targetWeight > 0))).map(cat => (
                                         <button
                                             key={cat} onClick={() => onAddCategory(cat)}
-                                            style={{ textAlign: 'left', padding: '0.5rem', background: 'none', border: 'none', color: 'white', cursor: 'pointer', borderRadius: '4px' }}
+                                            style={{ textAlign: 'left', padding: '0.5rem', background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer', borderRadius: '4px' }}
                                         >
                                             {CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP]}
                                         </button>
@@ -127,7 +127,7 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                         <td style={{ padding: '1.5rem 0' }}>합계</td>
                         <td className={isPrivate ? 'private-blur' : ''} style={{ textAlign: 'right' }}>{formatKRW(totalValue)}</td>
                         <td style={{ textAlign: 'right' }}>100.0%</td>
-                        <td style={{ textAlign: 'right', color: Math.round(totalTargetWeight) === 100 ? '#10b981' : '#ef4444' }}>
+                        <td style={{ textAlign: 'right', color: Math.round(totalTargetWeight) === 100 ? '#059669' : '#dc2626' }}>
                             {Math.round(totalTargetWeight)}%
                         </td>
                         <td></td>
@@ -135,7 +135,7 @@ export const AllocationTable: React.FC<AllocationTableProps> = ({
                 </tfoot>
             </table>
             {Math.round(totalTargetWeight) !== 100 && (
-                <div className="flex-center" style={{ marginTop: '1rem', justifyContent: 'flex-start', gap: '0.5rem', color: '#ef4444', fontSize: '0.9rem' }}>
+                <div className="flex-center" style={{ marginTop: '1rem', justifyContent: 'flex-start', gap: '0.5rem', color: '#dc2626', fontSize: '0.9rem' }}>
                     <AlertCircle size={16} /> 목표 비중의 합이 100%가 되어야 합니다.
                 </div>
             )}

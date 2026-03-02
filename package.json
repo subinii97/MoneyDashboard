@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/subinii97/MoneyDashboard#readme",
   "dependencies": {
+    "@types/he": "^1.2.3",
     "@types/node": "^25.1.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
@@ -29,11 +30,15 @@
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.29.2",
+    "he": "^1.2.0",
+    "investing-com-api": "^5.0.3",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
+    "next-themes": "^0.4.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^3.7.0",
+    "rss-parser": "^3.13.0",
     "tailwind-merge": "^3.4.0",
     "typescript": "^5.9.3"
   },

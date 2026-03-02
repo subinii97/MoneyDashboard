@@ -47,8 +47,8 @@ export async function fetchExchangeRate(forceRefresh = false) {
 export async function fetchMarketExchangeRate(code: string, forceRefresh = false) {
     // Specialized handling for EURUSD
     if (code === 'FX_EURUSD') {
-        const googlePrice = await fetchEURUSDFromGoogle();
-        if (googlePrice) return googlePrice;
+        const yahooPrice = await fetchEURUSDFromYahoo();
+        if (yahooPrice) return yahooPrice;
     }
 
     const url = `https://api.stock.naver.com/marketindex/exchange/${code}`;
@@ -80,26 +80,23 @@ export async function fetchMarketExchangeRate(code: string, forceRefresh = false
     }
 }
 
-async function fetchEURUSDFromGoogle() {
+async function fetchEURUSDFromYahoo() {
     try {
-        const res = await fetch('https://www.google.com/finance/quote/EUR-USD', {
-            headers: { 'User-Agent': DEFAULT_USER_AGENT },
+        const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/EURUSD=X', {
             cache: 'no-store'
         });
         if (res.ok) {
-            const html = await res.text();
-            const priceMatch = html.match(/data-last-price="([^"]*)"/);
-            const changeMatch = html.match(/data-price-change="([^"]*)"/) || html.match(/data-price="([^"]*)"/);
-            const percentMatch = html.match(/data-percent-price-change="([^"]*)"/);
-
-            if (priceMatch) {
-                const price = extractNumber(priceMatch[1]);
-                const change = extractNumber(changeMatch ? changeMatch[1] : '0');
-                let changePercent = extractNumber(percentMatch ? percentMatch[1] : '0');
-                if (changePercent === 0 && change !== 0) {
-                    const prevClose = price - change;
-                    if (prevClose !== 0) changePercent = (change / prevClose) * 100;
+            const json = await res.json();
+            const result = json.chart?.result?.[0];
+            if (result && result.meta) {
+                const price = result.meta.regularMarketPrice;
+                const previousClose = result.meta.previousClose;
+                const change = price - previousClose;
+                let changePercent = 0;
+                if (previousClose !== 0) {
+                    changePercent = (change / previousClose) * 100;
                 }
+
                 return {
                     name: '유로달러 (EUR/USD)',
                     price,
@@ -109,6 +106,8 @@ async function fetchEURUSDFromGoogle() {
                 };
             }
         }
-    } catch { return null; }
+    } catch (e) {
+        console.error('Yahoo EURUSD fetch error:', e);
+    }
     return null;
 }

@@ -23,12 +23,12 @@ export default function HistoryPage() {
     const [newMonthly, setNewMonthly] = useState({ month: '', value: '', cash: '', domestic: '', overseas: '' });
     const [dailyMonthIndex, setDailyMonthIndex] = useState(0);
     const [comparisonData, setComparisonData] = useState<any[]>([]);
-    const [comparisonScope, setComparisonScope] = useState<'1w' | '2w' | '1m' | '3m'>('1m');
+    const [chartScope, setChartScope] = useState<'1w' | '2w' | '1m' | '3m' | '1y' | 'weekly'>('1m');
 
     useEffect(() => {
         const fetchComparison = async () => {
             try {
-                const res = await fetch(`/api/history/comparison?scope=${comparisonScope}`);
+                const res = await fetch(`/api/history/comparison?scope=${chartScope}`);
                 const data = await res.json();
                 setComparisonData(data);
             } catch (err) {
@@ -36,7 +36,7 @@ export default function HistoryPage() {
             }
         };
         fetchComparison();
-    }, [comparisonScope]);
+    }, [chartScope]);
 
     const handleAddMonthly = async () => {
         if (!newMonthly.month || !newMonthly.value) return;
@@ -74,7 +74,7 @@ export default function HistoryPage() {
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
 
     return (
-        <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', color: 'white' }}>
+        <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', color: 'var(--foreground)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                 <button onClick={() => router.push('/')} className="glass" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                     <ChevronLeft size={20} />
@@ -86,12 +86,14 @@ export default function HistoryPage() {
                 dailyData={dailySettlements}
                 weeklyData={weeklySettlements}
                 monthlyData={monthlySettlements}
+                scope={chartScope}
+                onScopeChange={setChartScope}
             />
 
             <CumulativeReturnChart
                 data={comparisonData}
-                scope={comparisonScope}
-                onScopeChange={setComparisonScope}
+                scope={chartScope}
+                onScopeChange={setChartScope}
             />
 
             <DailySettlementTable
@@ -132,7 +134,7 @@ export default function HistoryPage() {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                                <button onClick={() => setShowAddMonthly(false)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', cursor: 'pointer' }}>취소</button>
+                                <button onClick={() => setShowAddMonthly(false)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', background: 'var(--border)', color: 'var(--foreground)', border: 'none', cursor: 'pointer' }}>취소</button>
                                 <button onClick={handleAddMonthly} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}>저장</button>
                             </div>
                         </div>

@@ -68,18 +68,18 @@ export default function Home() {
                 <h1 className="gradient-text" style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '1rem', letterSpacing: '-0.03em' }}>Dashboard</h1>
 
                 <div className="flex-center" style={{ gap: '1rem', marginTop: '1rem' }}>
-                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass flex-center" style={{ width: '42px', height: '42px', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'white' }}>
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass flex-center" style={{ width: '42px', height: '42px', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
                         {isPrivate ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
-                    <button onClick={handleRefresh} disabled={isRefreshing} className="glass flex-center" style={{ width: '42px', height: '42px', cursor: isRefreshing ? 'not-allowed' : 'pointer', color: 'white', opacity: isRefreshing ? 0.7 : 1 }}>
+                    <button onClick={handleRefresh} disabled={isRefreshing} className="glass flex-center" style={{ width: '42px', height: '42px', cursor: isRefreshing ? 'not-allowed' : 'pointer', color: 'var(--foreground)', opacity: isRefreshing ? 0.7 : 1 }}>
                         <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                     </button>
 
                     {displayRate && (
                         <div className="glass flex-center" style={{ padding: '0.3rem 0.6rem', gap: '0.4rem', borderRadius: '100px', fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500' }}>
-                            {isRateLive && <span className="animate-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e' }}></span>}
+                            {isRateLive && <span className="animate-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16a34a' }}></span>}
                             <DollarSign size={14} color="var(--primary)" />
-                            <span>1 USD = <span style={{ color: 'white', fontWeight: '800' }}>{displayRate.toLocaleString()}</span> KRW</span>
+                            <span>1 USD = <span style={{ color: 'var(--foreground)', fontWeight: '800' }}>{displayRate.toLocaleString()}</span> KRW</span>
                             <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>• {formatTime(displayRateTime)} {isRateLive ? 'Live' : ''}</span>
                         </div>
                     )}

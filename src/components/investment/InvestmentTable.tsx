@@ -43,7 +43,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <div style={{
                     fontSize: isSubTotal ? '1.75rem' : '1.2rem',
                     fontWeight: '800',
-                    color: !isSubTotal ? (value > 0 ? '#ef4444' : (value < 0 ? '#60a5fa' : 'var(--muted)')) : 'inherit'
+                    color: !isSubTotal ? (value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)')) : 'inherit'
                 }}>
                     {!isPrivate && (value > 0 && !isSubTotal ? '+' : '') + formatKRW(value)}
                 </div>
@@ -51,7 +51,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             <div style={{
                 fontSize: '1.1rem',
                 fontWeight: '700',
-                color: value > 0 ? '#ef4444' : (value < 0 ? '#60a5fa' : 'var(--muted)'),
+                color: value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)'),
                 padding: isPrivate && !isSubTotal ? '0.5rem 0' : '0'
             }}>
                 {!isSubTotal && (value > 0 ? '▲' : (value < 0 ? '▼' : '')) + Math.abs(percent).toFixed(2) + '%'}

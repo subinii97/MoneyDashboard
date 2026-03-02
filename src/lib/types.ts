@@ -40,10 +40,10 @@ export const CATEGORY_MAP: Record<AssetCategory, string> = {
 };
 
 export const CATEGORY_COLORS: Record<AssetCategory, string> = {
-    'Cash': '#10b981',           // Emerald
+    'Cash': '#059669',           // Emerald
     'Savings': '#34d399',         // Medium Emerald/Green
-    'Domestic Stock': '#3b82f6',  // Blue
-    'Domestic Index': '#60a5fa',  // Light Blue
+    'Domestic Stock': '#2563eb',  // Blue
+    'Domestic Index': '#3b82f6',  // Light Blue
     'Domestic Bond': '#93c5fd',   // Very Light Blue
     'Overseas Stock': '#8b5cf6',  // Violet
     'Overseas Bond': '#a78bfa',   // Light Violet
@@ -94,4 +94,6 @@ export interface HistoryEntry {
     allocations?: AssetAllocation[];
     transactions?: Transaction[];
     exchangeRate?: number;
+    isLive?: boolean;
 }
+

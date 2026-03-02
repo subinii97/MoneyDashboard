@@ -9,21 +9,22 @@ interface SettlementTrendChartProps {
     dailyData: any[];
     weeklyData: any[];
     monthlyData: any[];
+    scope: ChartScope;
+    onScopeChange: (scope: ChartScope) => void;
 }
 
-type ChartScope = '1w' | '2w' | '1m' | '3m' | '1y' | 'weekly';
+export type ChartScope = '1w' | '2w' | '1m' | '3m' | '1y' | 'weekly';
 
-const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, weeklyData, monthlyData }) => {
-    const [scope, setScope] = useState<ChartScope>('1m');
+const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, weeklyData, monthlyData, scope, onScopeChange }) => {
 
     const categories = useMemo(() => [
         { key: 'osBond', name: '해외채권', color: '#7c2d12' },
         { key: 'osIndex', name: '해외지수', color: '#b91c1c' },
-        { key: 'osStock', name: '해외주식', color: '#ef4444' },
+        { key: 'osStock', name: '해외주식', color: '#dc2626' },
         { key: 'domBond', name: '국내채권', color: '#1e3a8a' },
         { key: 'domIndex', name: '국내지수', color: '#1d4ed8' },
-        { key: 'domStock', name: '국내주식', color: '#3b82f6' },
-        { key: 'cash', name: '현금/예금', color: '#10b981' }
+        { key: 'domStock', name: '국내주식', color: '#2563eb' },
+        { key: 'cash', name: '현금/예금', color: '#059669' }
     ], []);
 
     const [activeCategories, setActiveCategories] = useState<string[]>(categories.map(c => c.key));
@@ -124,7 +125,7 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
                             className="glass"
                             style={{
                                 padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', border: 'none',
-                                background: isAllSelected ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                background: isAllSelected ? 'var(--primary)' : 'var(--border)',
                                 color: isAllSelected ? 'white' : 'var(--muted)', cursor: 'pointer', fontWeight: '600'
                             }}
                         >
@@ -139,7 +140,7 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
                                     className="glass"
                                     style={{
                                         padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', border: 'none',
-                                        background: active ? cat.color : 'rgba(255,255,255,0.05)',
+                                        background: active ? cat.color : 'var(--border)',
                                         color: active ? 'white' : 'var(--muted)', cursor: 'pointer', fontWeight: '600',
                                         display: 'flex', alignItems: 'center', gap: '0.25rem'
                                     }}
@@ -155,7 +156,7 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
                     {(['1w', '2w', '1m', '3m', '1y', 'weekly'] as const).map((s) => (
                         <button
                             key={s}
-                            onClick={() => setScope(s)}
+                            onClick={() => onScopeChange(s)}
                             style={{
                                 padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: '4px', border: 'none',
                                 background: scope === s ? 'var(--primary)' : 'transparent',
@@ -171,7 +172,7 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
             <div className="glass" style={{ padding: '1.5rem', height: '400px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                         <XAxis
                             dataKey="date"
                             stroke="var(--muted)"
@@ -206,7 +207,7 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
                                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                                             <div style={{ width: '7px', height: '7px', borderRadius: '1.5px', background: entry.color }}></div>
-                                                            <span style={{ color: 'rgba(255,255,255,0.8)' }}>{entry.name}</span>
+                                                            <span style={{ color: 'var(--foreground)' }}>{entry.name}</span>
                                                         </div>
                                                         <span style={{ fontWeight: '700' }}>{formatKRW(entry.value)}</span>
                                                     </div>

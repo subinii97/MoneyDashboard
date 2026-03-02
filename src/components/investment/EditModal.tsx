@@ -25,13 +25,13 @@ export const EditModal: React.FC<EditModalProps> = ({
 }) => {
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
-            <div className="glass" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid rgba(255,255,255,0.25)', backgroundColor: '#1a1d23', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
+            <div className="glass" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)', backgroundColor: '#1a1d23', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>항목 수정</h3>
                         <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>{editingInvestment.name || editingInvestment.symbol} ({editingInvestment.symbol})</p>
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={24} /></button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer' }}><X size={24} /></button>
                 </div>
 
                 {viewMode === 'aggregated' && (
@@ -47,7 +47,7 @@ export const EditModal: React.FC<EditModalProps> = ({
                             value={editForm.category || ''}
                             onChange={e => onFormChange('category', e.target.value)}
                             className="glass"
-                            style={{ width: '100%', padding: '0.8rem', background: 'var(--card)', color: 'white', border: '1px solid var(--border)' }}
+                            style={{ width: '100%', padding: '0.8rem', background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                         >
                             <option value="" disabled>분류 선택</option>
                             <option value="Domestic Stock">국내 주식</option>
@@ -67,7 +67,7 @@ export const EditModal: React.FC<EditModalProps> = ({
                                 value={editForm.shares}
                                 onChange={e => onFormChange('shares', e.target.value)}
                                 className="glass"
-                                style={{ width: '100%', padding: '0.8rem', color: 'white', border: '1px solid var(--border)' }}
+                                style={{ width: '100%', padding: '0.8rem', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                             />
                         </div>
                         <div>
@@ -77,7 +77,7 @@ export const EditModal: React.FC<EditModalProps> = ({
                                 value={editForm.avgPrice}
                                 onChange={e => onFormChange('avgPrice', e.target.value)}
                                 className="glass"
-                                style={{ width: '100%', padding: '0.8rem', color: 'white', border: '1px solid var(--border)' }}
+                                style={{ width: '100%', padding: '0.8rem', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                             />
                         </div>
                     </div>
@@ -86,7 +86,7 @@ export const EditModal: React.FC<EditModalProps> = ({
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                     <button
                         onClick={onClose}
-                        style={{ flex: 1, padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                        style={{ flex: 1, padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--foreground)', cursor: 'pointer', fontWeight: 'bold' }}
                     >
                         취소
                     </button>

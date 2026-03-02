@@ -65,14 +65,40 @@ export function useHistoryData() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [historyRes, stockRes] = await Promise.all([
+                const [historyRes, stockRes, liveRes] = await Promise.all([
                     fetch('/api/snapshot?includeHoldings=true'),
                     fetch('/api/stock?symbols=AAPL'),
+                    fetch('/api/snapshot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ auto: true })
+                    }).catch(() => null)
                 ]);
                 const historyData = await historyRes.json();
                 const stockData = await stockRes.json();
+                let liveData = null;
+                if (liveRes && liveRes.ok) {
+                    try {
+                        liveData = await liveRes.json();
+                    } catch (e) { }
+                }
 
-                setHistory(Array.isArray(historyData) ? historyData : []);
+                let finalHistory = Array.isArray(historyData) ? historyData : [];
+                if (liveData && liveData.success && liveData.entry) {
+                    const entry = liveData.entry;
+                    if (!liveData.isSettled) {
+                        entry.isLive = true;
+                    }
+                    const existingIndex = finalHistory.findIndex((e: any) => e.date === entry.date);
+                    if (existingIndex >= 0) {
+                        finalHistory[existingIndex] = entry;
+                    } else {
+                        finalHistory.push(entry);
+                    }
+                }
+                finalHistory.sort((a, b) => a.date.localeCompare(b.date));
+
+                setHistory(finalHistory);
                 if (stockData.exchangeRate) {
                     const r = typeof stockData.exchangeRate === 'object' ? stockData.exchangeRate.rate : stockData.exchangeRate;
                     setRate(r);

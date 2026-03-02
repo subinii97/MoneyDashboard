@@ -36,7 +36,7 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
                         value={newInvestment.symbol}
                         onChange={(e) => onFormChange('symbol', e.target.value.toUpperCase())}
                         className="glass"
-                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'var(--foreground)' }}
                     />
                 </div>
                 <div>
@@ -45,7 +45,7 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
                         value={newInvestment.category}
                         onChange={(e) => onFormChange('category', e.target.value)}
                         className="glass"
-                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', background: 'var(--card)', color: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}
                     >
                         <option value="Domestic Stock">국내 주식</option>
                         <option value="Domestic Index">국내 지수</option>
@@ -62,7 +62,7 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
                         value={newInvestment.shares}
                         onChange={(e) => onFormChange('shares', e.target.value)}
                         className="glass"
-                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'var(--foreground)' }}
                     />
                 </div>
                 <div>
@@ -72,7 +72,7 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
                         value={newInvestment.avgPrice}
                         onChange={(e) => onFormChange('avgPrice', e.target.value)}
                         className="glass"
-                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'var(--foreground)' }}
                     />
                 </div>
                 <button onClick={onSubmit} className="glass" style={{ padding: '0.75rem 1rem', cursor: 'pointer', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 'bold', height: '3.2rem' }}>

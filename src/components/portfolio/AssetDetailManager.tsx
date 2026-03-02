@@ -32,7 +32,7 @@ export const AssetDetailManager: React.FC<AssetDetailManagerProps> = ({
                 {allocations
                     .filter(a => a.category === 'Cash' || a.category === 'Savings')
                     .map(a => (
-                        <div key={a.id} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', background: 'rgba(255,255,255,0.02)' }}>
+                        <div key={a.id} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', background: 'var(--border)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
                                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[a.category as keyof typeof CATEGORY_COLORS] }}></div>
@@ -48,13 +48,13 @@ export const AssetDetailManager: React.FC<AssetDetailManagerProps> = ({
                                             placeholder="항목 명칭" value={d.name}
                                             onChange={(e) => onUpdateDetail(a.category, d.id, { name: e.target.value })}
                                             className="glass"
-                                            style={{ flex: 2, padding: '0.4rem', fontSize: '0.85rem', background: 'transparent', color: 'white', border: '1px solid var(--border)' }}
+                                            style={{ flex: 2, padding: '0.4rem', fontSize: '0.85rem', background: 'transparent', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                                         />
                                         <input
                                             type="number" placeholder="금액" value={d.value}
                                             onChange={(e) => onUpdateDetail(a.category, d.id, { value: Number(e.target.value) })}
                                             className="glass"
-                                            style={{ flex: 1, padding: '0.4rem', fontSize: '0.85rem', textAlign: 'right', background: 'transparent', color: 'white', border: '1px solid var(--border)', filter: isPrivate ? 'blur(6px)' : 'none' }}
+                                            style={{ flex: 1, padding: '0.4rem', fontSize: '0.85rem', textAlign: 'right', background: 'transparent', color: 'var(--foreground)', border: '1px solid var(--border)', filter: isPrivate ? 'blur(6px)' : 'none' }}
                                         />
                                         <select
                                             value={d.currency || a.currency}
@@ -65,7 +65,7 @@ export const AssetDetailManager: React.FC<AssetDetailManagerProps> = ({
                                             <option value="KRW" style={{ background: '#1c1c1e' }}>KRW</option>
                                             <option value="USD" style={{ background: '#1c1c1e' }}>USD</option>
                                         </select>
-                                        <button onClick={() => onDeleteDetail(a.category, d.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.2rem' }}>×</button>
+                                        <button onClick={() => onDeleteDetail(a.category, d.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0.2rem' }}>×</button>
                                     </div>
                                 ))}
                             </div>

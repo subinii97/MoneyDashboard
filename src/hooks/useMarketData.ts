@@ -3,10 +3,12 @@ import { useState, useEffect, useCallback } from 'react';
 export interface MarketData {
     indices: any[];
     rates: any[];
+    crypto: any[];
+    commodities: any[];
 }
 
 export function useMarketData() {
-    const [marketData, setMarketData] = useState<MarketData>({ indices: [], rates: [] });
+    const [marketData, setMarketData] = useState<MarketData>({ indices: [], rates: [], crypto: [], commodities: [] });
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [lastFetched, setLastFetched] = useState<Date | null>(null);

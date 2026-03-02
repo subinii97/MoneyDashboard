@@ -34,25 +34,25 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             <div className="glass" style={{ width: '400px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{isEditing ? '거래 수정' : '거래 기록'}: {selectedInv.name || selectedInv.symbol}</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={24} /></button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer' }}><X size={24} /></button>
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
                         onClick={() => onTypeChange('BUY')}
-                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: txForm.type === 'BUY' ? '#ef4444' : 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: txForm.type === 'BUY' ? '#dc2626' : 'var(--border)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
                         매수
                     </button>
                     <button
                         onClick={() => onTypeChange('SELL')}
-                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: txForm.type === 'SELL' ? '#3b82f6' : 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: txForm.type === 'SELL' ? '#2563eb' : 'var(--border)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
                         매도
                     </button>
                 </div>
 
                 <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>날짜</label>
-                    <input type="date" value={txForm.date} onChange={e => onFormChange('date', e.target.value)} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'white' }} />
+                    <input type="date" value={txForm.date} onChange={e => onFormChange('date', e.target.value)} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'var(--foreground)' }} />
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
@@ -68,11 +68,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                 </button>
                             )}
                         </div>
-                        <input type="number" value={txForm.shares} onChange={e => onFormChange('shares', e.target.value)} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'white' }} />
+                        <input type="number" value={txForm.shares} onChange={e => onFormChange('shares', e.target.value)} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'var(--foreground)' }} />
                     </div>
                     <div style={{ flex: 1 }}>
                         <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>가격 ({selectedInv.currency})</label>
-                        <input type="number" value={txForm.price} onChange={e => onFormChange('price', e.target.value)} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'white' }} />
+                        <input type="number" value={txForm.price} onChange={e => onFormChange('price', e.target.value)} className="glass" style={{ width: '100%', padding: '0.75rem', color: 'var(--foreground)' }} />
                     </div>
                 </div>
 
@@ -82,7 +82,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         value={txForm.notes || ''}
                         onChange={e => onFormChange('notes', e.target.value)}
                         className="glass"
-                        style={{ width: '100%', padding: '0.75rem', color: 'white', height: '80px', resize: 'none' }}
+                        style={{ width: '100%', padding: '0.75rem', color: 'var(--foreground)', height: '80px', resize: 'none' }}
                         placeholder="거래 메모를 입력하세요"
                     />
                 </div>

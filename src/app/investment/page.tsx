@@ -388,13 +388,13 @@ export default function InvestmentManager() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: isPrivate ? 'var(--primary)' : 'white', fontWeight: '600', fontSize: '0.9rem' }}>
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: isPrivate ? 'var(--primary)' : 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem' }}>
                         {isPrivate ? <Eye size={18} /> : <EyeOff size={18} />} {isPrivate ? '금액 보기' : '금액 숨기기'}
                     </button>
-                    <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', fontWeight: '600', fontSize: '0.9rem' }}>
+                    <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem' }}>
                         {viewMode === 'aggregated' ? <List size={18} /> : <Layers size={18} />} {viewMode === 'aggregated' ? '상세 내역' : '합산 내역'}
                     </button>
-                    <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: isRefreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', fontWeight: '600', fontSize: '0.9rem', opacity: isRefreshing ? 0.7 : 1 }}>
+                    <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: isRefreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem', opacity: isRefreshing ? 0.7 : 1 }}>
                         <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? '갱신 중...' : '새로고침'}
                     </button>
                 </div>
@@ -429,7 +429,7 @@ export default function InvestmentManager() {
                                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                         <td style={{ padding: '0.75rem' }}>
                                             <span style={{
-                                                color: tx.type === 'BUY' ? '#ef4444' : '#3b82f6',
+                                                color: tx.type === 'BUY' ? '#dc2626' : '#2563eb',
                                                 fontWeight: 'bold',
                                                 fontSize: '0.75rem',
                                                 padding: '2px 6px',

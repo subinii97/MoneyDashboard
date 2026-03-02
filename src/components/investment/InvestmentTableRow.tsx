@@ -16,13 +16,13 @@ interface InvestmentTableRowProps {
 
 const getExchangeStyle = (ex: string) => {
     const map: Record<string, { label: string; color: string; bg: string }> = {
-        'KRX': { label: 'KOSPI', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
-        'KOSDAQ': { label: 'KOSDAQ', color: '#60a5fa', bg: 'rgba(96, 165, 250, 0.1)' },
-        'NASDAQ': { label: 'NASDAQ', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+        'KRX': { label: 'KOSPI', color: '#2563eb', bg: 'rgba(59, 130, 246, 0.1)' },
+        'KOSDAQ': { label: 'KOSDAQ', color: '#3b82f6', bg: 'rgba(96, 165, 250, 0.1)' },
+        'NASDAQ': { label: 'NASDAQ', color: '#059669', bg: 'rgba(16, 185, 129, 0.1)' },
         'NYSE': { label: 'NYSE', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
     };
     const upper = ex?.toUpperCase() || '';
-    return map[upper] || { label: '기타', color: 'var(--muted)', bg: 'rgba(255, 255, 255, 0.05)' };
+    return map[upper] || { label: '기타', color: 'var(--muted)', bg: 'var(--border)' };
 };
 
 export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
@@ -45,10 +45,10 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
 
     return (
         <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <td style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ textAlign: 'center', borderRight: '1px solid var(--border)' }}>
                 <span style={{ padding: '0.25rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: '800', color: ex.color, backgroundColor: ex.bg, border: `1px solid ${ex.color}33` }}>{ex.label}</span>
             </td>
-            <td style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ borderRight: '1px solid var(--border)' }}>
                 <div className="flex-center" style={{ gap: '0.45rem' }}>
                     <div style={{ fontWeight: 'bold', fontSize: '0.98rem' }}>{inv.name || inv.symbol}</div>
                     {(inv.category || inv.marketType) && (
@@ -59,24 +59,24 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                 </div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--primary)', opacity: 0.8, textAlign: 'center' }}>{inv.symbol}</div>
             </td>
-            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid var(--border)' }}>
                 {formatPrice(inv.avgPrice)}
             </td>
-            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: '500' }}>{formatPrice(currentPrice)}</div>
                 {inv.change !== undefined && (
-                    <div style={{ fontSize: '0.72rem', color: inv.change >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
+                    <div style={{ fontSize: '0.72rem', color: inv.change >= 0 ? '#dc2626' : '#2563eb', fontWeight: 'bold' }}>
                         {inv.change >= 0 ? '▲' : '▼'}{Math.abs(inv.change).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({Math.abs(inv.changePercent || 0).toFixed(2)}%)
                     </div>
                 )}
             </td>
-            <td style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ textAlign: 'center', borderRight: '1px solid var(--border)' }}>
                 {!isPrivate && inv.shares}
             </td>
-            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ textAlign: 'right', paddingRight: '1.2rem', borderRight: '1px solid var(--border)' }}>
                 {!isPrivate && formatPrice(marketVal)}
             </td>
-            <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#ef4444' : '#3b82f6', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ textAlign: 'right', paddingRight: '1.8rem', color: plKRW >= 0 ? '#dc2626' : '#2563eb', borderRight: '1px solid var(--border)' }}>
                 <div className="flex-col" style={{ alignItems: 'flex-end' }}>
                     {!isPrivate && (
                         <div style={{ fontSize: '0.98rem', fontWeight: '700' }}>
@@ -92,7 +92,7 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                 <div className="flex-center" style={{ gap: '0.5rem' }}>
                     <button onClick={() => onTransaction(inv)} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}><ArrowUpRight size={18} /></button>
                     <button onClick={() => onEdit(inv)} style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={18} /></button>
-                    <button onClick={() => onDelete(inv.id)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>
+                    <button onClick={() => onDelete(inv.id)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>
                 </div>
             </td>
         </tr>
