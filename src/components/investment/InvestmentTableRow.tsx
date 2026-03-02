@@ -91,20 +91,17 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                 {!isPrivate && inv.shares}
             </td>
 
-            {/* ── 평가 / 변동액 / 변동률 ── */}
+            {/* ── 평가 / 변동 ── */}
             <td style={{ textAlign: 'right', padding: '0.6rem 0.6rem', borderRight: '1px solid var(--border)', color: plColor }}>
                 {!isPrivate && (
                     <div style={{ fontSize: '0.88rem', fontWeight: '700' }}>{formatPrice(marketVal)}</div>
                 )}
-                {!isPrivate && (
-                    <div style={{ fontSize: '0.65rem', fontWeight: '600', marginTop: '0.1rem' }}>
-                        {pl >= 0 ? '+' : ''}{formatPrice(pl)}
-                    </div>
-                )}
-                <div style={{ fontSize: isPrivate ? '0.95rem' : '0.65rem', fontWeight: '700', marginTop: '0.1rem' }}>
-                    {plPercent >= 0 ? '▲' : '▼'} {Math.abs(plPercent).toFixed(2)}%
+                <div style={{ fontSize: isPrivate ? '0.9rem' : '0.65rem', fontWeight: '700', marginTop: '0.1rem' }}>
+                    {!isPrivate && <>{pl >= 0 ? '+' : ''}{formatPrice(pl)} </>}
+                    ({plPercent >= 0 ? '+' : ''}{Math.abs(plPercent).toFixed(2)}%)
                 </div>
             </td>
+
 
 
             {/* ── 작업 ── */}
