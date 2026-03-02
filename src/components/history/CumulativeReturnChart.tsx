@@ -121,7 +121,7 @@ const CumulativeReturnChart: React.FC<CumulativeReturnChartProps> = ({ data, sco
                                 );
                             }}
                         />
-                        <Line type="monotone" dataKey="kospi" name="코스피" stroke="#2563eb" strokeWidth={1} dot={false} isAnimationActive={false} />
+                        <Line type="monotone" dataKey="kospi" name="코스피" stroke="#7c3aed" strokeWidth={1} dot={false} isAnimationActive={false} />
                         <Line type="monotone" dataKey="kosdaq" name="코스닥" stroke="#3b82f6" strokeWidth={1} dot={false} isAnimationActive={false} />
                         <Line type="monotone" dataKey="myDomestic" name="내 국내주식" stroke="#1d4ed8" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} isAnimationActive={false} />
 

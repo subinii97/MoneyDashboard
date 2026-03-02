@@ -23,7 +23,7 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
         { key: 'osStock', name: '해외주식', color: '#dc2626' },
         { key: 'domBond', name: '국내채권', color: '#1e3a8a' },
         { key: 'domIndex', name: '국내지수', color: '#1d4ed8' },
-        { key: 'domStock', name: '국내주식', color: '#2563eb' },
+        { key: 'domStock', name: '국내주식', color: '#7c3aed' },
         { key: 'cash', name: '현금/예금', color: '#059669' }
     ], []);
 

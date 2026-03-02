@@ -28,12 +28,12 @@ export const CATEGORY_MAP: Record<AssetCategory, string> = {
 export const CATEGORY_COLORS: Record<AssetCategory, string> = {
     'Cash': '#059669',
     'Savings': '#34d399',
-    'Domestic Stock': '#2563eb',
-    'Domestic Index': '#3b82f6',
-    'Domestic Bond': '#93c5fd',
-    'Overseas Stock': '#8b5cf6',
-    'Overseas Bond': '#a78bfa',
-    'Overseas Index': '#c4b5fd'
+    'Domestic Stock': '#7c3aed',
+    'Domestic Index': '#8b5cf6',
+    'Domestic Bond': '#c4b5fd',
+    'Overseas Stock': '#a855f7',
+    'Overseas Bond': '#d8b4fe',
+    'Overseas Index': '#e9d5ff'
 };
 
 // ── Core domain interfaces ────────────────────────────────────────────────────

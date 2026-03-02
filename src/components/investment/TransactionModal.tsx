@@ -45,7 +45,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     </button>
                     <button
                         onClick={() => onTypeChange('SELL')}
-                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: txForm.type === 'SELL' ? '#2563eb' : 'var(--border)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: txForm.type === 'SELL' ? '#7c3aed' : 'var(--border)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
                         매도
                     </button>
                 </div>
