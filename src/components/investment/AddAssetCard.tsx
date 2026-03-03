@@ -36,6 +36,15 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
     const [searchQuery, setSearchQuery] = useState(newInvestment.symbol);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [tagInput, setTagInput] = useState('');
+
+    const handleAddTag = () => {
+        const val = tagInput.trim().replace(',', '');
+        if (val && !(newInvestment.tags || []).includes(val)) {
+            onFormChange('tags', [...(newInvestment.tags || []), val]);
+        }
+        setTagInput('');
+    };
     const [showResults, setShowResults] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
 
@@ -213,22 +222,34 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
                                 </span>
                             ))}
                         </div>
-                        <input
-                            type="text"
-                            placeholder="태그 입력 후 Enter"
-                            className="glass"
-                            style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'var(--foreground)' }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ',') {
-                                    e.preventDefault();
-                                    const val = (e.target as HTMLInputElement).value.trim().replace(',', '');
-                                    if (val && !(newInvestment.tags || []).includes(val)) {
-                                        onFormChange('tags', [...(newInvestment.tags || []), val]);
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                                type="text"
+                                placeholder="태그 입력 후 Enter"
+                                className="glass"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                style={{ flex: 1, padding: '0.75rem', border: '1px solid var(--border)', color: 'var(--foreground)' }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ',') {
+                                        e.preventDefault();
+                                        if (e.nativeEvent.isComposing) return;
+                                        handleAddTag();
                                     }
-                                    (e.target as HTMLInputElement).value = '';
-                                }
-                            }}
-                        />
+                                }}
+                                onKeyUp={(e) => {
+                                    if (e.key === 'Enter' && tagInput.trim()) {
+                                        handleAddTag();
+                                    }
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleAddTag}
+                                className="glass"
+                                style={{ padding: '0.75rem 1rem', cursor: 'pointer', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: '600', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                            >추가</button>
+                        </div>
                     </div>
                     <button onClick={onSubmit} className="glass" style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', cursor: 'pointer', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 'bold', height: '3.2rem', width: '100%' }}>
                         <PlusCircle size={18} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> 항목 추가

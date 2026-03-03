@@ -24,9 +24,18 @@ export const EditModal: React.FC<EditModalProps> = ({
     onFormChange,
     onSubmit
 }) => {
+    const [tagInput, setTagInput] = React.useState('');
+
+    const handleAddTag = () => {
+        const val = tagInput.trim().replace(',', '');
+        if (val && !(editForm.tags || []).includes(val)) {
+            onFormChange('tags', [...(editForm.tags || []), val]);
+        }
+        setTagInput('');
+    };
     return (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
-            <div className="glass" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)', backgroundColor: 'var(--card)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
+            <div className="card-hover" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)', backgroundColor: 'var(--card)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>항목 수정</h3>
@@ -36,8 +45,8 @@ export const EditModal: React.FC<EditModalProps> = ({
                 </div>
 
                 {viewMode === 'aggregated' && (
-                    <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', color: '#eab308', fontSize: '0.8rem' }}>
-                        ⚠️ 종목별 합산 모드에서 수정 시, 해당 종목의 모든 매수 기록이 하나로 통합됩니다.
+                    <div style={{ padding: '0.8rem 1rem', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '0.85rem', fontWeight: '600' }}>
+                        🚨 종목별 합산 모드에서 수정 시, 해당 종목의 모든 매수 기록이 하나로 통합됩니다.
                     </div>
                 )}
 
@@ -99,22 +108,40 @@ export const EditModal: React.FC<EditModalProps> = ({
                                 </span>
                             ))}
                         </div>
-                        <input
-                            type="text"
-                            placeholder="태그 입력 후 Enter"
-                            className="glass"
-                            style={{ width: '100%', padding: '0.8rem', color: 'var(--foreground)', border: '1px solid var(--border)' }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ',') {
-                                    e.preventDefault();
-                                    const val = (e.target as HTMLInputElement).value.trim().replace(',', '');
-                                    if (val && !(editForm.tags || []).includes(val)) {
-                                        onFormChange('tags', [...(editForm.tags || []), val]);
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                                type="text"
+                                placeholder="태그 입력 후 Enter"
+                                className="glass"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                style={{ flex: 1, padding: '0.8rem', color: 'var(--foreground)', border: '1px solid var(--border)' }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ',') {
+                                        e.preventDefault();
+                                        if (e.nativeEvent.isComposing) {
+                                            // Let the composition finish, but we still want to add the tag
+                                            // The timing means the value might not have the last character yet in React state
+                                            // But standard behavior: just let the form value sync properly on next render
+                                            return;
+                                        }
+                                        handleAddTag();
                                     }
-                                    (e.target as HTMLInputElement).value = '';
-                                }
-                            }}
-                        />
+                                }}
+                                onKeyUp={(e) => {
+                                    // Korean IME specific fix: handling enter after composition finishes
+                                    if (e.key === 'Enter' && tagInput.trim()) {
+                                        handleAddTag();
+                                    }
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleAddTag}
+                                className="glass"
+                                style={{ padding: '0.8rem 1rem', cursor: 'pointer', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: '600', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                            >추가</button>
+                        </div>
                     </div>
                 </div>
 
