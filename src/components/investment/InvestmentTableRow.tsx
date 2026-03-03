@@ -21,6 +21,7 @@ const getExchangeStyle = (ex: string) => {
         'KOSDAQ': { label: 'KOSDAQ', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
         'NASDAQ': { label: 'NASDAQ', color: '#059669', bg: 'rgba(16, 185, 129, 0.1)' },
         'NYSE': { label: 'NYSE', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.1)' },
+        'AMEX': { label: 'AMEX', color: '#d97706', bg: 'rgba(217, 119, 6, 0.1)' },
     };
     const upper = ex?.toUpperCase() || '';
     return map[upper] || { label: '기타', color: 'var(--muted)', bg: 'var(--border)' };
