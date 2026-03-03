@@ -120,12 +120,35 @@ export async function POST(request: Request) {
             })
         );
 
-        let finalResponseEntry = null;
+        let finalResponseEntry: HistoryEntry | null = null;
         let finalResponseIsSettled = false;
 
-        // Determine which days need checking
-        // Process yesterday first, then today.
-        const daysToProcess = body.auto ? [yesterdayStr, todayStr] : [todayStr];
+        let daysToProcess: string[] = [];
+        let referenceDateStr = todayStr; // The date whose values we ultimately return as 'live'
+
+        if (body.auto) {
+            const isBefore7AM = now.getHours() < 7;
+
+            // If it's before 7 AM today, the primary active session is actually "yesterday"
+            // Let's resolve what days we need to look at.
+            if (isBefore7AM) {
+                // "now" belongs to yesterday's trading period
+                referenceDateStr = yesterdayStr;
+            } else {
+                // "now" belongs to today's trading period
+                referenceDateStr = todayStr;
+            }
+
+            // Generate a list of dates to process. Start from 2 days before the reference.
+            // (e.g., if reference is today, check back to yesterday. If reference is yesterday, check back to day before).
+            const refDate = new Date(referenceDateStr + 'T12:00:00Z'); // neutral noon to avoid tz issues
+            const minus1 = new Date(refDate); minus1.setDate(refDate.getDate() - 1);
+
+            daysToProcess = [getLocalDateStr(minus1), referenceDateStr];
+        } else {
+            daysToProcess = [todayStr];
+            referenceDateStr = todayStr;
+        }
 
         for (const targetDate of daysToProcess) {
             const status = getSettlementStatus(targetDate, now);
@@ -138,7 +161,7 @@ export async function POST(request: Request) {
 
             // Both settled in DB, nothing to do unless it's the requested date we need to return
             if (meta.domesticSettled && meta.overseasSettled) {
-                if (targetDate === todayStr) {
+                if (targetDate === referenceDateStr) {
                     finalResponseEntry = {
                         date: targetDate,
                         totalValue: dbRow.totalValue,
@@ -156,7 +179,7 @@ export async function POST(request: Request) {
 
             // Determine if anything is newly closable OR it's the target return date
             const shouldSaveToHistory = status.domesticSettled || status.overseasSettled;
-            const needsProcessing = shouldSaveToHistory || targetDate === todayStr;
+            const needsProcessing = shouldSaveToHistory || targetDate === referenceDateStr;
 
             if (!needsProcessing) continue;
 
@@ -264,7 +287,7 @@ export async function POST(request: Request) {
                 );
             }
 
-            if (targetDate === todayStr) {
+            if (targetDate === referenceDateStr) {
                 finalResponseEntry = newEntry;
                 finalResponseIsSettled = meta.domesticSettled && meta.overseasSettled;
             }
