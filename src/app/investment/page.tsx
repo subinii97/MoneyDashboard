@@ -248,6 +248,7 @@ export default function InvestmentManager() {
             {showChartModal && (
                 <ChartModal
                     investments={assets.investments}
+                    rate={rate}
                     onClose={() => setShowChartModal(false)}
                 />
             )}

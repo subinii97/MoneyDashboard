@@ -4,10 +4,11 @@ import { Investment, MarketType } from '@/lib/types';
 
 interface ChartModalProps {
     investments: Investment[];
+    rate: number;
     onClose: () => void;
 }
 
-export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) => {
+export const ChartModal: React.FC<ChartModalProps> = ({ investments, rate, onClose }) => {
     // Determine the view scope: 'All', 'Domestic', 'Overseas'
     const [viewMode, setViewMode] = useState<'All' | MarketType>('All');
 
@@ -21,7 +22,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) 
         filtered.forEach(inv => {
             if (inv.shares <= 0 || inv.avgPrice <= 0) return;
             const sector = (inv.tags && inv.tags.length > 0) ? inv.tags[0] : '기타';
-            const value = inv.shares * inv.avgPrice;
+            const value = inv.marketType === 'Overseas' ? inv.shares * inv.avgPrice * rate : inv.shares * inv.avgPrice;
             totalVal += value;
 
             if (!sums[sector]) {
@@ -49,7 +50,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) 
                 };
             })
             .sort((a, b) => b.value - a.value);
-    }, [investments, viewMode]);
+    }, [investments, viewMode, rate]);
 
     // Simple colors for the chart
     const COLORS = [
