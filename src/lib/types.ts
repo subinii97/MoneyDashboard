@@ -99,6 +99,7 @@ export interface HistoryEntry {
     transactions?: Transaction[];
     exchangeRate?: number;
     isLive?: boolean;
+    meta?: any;
 }
 
 // ── Settlement types ──────────────────────────────────────────────────────────

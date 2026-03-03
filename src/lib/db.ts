@@ -38,7 +38,8 @@ db.exec(`
     manualAdjustment REAL,
     exchangeRate REAL,
     holdings TEXT, -- JSON string
-    allocations TEXT -- JSON string
+    allocations TEXT, -- JSON string
+    meta TEXT -- JSON string ({ domesticSettled: boolean, overseasSettled: boolean })
   );
 
   CREATE TABLE IF NOT EXISTS transactions (
@@ -66,6 +67,13 @@ export default db;
 // Migration: add tags column if missing (for existing DBs)
 try {
   db.exec(`ALTER TABLE investments ADD COLUMN tags TEXT`);
+} catch {
+  // Column already exists
+}
+
+// Migration: add meta column to history if missing
+try {
+  db.exec(`ALTER TABLE history ADD COLUMN meta TEXT`);
 } catch {
   // Column already exists
 }

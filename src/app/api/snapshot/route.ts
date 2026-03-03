@@ -3,6 +3,23 @@ import db from '@/lib/db';
 import { Assets, HistoryEntry } from '@/lib/types';
 import { fetchQuote, fetchExchangeRate } from '@/lib/stock';
 
+const getSettlementStatus = (targetDateStr: string, now: Date) => {
+    const [y, m, d] = targetDateStr.split('-').map(Number);
+    const midnight = new Date(y, m - 1, d);
+
+    const domesticDeadline = new Date(midnight);
+    domesticDeadline.setHours(21, 0, 0, 0);
+
+    const overseasDeadline = new Date(midnight);
+    overseasDeadline.setDate(overseasDeadline.getDate() + 1);
+    overseasDeadline.setHours(7, 0, 0, 0);
+
+    return {
+        domesticSettled: now >= domesticDeadline,
+        overseasSettled: now >= overseasDeadline
+    };
+};
+
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -16,7 +33,8 @@ export async function GET(request: Request) {
             return NextResponse.json({
                 ...entry,
                 holdings: entry.holdings ? JSON.parse(entry.holdings) : undefined,
-                allocations: entry.allocations ? JSON.parse(entry.allocations) : undefined
+                allocations: entry.allocations ? JSON.parse(entry.allocations) : undefined,
+                meta: entry.meta ? JSON.parse(entry.meta) : undefined
             });
         }
 
@@ -24,12 +42,9 @@ export async function GET(request: Request) {
         let history = rows.map((row: any) => ({
             ...row,
             holdings: includeHoldings && row.holdings ? JSON.parse(row.holdings) : undefined,
-            allocations: row.allocations ? JSON.parse(row.allocations) : undefined
+            allocations: row.allocations ? JSON.parse(row.allocations) : undefined,
+            meta: row.meta ? JSON.parse(row.meta) : undefined
         }));
-
-        // Optimization: For charts and settled views, if today is missing, we could theoretically 
-        // append a "LIVE" entry. But let's keep it simple: History only shows settled days.
-        // Today's LIVE status is already visible on the Home hero section.
 
         return NextResponse.json(history);
     } catch (error) {
@@ -58,7 +73,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'No assets found to snapshot' }, { status: 400 });
         }
 
-        // If it's a manual adjustment to a specific date
+        // Manual adjustment logic
         if (body.date && body.manualAdjustment !== undefined) {
             const row = db.prepare('SELECT * FROM history WHERE date = ?').get(body.date) as any;
             if (row) {
@@ -69,50 +84,23 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
         }
 
-        // Use local time for date calculation
         const now = new Date();
-        const getLocalDateStr = (date: Date) => {
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        };
+        const getLocalDateStr = (d: Date) =>
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
         const todayStr = getLocalDateStr(now);
         const yesterday = new Date(now);
         yesterday.setDate(now.getDate() - 1);
         const yesterdayStr = getLocalDateStr(yesterday);
 
-        let targetDate = todayStr;
-        let shouldSaveToHistory = true;
-
-        if (body.auto) {
-            // Logic: Is there a gap? (yesterday missing?)
-            const yesterdayExists = db.prepare('SELECT 1 FROM history WHERE date = ?').get(yesterdayStr);
-
-            if (!yesterdayExists) {
-                // If yesterday is missing, we MUST settle it now using the first prices we find today
-                targetDate = yesterdayStr;
-                shouldSaveToHistory = true;
-            } else if (now.getHours() < 7) {
-                // Before 07:00 AM, we are finalizing yesterday's settlement
-                // This captures US market close prices for overseas stocks (US market closes around 05:00-06:00 AM KST)
-                targetDate = yesterdayStr;
-                shouldSaveToHistory = true;
-            } else {
-                // During the rest of the day, we don't save "today" to the history table yet
-                // The history table should only contain "Settled" (completed) days.
-                targetDate = todayStr;
-                shouldSaveToHistory = false;
-            }
-        }
-
+        // Calculate latest prices and rates exactly ONCE
         const rateInfo = await fetchExchangeRate();
         const rate = typeof rateInfo === 'object' ? rateInfo.rate : rateInfo;
 
-        // Record current exchange rate (always update for today)
         db.prepare('INSERT OR REPLACE INTO currency_rates (date, rate) VALUES (?, ?)')
             .run(todayStr, rate);
 
-        // Calculate Investment Values
-        const invEntries = await Promise.all(
+        const liveInvEntries = await Promise.all(
             assets.investments.map(async (inv) => {
                 const quote = await fetchQuote(inv.symbol);
                 let currentPrice = inv.avgPrice;
@@ -132,86 +120,166 @@ export async function POST(request: Request) {
             })
         );
 
-        const totalInvValue = invEntries.reduce((acc, inv) => {
-            const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
-            return acc + (inv.currency === 'USD' ? val * rate : val);
-        }, 0);
+        let finalResponseEntry = null;
+        let finalResponseIsSettled = false;
 
-        const totalOtherValue = (assets.allocations || [])
-            .filter(a => ![
-                'Domestic Stock', 'Overseas Stock',
-                'Domestic Index', 'Overseas Index',
-                'Domestic Bond', 'Overseas Bond'
-            ].includes(a.category))
-            .reduce((acc, a) => {
-                let val = a.value || 0;
-                if (a.details && a.details.length > 0) {
-                    val = a.details.reduce((sum, d) => {
-                        const dVal = d.value || 0;
-                        const dRate = (d.currency === 'USD' ? rate : 1);
-                        const aRate = (a.currency === 'USD' ? rate : 1);
-                        return sum + (dVal * dRate / aRate);
-                    }, 0);
+        // Determine which days need checking
+        // Process yesterday first, then today.
+        const daysToProcess = body.auto ? [yesterdayStr, todayStr] : [todayStr];
+
+        for (const targetDate of daysToProcess) {
+            const status = getSettlementStatus(targetDate, now);
+            const dbRow = db.prepare('SELECT * FROM history WHERE date = ?').get(targetDate) as any;
+            let meta = { domesticSettled: false, overseasSettled: false };
+
+            if (dbRow && dbRow.meta) {
+                try { meta = JSON.parse(dbRow.meta); } catch { }
+            }
+
+            // Both settled in DB, nothing to do unless it's the requested date we need to return
+            if (meta.domesticSettled && meta.overseasSettled) {
+                if (targetDate === todayStr) {
+                    finalResponseEntry = {
+                        date: targetDate,
+                        totalValue: dbRow.totalValue,
+                        snapshotValue: dbRow.snapshotValue,
+                        manualAdjustment: dbRow.manualAdjustment,
+                        exchangeRate: dbRow.exchangeRate,
+                        holdings: JSON.parse(dbRow.holdings),
+                        allocations: JSON.parse(dbRow.allocations),
+                        meta
+                    };
+                    finalResponseIsSettled = true;
                 }
-                return acc + (a.currency === 'USD' ? val * rate : val);
+                continue;
+            }
+
+            // Determine if anything is newly closable OR it's the target return date
+            const shouldSaveToHistory = status.domesticSettled || status.overseasSettled;
+            const needsProcessing = shouldSaveToHistory || targetDate === todayStr;
+
+            if (!needsProcessing) continue;
+
+            const oldHoldings = dbRow && dbRow.holdings ? JSON.parse(dbRow.holdings) : [];
+
+            // Merge holdings:
+            // If DB domestic is settled, keep old domestic. Otherwise, use live domestic.
+            // If DB overseas is settled, keep old overseas. Otherwise, use live overseas.
+            const mergedInvEntries = liveInvEntries.map(liveInv => {
+                // Determine marketType (default based on category)
+                const isDomestic = liveInv.marketType === 'Domestic' || ['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(liveInv.category);
+
+                if (isDomestic && meta.domesticSettled) {
+                    const oldInv = oldHoldings.find((o: any) => o.symbol === liveInv.symbol);
+                    if (oldInv) return oldInv;
+                }
+                if (!isDomestic && meta.overseasSettled) {
+                    const oldInv = oldHoldings.find((o: any) => o.symbol === liveInv.symbol);
+                    if (oldInv) return oldInv;
+                }
+                return liveInv; // LIVE quote
+            });
+
+            // Calculate Totals using merged entries
+            const totalInvValue = mergedInvEntries.reduce((acc, inv) => {
+                const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
+                return acc + (inv.currency === 'USD' ? val * rate : val);
             }, 0);
 
-        const totalValue = totalOtherValue + totalInvValue;
-
-        const updatedAllocations = (assets.allocations || []).map(alc => {
-            if (alc.category === 'Domestic Stock' ||
-                alc.category === 'Overseas Stock' ||
-                alc.category === 'Domestic Index' ||
-                alc.category === 'Overseas Index' ||
-                alc.category === 'Domestic Bond' ||
-                alc.category === 'Overseas Bond') {
-                const categoryValue = invEntries
-                    .filter(inv => inv.category === alc.category)
-                    .reduce((sum, inv) => {
-                        const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
-                        return sum + (inv.currency === 'USD' ? val * rate : val);
-                    }, 0);
-                return { ...alc, value: categoryValue / (alc.currency === 'USD' ? rate : 1) };
-            }
-
-            if (alc.details && alc.details.length > 0) {
-                const sumValue = alc.details.reduce((sum, d) => {
-                    const dVal = d.value || 0;
-                    const dRate = (d.currency === 'USD' ? rate : 1);
-                    const aRate = (alc.currency === 'USD' ? rate : 1);
-                    return sum + (dVal * dRate / aRate);
+            const totalOtherValue = (assets.allocations || [])
+                .filter(a => ![
+                    'Domestic Stock', 'Overseas Stock',
+                    'Domestic Index', 'Overseas Index',
+                    'Domestic Bond', 'Overseas Bond'
+                ].includes(a.category))
+                .reduce((acc, a) => {
+                    let val = a.value || 0;
+                    if (a.details && a.details.length > 0) {
+                        val = a.details.reduce((sum, d) => {
+                            const dVal = d.value || 0;
+                            const dRate = (d.currency === 'USD' ? rate : 1);
+                            const aRate = (a.currency === 'USD' ? rate : 1);
+                            return sum + (dVal * dRate / aRate);
+                        }, 0);
+                    }
+                    return acc + (a.currency === 'USD' ? val * rate : val);
                 }, 0);
-                return { ...alc, value: sumValue };
+
+            const totalValue = totalOtherValue + totalInvValue;
+
+            const updatedAllocations = (assets.allocations || []).map(alc => {
+                const isInvCat = [
+                    'Domestic Stock', 'Overseas Stock',
+                    'Domestic Index', 'Overseas Index',
+                    'Domestic Bond', 'Overseas Bond'
+                ].includes(alc.category);
+
+                if (isInvCat) {
+                    const categoryValue = mergedInvEntries
+                        .filter(inv => inv.category === alc.category)
+                        .reduce((sum, inv) => {
+                            const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
+                            return sum + (inv.currency === 'USD' ? val * rate : val);
+                        }, 0);
+                    return { ...alc, value: categoryValue / (alc.currency === 'USD' ? rate : 1) };
+                }
+
+                if (alc.details && alc.details.length > 0) {
+                    const sumValue = alc.details.reduce((sum, d) => {
+                        const dVal = d.value || 0;
+                        const dRate = (d.currency === 'USD' ? rate : 1);
+                        const aRate = (alc.currency === 'USD' ? rate : 1);
+                        return sum + (dVal * dRate / aRate);
+                    }, 0);
+                    return { ...alc, value: sumValue };
+                }
+                return alc;
+            });
+
+            // Update meta flags based on what was just processed
+            // If it could be settled now, mark it as settled
+            if (status.domesticSettled) meta.domesticSettled = true;
+            if (status.overseasSettled) meta.overseasSettled = true;
+
+            const newEntry: HistoryEntry = {
+                date: targetDate,
+                totalValue,
+                snapshotValue: totalValue,
+                manualAdjustment: dbRow ? dbRow.manualAdjustment : 0,
+                holdings: mergedInvEntries,
+                allocations: updatedAllocations,
+                exchangeRate: rate,
+                meta: meta
+            };
+
+            if (shouldSaveToHistory) {
+                db.prepare(`
+                    INSERT OR REPLACE INTO history (date, totalValue, snapshotValue, manualAdjustment, exchangeRate, holdings, allocations, meta)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `).run(
+                    newEntry.date, newEntry.totalValue, newEntry.snapshotValue,
+                    newEntry.manualAdjustment, newEntry.exchangeRate,
+                    JSON.stringify(newEntry.holdings), JSON.stringify(newEntry.allocations),
+                    JSON.stringify(newEntry.meta)
+                );
             }
-            return alc;
-        });
 
-        const newEntry: HistoryEntry = {
-            date: targetDate,
-            totalValue,
-            snapshotValue: totalValue,
-            manualAdjustment: 0,
-            holdings: invEntries,
-            allocations: updatedAllocations,
-            exchangeRate: rate
-        };
-
-        if (shouldSaveToHistory) {
-            db.prepare(`
-                INSERT OR REPLACE INTO history (date, totalValue, snapshotValue, manualAdjustment, exchangeRate, holdings, allocations)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(
-                newEntry.date, newEntry.totalValue, newEntry.snapshotValue,
-                newEntry.manualAdjustment, newEntry.exchangeRate,
-                JSON.stringify(newEntry.holdings), JSON.stringify(newEntry.allocations)
-            );
+            if (targetDate === todayStr) {
+                finalResponseEntry = newEntry;
+                finalResponseIsSettled = meta.domesticSettled && meta.overseasSettled;
+            }
         }
 
-        return NextResponse.json({
-            success: true,
-            entry: newEntry,
-            isSettled: shouldSaveToHistory
-        });
+        if (finalResponseEntry) {
+            return NextResponse.json({
+                success: true,
+                entry: finalResponseEntry,
+                isSettled: finalResponseIsSettled
+            });
+        }
+
+        // Fallback for extreme cases empty response
+        return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Snapshot failed', error);
         return NextResponse.json({ success: false, error: 'Snapshot failed' }, { status: 500 });
