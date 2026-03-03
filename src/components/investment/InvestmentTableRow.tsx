@@ -123,11 +123,9 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
 
             {/* ── 비중 ── */}
             <td style={{ textAlign: 'center', padding: '0.6rem 0.4rem', borderRight: '1px solid var(--border)' }}>
-                {!isPrivate && (
-                    <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>
-                        {weight.toFixed(1)}%
-                    </div>
-                )}
+                <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>
+                    {weight.toFixed(1)}%
+                </div>
             </td>
 
             {/* ── 작업 ── */}
