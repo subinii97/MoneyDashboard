@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Investment } from '@/lib/types';
 import { formatKRW, convertToKRW } from '@/lib/utils';
 import { InvestmentTableRow } from './InvestmentTableRow';
@@ -18,6 +18,17 @@ interface InvestmentTableProps {
 export const InvestmentTable: React.FC<InvestmentTableProps> = ({
     investments, title, rate, isPrivate, onEdit, onDelete, onTransaction
 }) => {
+    const [sortKey, setSortKey] = useState<'rate' | 'weight'>('rate');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+    const toggleSort = (key: 'rate' | 'weight') => {
+        if (sortKey === key) {
+            setSortDir(prev => prev === 'desc' ? 'asc' : 'desc');
+        } else {
+            setSortKey(key);
+            setSortDir('desc');
+        }
+    };
     const subTotal = investments.reduce((acc, s) => {
         const val = (s.currentPrice || s.avgPrice) * s.shares;
         return acc + convertToKRW(val, s.currency || 'KRW', rate);
@@ -82,12 +93,13 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                             <th style={{ textAlign: 'center', width: '32%' }}>종목</th>
                             <th style={{ textAlign: 'center', width: '18%' }}>{!isPrivate ? '현재가 / 전일대비 / 평단가' : '현재가 / 전일대비'}</th>
                             <th style={{ textAlign: 'center', width: '7%' }}>수량</th>
-                            <th style={{ textAlign: 'center', width: '20%' }}>평가 / 변동</th>
-                            <th style={{ textAlign: 'center', width: '9%' }}>비중</th>
+                            <th style={{ textAlign: 'center', width: '20%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('rate')}>
+                                평가 / 변동 {sortKey === 'rate' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </th>
+                            <th style={{ textAlign: 'center', width: '9%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('weight')}>
+                                매입 비중 {sortKey === 'weight' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </th>
                             <th style={{ textAlign: 'center', width: '14%' }}>거래 / 수정 / 삭제</th>
-
-
-
                         </tr>
                     </thead>
                     <tbody>
@@ -96,7 +108,13 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                 const curr = inv.currentPrice || inv.avgPrice;
                                 return inv.avgPrice > 0 ? ((curr - inv.avgPrice) / inv.avgPrice) : 0;
                             };
-                            return getRate(b) - getRate(a);
+                            const getWeight = (inv: Investment) => {
+                                const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
+                                return subTotal > 0 ? convertToKRW(val, inv.currency || 'KRW', rate) / subTotal : 0;
+                            };
+                            const valA = sortKey === 'rate' ? getRate(a) : getWeight(a);
+                            const valB = sortKey === 'rate' ? getRate(b) : getWeight(b);
+                            return sortDir === 'desc' ? valB - valA : valA - valB;
                         }).map((inv) => (
                             <InvestmentTableRow
                                 key={inv.id}
