@@ -3,7 +3,11 @@ import db from '@/lib/db';
 
 export async function GET() {
     try {
-        const investments = db.prepare('SELECT * FROM investments').all();
+        const investmentsRaw = db.prepare('SELECT * FROM investments').all();
+        const investments = investmentsRaw.map((row: any) => ({
+            ...row,
+            tags: row.tags ? JSON.parse(row.tags) : undefined
+        }));
         const allocationsRows = db.prepare('SELECT * FROM allocations').all();
 
         const allocations = allocationsRows.map((row: any) => ({
@@ -23,8 +27,8 @@ export async function POST(request: Request) {
         const { investments, allocations } = await request.json();
 
         const insertInvestment = db.prepare(`
-            INSERT OR REPLACE INTO investments (id, symbol, name, shares, avgPrice, currency, exchange, marketType, category, purchaseDate, targetWeight)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO investments (id, symbol, name, shares, avgPrice, currency, exchange, marketType, category, purchaseDate, targetWeight, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const insertAllocation = db.prepare(`
@@ -33,9 +37,6 @@ export async function POST(request: Request) {
         `);
 
         db.transaction(() => {
-            // Delete existing ones to sync properly if needed, 
-            // but OR REPLACE might be enough depending on how the frontend sends data.
-            // Usually, POST to assets replaces the whole list.
             db.prepare('DELETE FROM investments').run();
             db.prepare('DELETE FROM allocations').run();
 
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
                 insertInvestment.run(
                     inv.id, inv.symbol, inv.name || null, inv.shares, inv.avgPrice,
                     inv.currency || null, inv.exchange || null, inv.marketType,
-                    inv.category || null, inv.purchaseDate || null, inv.targetWeight || 0
+                    inv.category || null, inv.purchaseDate || null, inv.targetWeight || 0,
+                    inv.tags && inv.tags.length > 0 ? JSON.stringify(inv.tags) : null
                 );
             }
             for (const alc of (allocations || [])) {

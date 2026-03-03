@@ -90,16 +90,16 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <table className="dashboard-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: 'center', width: '32%' }}>종목</th>
-                            <th style={{ textAlign: 'center', width: '18%' }}>{!isPrivate ? '현재가 / 전일대비 / 평단가' : '현재가 / 전일대비'}</th>
-                            <th style={{ textAlign: 'center', width: '7%' }}>수량</th>
-                            <th style={{ textAlign: 'center', width: '20%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('rate')}>
+                            <th style={{ textAlign: 'center', width: '38%' }}>종목</th>
+                            <th style={{ textAlign: 'center', width: '16%' }}>{!isPrivate ? '현재가 / 전일대비 / 평단가' : '현재가 / 전일대비'}</th>
+                            <th style={{ textAlign: 'center', width: '8%' }}>수량</th>
+                            <th style={{ textAlign: 'center', width: '16%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('rate')}>
                                 평가 / 변동 {sortKey === 'rate' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </th>
-                            <th style={{ textAlign: 'center', width: '9%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('weight')}>
+                            <th style={{ textAlign: 'center', width: '10%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('weight')}>
                                 매입 비중 {sortKey === 'weight' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </th>
-                            <th style={{ textAlign: 'center', width: '14%' }}>거래 / 수정 / 삭제</th>
+                            <th style={{ textAlign: 'center', width: '12%' }}>거래 / 수정 / 삭제</th>
                         </tr>
                     </thead>
                     <tbody>

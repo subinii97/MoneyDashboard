@@ -18,7 +18,8 @@ db.exec(`
     marketType TEXT NOT NULL,
     category TEXT,
     purchaseDate TEXT,
-    targetWeight REAL
+    targetWeight REAL,
+    tags TEXT
   );
 
   CREATE TABLE IF NOT EXISTS allocations (
@@ -61,3 +62,10 @@ db.exec(`
 `);
 
 export default db;
+
+// Migration: add tags column if missing (for existing DBs)
+try {
+  db.exec(`ALTER TABLE investments ADD COLUMN tags TEXT`);
+} catch {
+  // Column already exists
+}
