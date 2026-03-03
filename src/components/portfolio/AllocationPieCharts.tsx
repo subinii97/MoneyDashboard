@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef, useCallback } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import React, { useRef, useState, useCallback } from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { AssetAllocation, CATEGORY_MAP, CATEGORY_COLORS } from '@/lib/types';
 import { formatKRW } from '@/lib/utils';
 
@@ -12,33 +12,6 @@ interface AllocationPieChartsProps {
     isPrivate: boolean;
 }
 
-const CustomTooltip = ({ active, payload, isPrivate, mode, totalValue, getCurrentValue, allocations }: any) => {
-    if (!active || !payload || !payload.length) return null;
-    const data = payload[0].payload;
-
-    if (mode === 'current') {
-        const currentTotal = allocations.reduce((s: number, a: AssetAllocation) => s + getCurrentValue(a), 0);
-        const pct = currentTotal > 0 ? (data.value / currentTotal) * 100 : 0;
-        return (
-            <div style={{ padding: '0.6rem 1rem', border: '1px solid var(--border)', textAlign: 'left', minWidth: '120px', backgroundColor: 'var(--card)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                <div style={{ fontWeight: '700', marginBottom: '0.3rem', fontSize: '0.9rem' }}>{data.name}</div>
-                <div className={isPrivate ? 'private-blur' : ''} style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '1rem' }}>{formatKRW(data.value)}</div>
-                <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.2rem' }}>{pct.toFixed(1)}%</div>
-            </div>
-        );
-    }
-
-    const targetWeight = data.value;
-    const targetVal = (totalValue * targetWeight) / 100;
-    return (
-        <div style={{ padding: '0.6rem 1rem', border: '1px solid var(--border)', textAlign: 'left', minWidth: '120px', backgroundColor: 'var(--card)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontWeight: '700', marginBottom: '0.3rem', fontSize: '0.9rem' }}>{data.name} <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>(목표)</span></div>
-            <div className={isPrivate ? 'private-blur' : ''} style={{ color: 'var(--accent)', fontWeight: '700', fontSize: '1rem' }}>{formatKRW(targetVal)}</div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.2rem' }}>{targetWeight.toFixed(1)}%</div>
-        </div>
-    );
-};
-
 export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
     allocations,
     totalValue,
@@ -46,32 +19,24 @@ export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
     isPrivate
 }) => {
     const mouseRef = useRef({ x: 0, y: 0 });
-    const tooltipRef1 = useRef<HTMLDivElement>(null);
-    const tooltipRef2 = useRef<HTMLDivElement>(null);
+    const tooltipElRef = useRef<HTMLDivElement>(null);
+    const [tooltipData, setTooltipData] = useState<{ name: string; value: number; mode: 'current' | 'target' } | null>(null);
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
         mouseRef.current = { x: e.clientX, y: e.clientY };
-        // Directly update tooltip wrapper positions via DOM (no re-render)
-        if (tooltipRef1.current) {
-            const wrapper = tooltipRef1.current.querySelector('.recharts-tooltip-wrapper') as HTMLElement;
-            if (wrapper) {
-                wrapper.style.transform = `translate(${e.clientX + 16}px, ${e.clientY - 16}px)`;
-                wrapper.style.position = 'fixed';
-                wrapper.style.top = '0';
-                wrapper.style.left = '0';
-                wrapper.style.pointerEvents = 'none';
-            }
+        if (tooltipElRef.current) {
+            tooltipElRef.current.style.left = `${e.clientX + 16}px`;
+            tooltipElRef.current.style.top = `${e.clientY - 16}px`;
         }
-        if (tooltipRef2.current) {
-            const wrapper = tooltipRef2.current.querySelector('.recharts-tooltip-wrapper') as HTMLElement;
-            if (wrapper) {
-                wrapper.style.transform = `translate(${e.clientX + 16}px, ${e.clientY - 16}px)`;
-                wrapper.style.position = 'fixed';
-                wrapper.style.top = '0';
-                wrapper.style.left = '0';
-                wrapper.style.pointerEvents = 'none';
-            }
-        }
+    }, []);
+
+    const handlePieEnter = useCallback((mode: 'current' | 'target') => (_: any, index: number) => {
+        const data = mode === 'current' ? currentDataRef.current[index] : targetDataRef.current[index];
+        if (data) setTooltipData({ name: data.name, value: data.value, mode });
+    }, []);
+
+    const handlePieLeave = useCallback(() => {
+        setTooltipData(null);
     }, []);
 
     const currentData = allocations
@@ -90,13 +55,64 @@ export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
             color: CATEGORY_COLORS[a.category]
         }));
 
+    // Keep refs to avoid stale closures in callbacks
+    const currentDataRef = useRef(currentData);
+    currentDataRef.current = currentData;
+    const targetDataRef = useRef(targetData);
+    targetDataRef.current = targetData;
+
+    // Tooltip render
+    const renderTooltipContent = () => {
+        if (!tooltipData) return null;
+        if (tooltipData.mode === 'current') {
+            const currentTotal = allocations.reduce((s, a) => s + getCurrentValue(a), 0);
+            const pct = currentTotal > 0 ? (tooltipData.value / currentTotal) * 100 : 0;
+            return (
+                <>
+                    <div style={{ fontWeight: '700', marginBottom: '0.3rem', fontSize: '0.9rem' }}>{tooltipData.name}</div>
+                    <div className={isPrivate ? 'private-blur' : ''} style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '1rem' }}>{formatKRW(tooltipData.value)}</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.2rem' }}>{pct.toFixed(1)}%</div>
+                </>
+            );
+        }
+        const targetVal = (totalValue * tooltipData.value) / 100;
+        return (
+            <>
+                <div style={{ fontWeight: '700', marginBottom: '0.3rem', fontSize: '0.9rem' }}>{tooltipData.name} <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>(목표)</span></div>
+                <div className={isPrivate ? 'private-blur' : ''} style={{ color: 'var(--accent)', fontWeight: '700', fontSize: '1rem' }}>{formatKRW(targetVal)}</div>
+                <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.2rem' }}>{tooltipData.value.toFixed(1)}%</div>
+            </>
+        );
+    };
+
     return (
         <section
-            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}
+            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem', position: 'relative' }}
             onMouseMove={handleMouseMove}
         >
+            {/* Custom Floating Tooltip */}
+            <div
+                ref={tooltipElRef}
+                style={{
+                    position: 'fixed',
+                    pointerEvents: 'none',
+                    zIndex: 9999,
+                    padding: tooltipData ? '0.6rem 1rem' : '0',
+                    border: tooltipData ? '1px solid var(--border)' : 'none',
+                    backgroundColor: tooltipData ? 'var(--card)' : 'transparent',
+                    borderRadius: '8px',
+                    boxShadow: tooltipData ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                    opacity: tooltipData ? 1 : 0,
+                    transition: 'opacity 0.1s',
+                    minWidth: tooltipData ? '120px' : '0',
+                    textAlign: 'left',
+                }}
+            >
+                {renderTooltipContent()}
+            </div>
+
             {/* 현재 자산 비중 */}
-            <div className="glass" style={{ padding: '2rem', textAlign: 'center' }} ref={tooltipRef1}>
+            <div className="glass" style={{ padding: '2rem', textAlign: 'center' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>현재 자산 비중</h3>
                 <div style={{ height: '300px' }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -107,17 +123,13 @@ export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
                                 paddingAngle={0} dataKey="value" stroke="white" strokeWidth={2}
                                 isAnimationActive={true}
                                 animationDuration={800}
+                                onMouseEnter={handlePieEnter('current')}
+                                onMouseLeave={handlePieLeave}
                             >
                                 {currentData.map((entry, i) => (
                                     <Cell key={`cell-${i}`} fill={entry.color} />
                                 ))}
                             </Pie>
-                            <Tooltip
-                                content={(props: any) => (
-                                    <CustomTooltip {...props} isPrivate={isPrivate} mode="current" allocations={allocations} getCurrentValue={getCurrentValue} />
-                                )}
-                                isAnimationActive={false}
-                            />
                             <Legend verticalAlign="bottom" height={36} wrapperStyle={{ paddingTop: '20px', fontSize: '0.8rem' }} />
                         </PieChart>
                     </ResponsiveContainer>
@@ -125,7 +137,7 @@ export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
             </div>
 
             {/* 목표 자산 비중 */}
-            <div className="glass" style={{ padding: '2rem', textAlign: 'center' }} ref={tooltipRef2}>
+            <div className="glass" style={{ padding: '2rem', textAlign: 'center' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>목표 자산 비중</h3>
                 <div style={{ height: '300px' }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -136,17 +148,13 @@ export const AllocationPieCharts: React.FC<AllocationPieChartsProps> = ({
                                 paddingAngle={0} dataKey="value" stroke="white" strokeWidth={2}
                                 isAnimationActive={true}
                                 animationDuration={800}
+                                onMouseEnter={handlePieEnter('target')}
+                                onMouseLeave={handlePieLeave}
                             >
                                 {targetData.map((entry, i) => (
                                     <Cell key={`cell-${i}`} fill={entry.color} />
                                 ))}
                             </Pie>
-                            <Tooltip
-                                content={(props: any) => (
-                                    <CustomTooltip {...props} isPrivate={isPrivate} mode="target" totalValue={totalValue} />
-                                )}
-                                isAnimationActive={false}
-                            />
                             <Legend verticalAlign="bottom" height={36} wrapperStyle={{ paddingTop: '20px', fontSize: '0.8rem' }} />
                         </PieChart>
                     </ResponsiveContainer>
