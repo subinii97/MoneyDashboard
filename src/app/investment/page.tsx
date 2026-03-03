@@ -135,6 +135,9 @@ export default function InvestmentManager() {
                     <button onClick={() => setShowAddModal(true)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--primary)', fontWeight: '600', fontSize: '0.9rem' }}>
                         <PlusCircle size={18} /> 종목 추가
                     </button>
+                    <button onClick={() => setShowChartModal(true)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--primary)', fontWeight: '600', fontSize: '0.9rem' }}>
+                        <PieChart size={18} />
+                    </button>
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
                         {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
@@ -243,7 +246,7 @@ export default function InvestmentManager() {
             )}
 
             {showChartModal && (
-                <ChartModal 
+                <ChartModal
                     investments={assets.investments}
                     onClose={() => setShowChartModal(false)}
                 />
