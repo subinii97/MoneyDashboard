@@ -4,7 +4,6 @@ import { Investment, AssetCategory } from '@/lib/types';
 
 interface EditModalProps {
     editingInvestment: Investment;
-    viewMode: 'aggregated' | 'detailed';
     editForm: {
         shares: string;
         avgPrice: string;
@@ -18,7 +17,6 @@ interface EditModalProps {
 
 export const EditModal: React.FC<EditModalProps> = ({
     editingInvestment,
-    viewMode,
     editForm,
     onClose,
     onFormChange,
@@ -34,7 +32,7 @@ export const EditModal: React.FC<EditModalProps> = ({
         setTagInput('');
     };
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--background)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
             <div className="card-hover" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)', backgroundColor: 'var(--card)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -43,12 +41,6 @@ export const EditModal: React.FC<EditModalProps> = ({
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer' }}><X size={24} /></button>
                 </div>
-
-                {viewMode === 'aggregated' && (
-                    <div style={{ padding: '0.8rem 1rem', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '0.85rem', fontWeight: '600' }}>
-                        🚨 종목별 합산 모드에서 수정 시, 해당 종목의 모든 매수 기록이 하나로 통합됩니다.
-                    </div>
-                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     <div>

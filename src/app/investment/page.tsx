@@ -26,7 +26,6 @@ export default function InvestmentManager() {
         saveTxEdit,
     } = useInvestmentActions({ assets, rate, lastUpdated, fetchData, setAssets });
 
-    const [viewMode, setViewMode] = useState<'aggregated' | 'detailed'>('aggregated');
     const [isPrivate, setIsPrivate] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -107,26 +106,12 @@ export default function InvestmentManager() {
         setShowTxModal(true);
     }, [assets.investments, knownNames]);
 
-    const getAggregated = (list: Investment[]): Investment[] => {
-        const grouped = list.reduce<Record<string, Investment>>((acc, inv) => {
-            if (!acc[inv.symbol]) {
-                acc[inv.symbol] = { ...inv };
-            } else {
-                const totalShares = acc[inv.symbol].shares + inv.shares;
-                acc[inv.symbol].avgPrice = (acc[inv.symbol].shares * acc[inv.symbol].avgPrice + inv.shares * inv.avgPrice) / totalShares;
-                acc[inv.symbol].shares = totalShares;
-            }
-            return acc;
-        }, {});
-        return Object.values(grouped);
-    };
-
     const filtered = (m: MarketType): Investment[] => {
         let list = assets.investments.filter(s => s.marketType === m);
         if (selectedTag) {
             list = list.filter(s => s.tags && s.tags.includes(selectedTag));
         }
-        return viewMode === 'aggregated' ? getAggregated(list) : list;
+        return list;
     };
 
     if (loading) return <div className="flex-center" style={{ height: '60vh', color: 'var(--muted)' }}>Loading...</div>;
@@ -146,12 +131,6 @@ export default function InvestmentManager() {
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button onClick={() => setShowAddModal(true)} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--primary)', fontWeight: '600', fontSize: '0.9rem' }}>
                         <PlusCircle size={18} /> 종목 추가
-                    </button>
-                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
-                        {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                    <button onClick={() => setViewMode(viewMode === 'aggregated' ? 'detailed' : 'aggregated')} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem' }}>
-                        {viewMode === 'aggregated' ? <List size={18} /> : <Layers size={18} />} {viewMode === 'aggregated' ? '상세 내역' : '합산 내역'}
                     </button>
                     <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: isRefreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem', opacity: isRefreshing ? 0.7 : 1 }}>
                         <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? '갱신 중...' : '새로고침'}
@@ -247,12 +226,11 @@ export default function InvestmentManager() {
             {showEditModal && editingInvestment && (
                 <EditModal
                     editingInvestment={editingInvestment}
-                    viewMode={viewMode}
                     editForm={editForm}
                     onClose={() => setShowEditModal(false)}
                     onFormChange={(f, v) => setEditForm(p => ({ ...p, [f]: v }))}
                     onSubmit={async () => {
-                        await saveEdit(editingInvestment, editForm, viewMode);
+                        await saveEdit(editingInvestment, editForm, 'aggregated');
                         setShowEditModal(false);
                     }}
                 />
