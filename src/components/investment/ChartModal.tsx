@@ -10,7 +10,7 @@ interface ChartModalProps {
 export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) => {
     // Determine the view scope: 'All', 'Domestic', 'Overseas'
     const [viewMode, setViewMode] = useState<'All' | MarketType>('All');
-    
+
     // 1. Filter investments based on viewScope and calculate sector weights based on the FIRST tag
     const sectorData = useMemo(() => {
         let totalVal = 0;
@@ -23,7 +23,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) 
             const sector = (inv.tags && inv.tags.length > 0) ? inv.tags[0] : '기타';
             const value = inv.shares * inv.avgPrice;
             totalVal += value;
-            
+
             if (!sums[sector]) {
                 sums[sector] = { value: 0, components: [] };
             }
@@ -40,7 +40,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) 
                 const sortedComponents = data.components
                     .map(c => ({ ...c, percentage: (c.weight / data.value) * 100 }))
                     .sort((a, b) => b.weight - a.weight);
-                    
+
                 return {
                     name,
                     value: data.value,
@@ -67,22 +67,22 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) 
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer' }}><X size={24} /></button>
                 </div>
-                
+
                 <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--card)', padding: '0.35rem', borderRadius: '12px', border: '1px solid var(--border)', width: 'fit-content' }}>
-                    <button 
-                        onClick={() => setViewMode('All')} 
+                    <button
+                        onClick={() => setViewMode('All')}
                         style={{ padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: '0.9rem', background: viewMode === 'All' ? 'var(--primary)' : 'transparent', color: viewMode === 'All' ? '#fff' : 'var(--muted)', transition: 'all 0.2s' }}
                     >
                         전체
                     </button>
-                    <button 
-                        onClick={() => setViewMode('Domestic')} 
+                    <button
+                        onClick={() => setViewMode('Domestic')}
                         style={{ padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: '0.9rem', background: viewMode === 'Domestic' ? 'var(--primary)' : 'transparent', color: viewMode === 'Domestic' ? '#fff' : 'var(--muted)', transition: 'all 0.2s' }}
                     >
                         국내
                     </button>
-                    <button 
-                        onClick={() => setViewMode('Overseas')} 
+                    <button
+                        onClick={() => setViewMode('Overseas')}
                         style={{ padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: '0.9rem', background: viewMode === 'Overseas' ? 'var(--primary)' : 'transparent', color: viewMode === 'Overseas' ? '#fff' : 'var(--muted)', transition: 'all 0.2s' }}
                     >
                         해외
@@ -98,15 +98,15 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) 
                         {/* Custom Pure CSS Horizontal Bar Chart */}
                         <div style={{ display: 'flex', height: '24px', borderRadius: '12px', overflow: 'hidden', width: '100%' }}>
                             {sectorData.map((d, i) => (
-                                <div 
-                                    key={d.name} 
-                                    style={{ 
-                                        width: `${d.weight}%`, 
+                                <div
+                                    key={d.name}
+                                    style={{
+                                        width: `${d.weight}%`,
                                         backgroundColor: COLORS[i % COLORS.length],
                                         height: '100%',
                                         transition: 'width 0.3s ease'
-                                    }} 
-                                    title={`${d.name}: ${d.weight.toFixed(1)}%`}
+                                    }}
+                                    title={`${d.name}: ${d.weight.toFixed(1)}%\n\n${d.components.map(c => `• ${c.name}: ${c.percentage.toFixed(1)}%`).join('\n')}`}
                                 />
                             ))}
                         </div>
@@ -122,7 +122,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, onClose }) 
                                             <span style={{ color: 'var(--muted)', fontWeight: 600 }}>{d.weight.toFixed(1)}%</span>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="sector-components" style={{ fontSize: '0.8rem', color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: '0.25rem', paddingLeft: '1.5rem', marginTop: '0.25rem' }}>
                                         {d.components.map(c => (
                                             <div key={c.name} style={{ display: 'flex', justifyContent: 'space-between' }}>
