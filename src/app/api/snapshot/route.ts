@@ -157,6 +157,10 @@ export async function POST(request: Request) {
 
             if (dbRow && dbRow.meta) {
                 try { meta = JSON.parse(dbRow.meta); } catch { }
+            } else if (dbRow && !dbRow.meta) {
+                // If the row exists but has no meta, it's a legacy row.
+                // We should assume it was fully settled under the old system to avoid overwriting it.
+                meta = { domesticSettled: true, overseasSettled: true };
             }
 
             // Both settled in DB, nothing to do unless it's the requested date we need to return

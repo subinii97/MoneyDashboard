@@ -21,9 +21,9 @@ export function useHistoryData() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [historyRes, stockRes, liveRes] = await Promise.all([
+                // 1. Fetch history + trigger live snapshot
+                const [historyRes, liveRes] = await Promise.all([
                     fetch('/api/snapshot?includeHoldings=true'),
-                    fetch('/api/stock?symbols=AAPL'),
                     fetch('/api/snapshot', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -31,7 +31,6 @@ export function useHistoryData() {
                     }).catch(() => null)
                 ]);
                 const historyData = await historyRes.json();
-                const stockData = await stockRes.json();
                 let liveData = null;
                 if (liveRes && liveRes.ok) {
                     try {
@@ -40,11 +39,56 @@ export function useHistoryData() {
                 }
 
                 let finalHistory = Array.isArray(historyData) ? historyData : [];
+
                 if (liveData && liveData.success && liveData.entry) {
                     const entry = liveData.entry;
                     if (!liveData.isSettled) {
                         entry.isLive = true;
                     }
+
+                    // 2. Fetch real-time prices from /api/stock (same source as investment page)
+                    //    and apply them to the live entry's holdings for consistency
+                    if (entry.isLive && entry.holdings && entry.holdings.length > 0) {
+                        const symbols = [...new Set(entry.holdings.map((h: any) => h.symbol))].join(',');
+                        try {
+                            const priceRes = await fetch(`/api/stock?symbols=${symbols}&t=${Date.now()}`, { cache: 'no-store' });
+                            const priceData = await priceRes.json();
+
+                            if (priceData.exchangeRate) {
+                                const r = typeof priceData.exchangeRate === 'object' ? priceData.exchangeRate.rate : priceData.exchangeRate;
+                                setRate(r);
+                                entry.exchangeRate = r;
+                            }
+
+                            if (priceData.results) {
+                                entry.holdings = entry.holdings.map((h: any) => {
+                                    const info = priceData.results.find((r: any) =>
+                                        r.symbol.trim().toUpperCase() === h.symbol.trim().toUpperCase()
+                                    );
+                                    if (info && info.price) {
+                                        return { ...h, currentPrice: info.price };
+                                    }
+                                    return h;
+                                });
+
+                                // Recalculate totalValue with updated prices
+                                const invValue = entry.holdings.reduce((acc: number, h: any) => {
+                                    const val = (h.currentPrice || h.avgPrice) * h.shares;
+                                    return acc + (h.currency === 'USD' ? val * entry.exchangeRate : val);
+                                }, 0);
+
+                                // Add non-investment allocation values
+                                const nonInvValue = (entry.allocations || [])
+                                    .filter((a: any) => !['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(a.category))
+                                    .reduce((acc: number, a: any) => acc + (a.currency === 'USD' ? a.value * entry.exchangeRate : a.value), 0);
+
+                                entry.totalValue = invValue + nonInvValue;
+                            }
+                        } catch (e) {
+                            console.error('Failed to sync live prices', e);
+                        }
+                    }
+
                     const existingIndex = finalHistory.findIndex((e: any) => e.date === entry.date);
                     if (existingIndex >= 0) {
                         finalHistory[existingIndex] = entry;
@@ -55,10 +99,6 @@ export function useHistoryData() {
                 finalHistory.sort((a, b) => a.date.localeCompare(b.date));
 
                 setHistory(finalHistory);
-                if (stockData.exchangeRate) {
-                    const r = typeof stockData.exchangeRate === 'object' ? stockData.exchangeRate.rate : stockData.exchangeRate;
-                    setRate(r);
-                }
             } catch (err) {
                 console.error('Failed to fetch initial data', err);
             } finally {
