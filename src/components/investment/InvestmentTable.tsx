@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Investment } from '@/lib/types';
+import { Investment, Transaction } from '@/lib/types';
 import { formatKRW, convertToKRW } from '@/lib/utils';
 import { InvestmentTableRow } from './InvestmentTableRow';
 
 interface InvestmentTableProps {
     investments: Investment[];
+    transactions: Transaction[];
     title: string;
     rate: number;
     isPrivate: boolean;
@@ -16,7 +17,7 @@ interface InvestmentTableProps {
 }
 
 export const InvestmentTable: React.FC<InvestmentTableProps> = ({
-    investments, title, rate, isPrivate, onEdit, onDelete, onTransaction
+    investments, transactions, title, rate, isPrivate, onEdit, onDelete, onTransaction
 }) => {
     const [sortKey, setSortKey] = useState<'rate' | 'weight'>('rate');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -41,7 +42,30 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
     const totalPLPercent = (subTotal - totalPL) > 0 ? (totalPL / (subTotal - totalPL)) * 100 : 0;
 
     const dailyChange = investments.reduce((acc, s) => {
-        return acc + convertToKRW((s.change || 0) * s.shares, s.currency || 'KRW', rate);
+        const symbolTransactions = (transactions || []).filter(tx => tx.symbol === s.symbol);
+
+        let netBoughtShares = 0;
+        let txProfit = 0;
+        const prevClose = (s.currentPrice || s.avgPrice) - (s.change || 0);
+
+        symbolTransactions.forEach(tx => {
+            const txShares = tx.shares || 0;
+            const txPrice = tx.price || 0;
+            if (tx.type === 'BUY') {
+                netBoughtShares += txShares;
+                txProfit += ((s.currentPrice || s.avgPrice) - txPrice) * txShares;
+            } else if (tx.type === 'SELL') {
+                netBoughtShares -= txShares;
+                txProfit += (txPrice - prevClose) * txShares;
+            }
+        });
+
+        // Shares held since yesterday
+        const initialShares = s.shares - netBoughtShares;
+        const initialSharesProfit = (s.change || 0) * initialShares;
+
+        const totalAdjustedProfit = initialSharesProfit + txProfit;
+        return acc + convertToKRW(totalAdjustedProfit, s.currency || 'KRW', rate);
     }, 0);
     const dailyChangePercent = (subTotal - dailyChange) > 0 ? (dailyChange / (subTotal - dailyChange)) * 100 : 0;
 

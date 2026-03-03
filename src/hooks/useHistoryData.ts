@@ -82,6 +82,23 @@ export function useHistoryData() {
                                     .filter((a: any) => !['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(a.category))
                                     .reduce((acc: number, a: any) => acc + (a.currency === 'USD' ? a.value * entry.exchangeRate : a.value), 0);
 
+                                // 3. Sync entry.allocations so tables show updated values
+                                if (entry.allocations) {
+                                    entry.allocations = entry.allocations.map((alc: any) => {
+                                        const isInvCat = ['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(alc.category);
+                                        if (isInvCat) {
+                                            const categoryValue = entry.holdings
+                                                .filter((h: any) => h.category === alc.category)
+                                                .reduce((sum: number, h: any) => {
+                                                    const val = (h.currentPrice || h.avgPrice) * h.shares;
+                                                    return sum + (h.currency === 'USD' ? val * entry.exchangeRate : val);
+                                                }, 0);
+                                            return { ...alc, value: categoryValue / (alc.currency === 'USD' ? entry.exchangeRate : 1) };
+                                        }
+                                        return alc;
+                                    });
+                                }
+
                                 entry.totalValue = invValue + nonInvValue;
                             }
                         } catch (e) {
@@ -239,7 +256,8 @@ export function useHistoryData() {
                 }
             };
 
-            ds.change = prevEntry ? entry.totalValue - prevEntry.totalValue : 0;
+            // Main change is now the sum of market performance (excluding capital flow)
+            ds.change = ds.metrics.domestic.change + ds.metrics.overseas.change;
             ds.changePercent = (prevEntry && prevEntry.totalValue > 0) ? (ds.change / prevEntry.totalValue) * 100 : 0;
 
             return ds;
