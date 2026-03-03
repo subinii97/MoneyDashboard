@@ -30,7 +30,7 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
 
     if (!data) {
         if (!symbol.includes('.')) {
-            const suffixes = ['.O', '.N', '.A'];
+            const suffixes = ['.O', '.N', '.A', '.K', ''];
             for (const suffix of suffixes) {
                 data = await tryFetch(symbol + suffix);
                 if (data) {
