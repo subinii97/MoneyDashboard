@@ -62,6 +62,9 @@ body {
 .glass:hover {
     border-color: var(--border-bright);
     background: var(--card-hover);
+}
+
+button.glass:hover {
     transform: translateY(-2px);
 }
 
