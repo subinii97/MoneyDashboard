@@ -183,3 +183,16 @@ input.glass:focus {
 .dashboard-table tr:last-child td {
     border-bottom: none;
 }
+
+/* Recharts Outline/Focus Reset */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-sector,
+.recharts-pie-sector,
+g.recharts-layer {
+    outline: none !important;
+}
+
+.recharts-sector {
+    cursor: default !important;
+}
