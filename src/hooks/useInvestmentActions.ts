@@ -115,6 +115,7 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
     const addInvestment = useCallback(async (form: {
         symbol: string; shares: string; avgPrice: string;
         marketType: 'Domestic' | 'Overseas'; category: AssetCategory;
+        tags?: string[];
     }) => {
         if (!form.symbol || !form.shares || !form.avgPrice) return;
         const symbol = form.symbol.toUpperCase();
@@ -125,7 +126,8 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
         const invToAdd: Investment = {
             id: Date.now().toString(), symbol, shares, avgPrice: price,
             marketType: form.marketType, category: form.category,
-            currency: currency as any, targetWeight: 0
+            currency: currency as any, targetWeight: 0,
+            tags: form.tags && form.tags.length > 0 ? form.tags : undefined
         };
 
         const tx: Transaction = {
@@ -154,24 +156,25 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
 
     const saveEdit = useCallback(async (
         editingInvestment: Investment,
-        editForm: { shares: string; avgPrice: string; category: AssetCategory },
+        editForm: { shares: string; avgPrice: string; category: AssetCategory; tags: string[] },
         viewMode: 'aggregated' | 'detailed'
     ) => {
         const sharesNum = Number(editForm.shares.replace(/,/g, ''));
         const priceNum = Number(editForm.avgPrice.replace(/,/g, ''));
         const category = editForm.category;
         const marketType = category.includes('Overseas') ? 'Overseas' : 'Domestic';
+        const tags = editForm.tags && editForm.tags.length > 0 ? editForm.tags : undefined;
 
         let updatedInvestments: Investment[];
         if (viewMode === 'aggregated') {
             const others = assets.investments.filter(inv =>
                 inv.symbol !== editingInvestment.symbol || inv.marketType !== editingInvestment.marketType
             );
-            updatedInvestments = [...others, { ...editingInvestment, shares: sharesNum, avgPrice: priceNum, category, marketType: marketType as any }];
+            updatedInvestments = [...others, { ...editingInvestment, shares: sharesNum, avgPrice: priceNum, category, marketType: marketType as any, tags }];
         } else {
             updatedInvestments = assets.investments.map(s =>
                 s.id === editingInvestment.id
-                    ? { ...s, shares: sharesNum, avgPrice: priceNum, category, marketType: marketType as any }
+                    ? { ...s, shares: sharesNum, avgPrice: priceNum, category, marketType: marketType as any, tags }
                     : s
             );
         }

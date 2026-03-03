@@ -16,6 +16,7 @@ interface AddAssetCardProps {
         avgPrice: string;
         marketType: MarketType;
         category: AssetCategory;
+        tags?: string[];
     };
     mousePos: { x: number; y: number };
     onMouseMove: (e: React.MouseEvent) => void;
@@ -194,6 +195,39 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
                             onChange={(e) => onFormChange('avgPrice', e.target.value)}
                             className="glass"
                             style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'var(--foreground)' }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.4rem' }}>태그</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.4rem' }}>
+                            {(newInvestment.tags || []).map((tag) => (
+                                <span key={tag} style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                                    padding: '0.2rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem',
+                                    background: 'var(--primary)', color: 'white', fontWeight: '600'
+                                }}>
+                                    {tag}
+                                    <button onClick={() => onFormChange('tags', (newInvestment.tags || []).filter(t => t !== tag))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, lineHeight: 1 }}>
+                                        <X size={12} />
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="태그 입력 후 Enter"
+                            className="glass"
+                            style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', color: 'var(--foreground)' }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ',') {
+                                    e.preventDefault();
+                                    const val = (e.target as HTMLInputElement).value.trim().replace(',', '');
+                                    if (val && !(newInvestment.tags || []).includes(val)) {
+                                        onFormChange('tags', [...(newInvestment.tags || []), val]);
+                                    }
+                                    (e.target as HTMLInputElement).value = '';
+                                }
+                            }}
                         />
                     </div>
                     <button onClick={onSubmit} className="glass" style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', cursor: 'pointer', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 'bold', height: '3.2rem', width: '100%' }}>

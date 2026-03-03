@@ -9,6 +9,7 @@ interface EditModalProps {
         shares: string;
         avgPrice: string;
         category: AssetCategory;
+        tags: string[];
     };
     onClose: () => void;
     onFormChange: (field: string, value: any) => void;
@@ -25,7 +26,7 @@ export const EditModal: React.FC<EditModalProps> = ({
 }) => {
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
-            <div className="glass" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)', backgroundColor: '#1a1d23', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
+            <div className="glass" style={{ width: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)', backgroundColor: 'var(--card)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>항목 수정</h3>
@@ -80,6 +81,40 @@ export const EditModal: React.FC<EditModalProps> = ({
                                 style={{ width: '100%', padding: '0.8rem', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block', marginBottom: '0.5rem' }}>태그</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.4rem' }}>
+                            {(editForm.tags || []).map((tag) => (
+                                <span key={tag} style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                                    padding: '0.2rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem',
+                                    background: 'var(--primary)', color: 'white', fontWeight: '600'
+                                }}>
+                                    {tag}
+                                    <button onClick={() => onFormChange('tags', (editForm.tags || []).filter(t => t !== tag))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, lineHeight: 1 }}>
+                                        <X size={12} />
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="태그 입력 후 Enter"
+                            className="glass"
+                            style={{ width: '100%', padding: '0.8rem', color: 'var(--foreground)', border: '1px solid var(--border)' }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ',') {
+                                    e.preventDefault();
+                                    const val = (e.target as HTMLInputElement).value.trim().replace(',', '');
+                                    if (val && !(editForm.tags || []).includes(val)) {
+                                        onFormChange('tags', [...(editForm.tags || []), val]);
+                                    }
+                                    (e.target as HTMLInputElement).value = '';
+                                }
+                            }}
+                        />
                     </div>
                 </div>
 

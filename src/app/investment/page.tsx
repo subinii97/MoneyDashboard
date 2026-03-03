@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { RefreshCw, Layers, List, Eye, EyeOff, PlusCircle } from 'lucide-react';
+import { RefreshCw, Layers, List, Eye, EyeOff, PlusCircle, Tag } from 'lucide-react';
 import { Investment, MarketType, Transaction, AssetCategory } from '@/lib/types';
 import { useAssets } from '@/hooks/useAssets';
 import { useInvestmentActions } from '@/hooks/useInvestmentActions';
@@ -29,18 +29,20 @@ export default function InvestmentManager() {
     const [viewMode, setViewMode] = useState<'aggregated' | 'detailed'>('aggregated');
     const [isPrivate, setIsPrivate] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
 
     // New asset form
     const [newInvestment, setNewInvestment] = useState({
         symbol: '', shares: '', avgPrice: '',
         marketType: 'Domestic' as MarketType,
-        category: 'Domestic Stock' as AssetCategory
+        category: 'Domestic Stock' as AssetCategory,
+        tags: [] as string[]
     });
 
     // Edit modal
     const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
-    const [editForm, setEditForm] = useState({ shares: '', avgPrice: '', category: '' as AssetCategory });
+    const [editForm, setEditForm] = useState({ shares: '', avgPrice: '', category: '' as AssetCategory, tags: [] as string[] });
     const [showEditModal, setShowEditModal] = useState(false);
 
     // Transaction modal
@@ -76,7 +78,8 @@ export default function InvestmentManager() {
         setEditForm({
             shares: String(inv.shares),
             avgPrice: String(inv.avgPrice),
-            category: inv.category || (inv.marketType === 'Overseas' ? 'Overseas Stock' : 'Domestic Stock')
+            category: inv.category || (inv.marketType === 'Overseas' ? 'Overseas Stock' : 'Domestic Stock'),
+            tags: inv.tags || []
         });
         setShowEditModal(true);
     }, []);
@@ -119,7 +122,10 @@ export default function InvestmentManager() {
     };
 
     const filtered = (m: MarketType): Investment[] => {
-        const list = assets.investments.filter(s => s.marketType === m);
+        let list = assets.investments.filter(s => s.marketType === m);
+        if (selectedTag) {
+            list = list.filter(s => s.tags && s.tags.includes(selectedTag));
+        }
         return viewMode === 'aggregated' ? getAggregated(list) : list;
     };
 
@@ -152,6 +158,40 @@ export default function InvestmentManager() {
                     </button>
                 </div>
             </header>
+
+            {/* Tag Filter */}
+            {(() => {
+                const allTags = [...new Set(assets.investments.flatMap(inv => inv.tags || []))].sort();
+                if (allTags.length === 0) return null;
+                return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                        <Tag size={16} style={{ color: 'var(--muted)' }} />
+                        <button
+                            onClick={() => setSelectedTag(null)}
+                            className="glass"
+                            style={{
+                                padding: '0.3rem 0.7rem', borderRadius: '16px', fontSize: '0.75rem',
+                                cursor: 'pointer', fontWeight: '600', border: 'none',
+                                background: !selectedTag ? 'var(--primary)' : 'var(--border)',
+                                color: !selectedTag ? 'white' : 'var(--muted)',
+                            }}
+                        >전체</button>
+                        {allTags.map(tag => (
+                            <button
+                                key={tag}
+                                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                                className="glass"
+                                style={{
+                                    padding: '0.3rem 0.7rem', borderRadius: '16px', fontSize: '0.75rem',
+                                    cursor: 'pointer', fontWeight: '600', border: 'none',
+                                    background: selectedTag === tag ? 'var(--primary)' : 'var(--border)',
+                                    color: selectedTag === tag ? 'white' : 'var(--muted)',
+                                }}
+                            >{tag}</button>
+                        ))}
+                    </div>
+                );
+            })()}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2.5rem', marginBottom: '3rem' }}>
                 <div className="glass" onMouseMove={handleMouseMove} style={{ padding: '0' }}>
@@ -231,7 +271,7 @@ export default function InvestmentManager() {
                     }))}
                     onSubmit={async () => {
                         await addInvestment(newInvestment);
-                        setNewInvestment({ symbol: '', shares: '', avgPrice: '', marketType: 'Domestic', category: 'Domestic Stock' });
+                        setNewInvestment({ symbol: '', shares: '', avgPrice: '', marketType: 'Domestic', category: 'Domestic Stock', tags: [] });
                         setShowAddModal(false);
                     }}
                     onCancel={() => setShowAddModal(false)}

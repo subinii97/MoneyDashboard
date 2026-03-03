@@ -71,8 +71,19 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                         </span>
                     )}
                 </div>
-                <div style={{ marginTop: '0.1rem', fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: '600', color: 'var(--muted)', opacity: 0.7, letterSpacing: '0.03em' }}>
-                    {inv.symbol}
+                <div style={{ marginTop: '0.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: '600', color: 'var(--muted)', opacity: 0.7, letterSpacing: '0.03em' }}>
+                        {inv.symbol}
+                    </span>
+                    {inv.tags && inv.tags.length > 0 && inv.tags.map(tag => (
+                        <span key={tag} style={{
+                            padding: '0px 4px', borderRadius: '8px', fontSize: '0.58rem',
+                            background: 'var(--primary-glow)', color: 'var(--primary)',
+                            fontWeight: '700', border: '1px solid var(--primary)',
+                        }}>
+                            {tag}
+                        </span>
+                    ))}
                 </div>
             </td>
 
@@ -126,6 +137,6 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                     <button onClick={() => onDelete(inv.id)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><Trash2 size={16} /></button>
                 </div>
             </td>
-        </tr>
+        </tr >
     );
 };

@@ -53,6 +53,7 @@ export interface Investment {
     change?: number;
     changePercent?: number;
     previousClose?: number;
+    tags?: string[];
 }
 
 export interface AssetDetail {
