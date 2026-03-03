@@ -146,7 +146,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ investments, rate, onClo
                         position: 'fixed',
                         left: tooltip.x + 15,
                         top: tooltip.y + 15,
-                        background: 'var(--card)',
+                        background: 'var(--background)',
                         border: '1px solid var(--border)',
                         padding: '1rem',
                         borderRadius: '12px',
