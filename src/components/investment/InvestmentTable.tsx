@@ -79,10 +79,11 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <table className="dashboard-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: 'center', width: '36%' }}>종목</th>
-                            <th style={{ textAlign: 'center', width: '20%' }}>{!isPrivate ? '현재가 / 전일대비 / 평단가' : '현재가 / 전일대비'}</th>
-                            <th style={{ textAlign: 'center', width: '8%' }}>수량</th>
-                            <th style={{ textAlign: 'center', width: '22%' }}>평가 / 변동</th>
+                            <th style={{ textAlign: 'center', width: '32%' }}>종목</th>
+                            <th style={{ textAlign: 'center', width: '18%' }}>{!isPrivate ? '현재가 / 전일대비 / 평단가' : '현재가 / 전일대비'}</th>
+                            <th style={{ textAlign: 'center', width: '7%' }}>수량</th>
+                            <th style={{ textAlign: 'center', width: '20%' }}>평가 / 변동</th>
+                            <th style={{ textAlign: 'center', width: '9%' }}>비중</th>
                             <th style={{ textAlign: 'center', width: '14%' }}>거래 / 수정 / 삭제</th>
 
 
@@ -102,6 +103,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                 inv={inv}
                                 rate={rate}
                                 isPrivate={isPrivate}
+                                subTotal={subTotal}
                                 onEdit={onEdit}
                                 onDelete={onDelete}
                                 onTransaction={onTransaction}

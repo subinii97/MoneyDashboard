@@ -9,6 +9,7 @@ interface InvestmentTableRowProps {
     inv: Investment;
     rate: number;
     isPrivate: boolean;
+    subTotal: number;
     onEdit: (inv: Investment) => void;
     onDelete: (id: string) => void;
     onTransaction: (inv: Investment) => void;
@@ -26,11 +27,13 @@ const getExchangeStyle = (ex: string) => {
 };
 
 export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
-    inv, rate, isPrivate, onEdit, onDelete, onTransaction
+    inv, rate, isPrivate, subTotal, onEdit, onDelete, onTransaction
 }) => {
     const isUSD = inv.currency === 'USD';
     const currentPrice = inv.currentPrice || inv.avgPrice;
     const marketVal = currentPrice * inv.shares;
+    const marketValKRW = convertToKRW(marketVal, inv.currency || 'KRW', rate);
+    const weight = subTotal > 0 ? (marketValKRW / subTotal) * 100 : 0;
     const costBasis = inv.avgPrice * inv.shares;
     const pl = marketVal - costBasis;
     const plPercent = costBasis > 0 ? ((marketVal / costBasis) - 1) * 100 : 0;
@@ -106,6 +109,14 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
             </td>
 
 
+            {/* ── 비중 ── */}
+            <td style={{ textAlign: 'center', padding: '0.6rem 0.4rem', borderRight: '1px solid var(--border)' }}>
+                {!isPrivate && (
+                    <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>
+                        {weight.toFixed(1)}%
+                    </div>
+                )}
+            </td>
 
             {/* ── 작업 ── */}
             <td style={{ padding: '0.75rem 0.5rem' }}>
