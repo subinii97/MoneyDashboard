@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { RefreshCw, Layers, List, Eye, EyeOff, PlusCircle, Tag } from 'lucide-react';
+import { RefreshCw, Layers, List, Eye, EyeOff, PlusCircle, Tag, PieChart } from 'lucide-react';
 import { Investment, MarketType, Transaction, AssetCategory } from '@/lib/types';
 import { useAssets } from '@/hooks/useAssets';
 import { useInvestmentActions } from '@/hooks/useInvestmentActions';
@@ -9,6 +9,8 @@ import { useInvestmentActions } from '@/hooks/useInvestmentActions';
 // Components
 import { InvestmentTable } from '@/components/investment/InvestmentTable';
 import { AddAssetCard } from '@/components/investment/AddAssetCard';
+import { ChartModal } from '@/components/investment/ChartModal';
+
 import { EditModal } from '@/components/investment/EditModal';
 import { TransactionModal } from '@/components/investment/TransactionModal';
 import { TodayTransactions } from '@/components/investment/TodayTransactions';
@@ -27,6 +29,7 @@ export default function InvestmentManager() {
     } = useInvestmentActions({ assets, rate, lastUpdated, fetchData, setAssets });
 
     const [isPrivate, setIsPrivate] = useState(false);
+    const [showChartModal, setShowChartModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
@@ -236,6 +239,13 @@ export default function InvestmentManager() {
                         await saveEdit(editingInvestment, editForm, 'aggregated');
                         setShowEditModal(false);
                     }}
+                />
+            )}
+
+            {showChartModal && (
+                <ChartModal 
+                    investments={assets.investments}
+                    onClose={() => setShowChartModal(false)}
                 />
             )}
 
