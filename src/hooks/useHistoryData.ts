@@ -15,20 +15,22 @@ export type { DailySettlement, WeeklySettlement, MonthlySettlement };
 
 export function useHistoryData() {
     const [history, setHistory] = useState<HistoryEntry[]>([]);
+    const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [rate, setRate] = useState(1350);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // 1. Fetch history + trigger live snapshot
-                const [historyRes, liveRes] = await Promise.all([
+                // 1. Fetch history + trigger live snapshot + transactions
+                const [historyRes, liveRes, txRes] = await Promise.all([
                     fetch('/api/snapshot?includeHoldings=true'),
                     fetch('/api/snapshot', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ auto: true })
-                    }).catch(() => null)
+                    }).catch(() => null),
+                    fetch('/api/transactions').catch(() => null)
                 ]);
                 const historyData = await historyRes.json();
                 let liveData = null;
@@ -37,6 +39,14 @@ export function useHistoryData() {
                         liveData = await liveRes.json();
                     } catch (e) { }
                 }
+
+                let txData = [];
+                if (txRes && txRes.ok) {
+                    try {
+                        txData = await txRes.json();
+                    } catch (e) { }
+                }
+                setTransactions(Array.isArray(txData) ? txData : []);
 
                 let finalHistory = Array.isArray(historyData) ? historyData : [];
 
@@ -156,52 +166,10 @@ export function useHistoryData() {
         };
     };
 
-    const calcMarketChange = (currM: any, prevM: any, key: string, type: 'Domestic' | 'Overseas', currentRate: number) => {
+    const calcMarketChange = (currM: any, prevM: any, key: string) => {
         const currTotal = currM[key] as number;
         if (!prevM) return { current: currTotal, change: 0, percent: 0 };
-
-        const prevTotal = prevM[key] as number;
-        const prevHoldings = prevM.holdingsMap[key] || [];
-        const currHoldings = currM.holdingsMap[key] || [];
-
-        if (prevTotal <= 0 && currTotal <= 0) {
-            return { current: 0, change: 0, percent: 0 };
-        }
-
-        let projectedValue = 0;
-        prevHoldings.forEach((ph: any) => {
-            const ch = currHoldings.find((h: any) => h.symbol === ph.symbol);
-            const cPrice = ch ? (ch.currentPrice || ch.avgPrice) : (ph.currentPrice || ph.avgPrice);
-            const cValKRW = convertToKRW(cPrice * ph.shares, ph.currency || (type === 'Domestic' ? 'KRW' : 'USD'), currentRate);
-            projectedValue += cValKRW;
-        });
-
-        let change = projectedValue - prevTotal;
-
-        // Add profit of new shares bought today
-        currHoldings.forEach((ch: any) => {
-            const ph = prevHoldings.find((h: any) => h.symbol === ch.symbol);
-            const prevShares = ph ? ph.shares : 0;
-
-            if (ch.shares > prevShares) {
-                const newShares = ch.shares - prevShares;
-                const cPrice = ch.currentPrice || ch.avgPrice;
-                const currency = ch.currency || (type === 'Domestic' ? 'KRW' : 'USD');
-
-                const prevCost = ph ? ph.shares * ph.avgPrice : 0;
-                const currCost = ch.shares * ch.avgPrice;
-                const costOfNewShares = currCost - prevCost;
-
-                const costOfNewSharesKRW = convertToKRW(costOfNewShares, currency, currentRate);
-                const currentValueOfNewSharesKRW = convertToKRW(newShares * cPrice, currency, currentRate);
-
-                change += (currentValueOfNewSharesKRW - costOfNewSharesKRW);
-            }
-        });
-
-        const percent = prevTotal > 0 ? (change / prevTotal) * 100 : 0;
-
-        return { current: currTotal, change, percent };
+        return { current: currTotal, change: 0, percent: 0 }; // Calculated globally via cash-flow instead
     };
 
     const dailySettlements = useMemo((): DailySettlement[] => {
@@ -212,20 +180,41 @@ export function useHistoryData() {
             const currM = getFullMetrics(entry, r);
             const prevM = prevEntry ? getFullMetrics(prevEntry, prevEntry.exchangeRate || rate) : null;
 
-            const domStockRes = calcMarketChange(currM, prevM, 'domStock', 'Domestic', r);
-            const domIndexRes = calcMarketChange(currM, prevM, 'domIndex', 'Domestic', r);
-            const domBondRes = calcMarketChange(currM, prevM, 'domBond', 'Domestic', r);
-            const osStockRes = calcMarketChange(currM, prevM, 'osStock', 'Overseas', r);
-            const osIndexRes = calcMarketChange(currM, prevM, 'osIndex', 'Overseas', r);
-            const osBondRes = calcMarketChange(currM, prevM, 'osBond', 'Overseas', r);
+            const domStockRes = calcMarketChange(currM, prevM, 'domStock');
+            const domIndexRes = calcMarketChange(currM, prevM, 'domIndex');
+            const domBondRes = calcMarketChange(currM, prevM, 'domBond');
+            const osStockRes = calcMarketChange(currM, prevM, 'osStock');
+            const osIndexRes = calcMarketChange(currM, prevM, 'osIndex');
+            const osBondRes = calcMarketChange(currM, prevM, 'osBond');
 
             const domTotal = domStockRes.current + domIndexRes.current + domBondRes.current;
             const prevDomTotal = prevM ? prevM.domStock + prevM.domIndex + prevM.domBond : 0;
-            const domChange = domStockRes.change + domIndexRes.change + domBondRes.change;
 
             const osTotal = osStockRes.current + osIndexRes.current + osBondRes.current;
             const prevOsTotal = prevM ? prevM.osStock + prevM.osIndex + prevM.osBond : 0;
-            const osChange = osStockRes.change + osIndexRes.change + osBondRes.change;
+
+            // Compute precise Dom/Os change using Net Cash Flow
+            // Net Additions = BUYS - SELLS
+            let domNetAdditions = 0;
+            let osNetAdditions = 0;
+
+            const dailyTxs = transactions.filter(t => t.date === entry.date && (t.type === 'BUY' || t.type === 'SELL'));
+            dailyTxs.forEach(t => {
+                const isDom = t.symbol?.includes('.KS') || t.symbol?.includes('.KQ') || /^\d{6}/.test(t.symbol) || t.currency === 'KRW';
+                const txValueKRW = convertToKRW(t.amount || (t.price * t.shares), t.currency || (isDom ? 'KRW' : 'USD'), r);
+
+                if (t.type === 'BUY') {
+                    if (isDom) domNetAdditions += txValueKRW;
+                    else osNetAdditions += txValueKRW;
+                } else if (t.type === 'SELL') {
+                    if (isDom) domNetAdditions -= txValueKRW;
+                    else osNetAdditions -= txValueKRW;
+                }
+            });
+
+            // True Market Profit = Ending - Starting - NetAdditions
+            const domChange = prevM ? (domTotal - prevDomTotal - domNetAdditions) : 0;
+            const osChange = prevM ? (osTotal - prevOsTotal - osNetAdditions) : 0;
 
             const ds: DailySettlement = {
                 ...entry,
@@ -299,20 +288,42 @@ export function useHistoryData() {
                 const currM = getFullMetrics(entry, r);
                 const prevM = prev ? getFullMetrics(prev, prev.exchangeRate || rate) : null;
 
-                const domStockRes = calcMarketChange(currM, prevM, 'domStock', 'Domestic', r);
-                const domIndexRes = calcMarketChange(currM, prevM, 'domIndex', 'Domestic', r);
-                const domBondRes = calcMarketChange(currM, prevM, 'domBond', 'Domestic', r);
-                const osStockRes = calcMarketChange(currM, prevM, 'osStock', 'Overseas', r);
-                const osIndexRes = calcMarketChange(currM, prevM, 'osIndex', 'Overseas', r);
-                const osBondRes = calcMarketChange(currM, prevM, 'osBond', 'Overseas', r);
+                const domStockRes = calcMarketChange(currM, prevM, 'domStock');
+                const domIndexRes = calcMarketChange(currM, prevM, 'domIndex');
+                const domBondRes = calcMarketChange(currM, prevM, 'domBond');
+                const osStockRes = calcMarketChange(currM, prevM, 'osStock');
+                const osIndexRes = calcMarketChange(currM, prevM, 'osIndex');
+                const osBondRes = calcMarketChange(currM, prevM, 'osBond');
 
                 const domTotal = currM.domStock + currM.domIndex + currM.domBond;
                 const prevDomTotal = prevM ? prevM.domStock + prevM.domIndex + prevM.domBond : 0;
-                const domChange = domStockRes.change + domIndexRes.change + domBondRes.change;
 
                 const osTotal = currM.osStock + currM.osIndex + currM.osBond;
                 const prevOsTotal = prevM ? prevM.osStock + prevM.osIndex + prevM.osBond : 0;
-                const osChange = osStockRes.change + osIndexRes.change + osBondRes.change;
+
+                // Compute precise Dom/Os change using Net Cash Flow over the week
+                let domNetAdditions = 0;
+                let osNetAdditions = 0;
+
+                const startDate = prev ? prev.date : '2000-01-01';
+                const endDate = key; // usually entry.date but we use 'key' which is the closest Friday that was settled
+
+                const weekTxs = transactions.filter(t => t.date > startDate && t.date <= entry.date && (t.type === 'BUY' || t.type === 'SELL'));
+                weekTxs.forEach(t => {
+                    const isDom = t.symbol?.includes('.KS') || t.symbol?.includes('.KQ') || /^\d{6}/.test(t.symbol) || t.currency === 'KRW';
+                    const txValueKRW = convertToKRW(t.amount || (t.price * t.shares), t.currency || (isDom ? 'KRW' : 'USD'), r);
+
+                    if (t.type === 'BUY') {
+                        if (isDom) domNetAdditions += txValueKRW;
+                        else osNetAdditions += txValueKRW;
+                    } else if (t.type === 'SELL') {
+                        if (isDom) domNetAdditions -= txValueKRW;
+                        else osNetAdditions -= txValueKRW;
+                    }
+                });
+
+                const domChange = prevM ? (domTotal - prevDomTotal - domNetAdditions) : 0;
+                const osChange = prevM ? (osTotal - prevOsTotal - osNetAdditions) : 0;
 
                 settlements.push({
                     period: `${new Date(new Date(key).setDate(new Date(key).getDate() - 5)).toISOString().substring(2, 10)} ~ ${key.substring(2)}`,
