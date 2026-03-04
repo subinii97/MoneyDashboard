@@ -12,7 +12,8 @@ const parser = new Parser({
             ['author', 'author'],
             ['enclosure', 'content'],
             ['media:thumbnail', 'mediaThumbnail'],
-            ['media:group', 'mediaGroup']
+            ['media:group', 'mediaGroup'],
+            ['media:content', 'mediaContent', { keepArray: true }]
         ]
     }
 });
@@ -112,6 +113,14 @@ export async function GET(request: Request) {
                     if (item.mediaGroup && item.mediaGroup['media:content'] && item.mediaGroup['media:content'].length > 0) {
                         const content = item.mediaGroup['media:content'][0];
                         if (content['$'] && content['$'].url) imageUrl = content['$'].url;
+                    }
+
+                    // NYT, Bloomberg, Al Jazeera using direct media:content
+                    if (!imageUrl && item.mediaContent && Array.isArray(item.mediaContent) && item.mediaContent.length > 0) {
+                        const content = item.mediaContent[0];
+                        if (content['$'] && content['$'].url) imageUrl = content['$'].url;
+                    } else if (!imageUrl && item.mediaContent && !Array.isArray(item.mediaContent)) {
+                        if (item.mediaContent['$'] && item.mediaContent['$'].url) imageUrl = item.mediaContent['$'].url;
                     }
 
                     // BBC
