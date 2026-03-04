@@ -19,10 +19,10 @@ interface InvestmentTableProps {
 export const InvestmentTable: React.FC<InvestmentTableProps> = ({
     investments, transactions, title, rate, isPrivate, onEdit, onDelete, onTransaction
 }) => {
-    const [sortKey, setSortKey] = useState<'rate' | 'weight'>('rate');
+    const [sortKey, setSortKey] = useState<'value' | 'plPercent' | 'dailyPercent' | 'weight'>('value');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-    const toggleSort = (key: 'rate' | 'weight') => {
+    const toggleSort = (key: 'value' | 'plPercent' | 'dailyPercent' | 'weight') => {
         if (sortKey === key) {
             setSortDir(prev => prev === 'desc' ? 'asc' : 'desc');
         } else {
@@ -97,12 +97,28 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     <thead>
                         <tr>
                             <th style={{ textAlign: 'center', width: '38%' }}>종목</th>
-                            <th style={{ textAlign: 'center', width: '16%' }}>{!isPrivate ? '현재가 / 전일대비 / 평단가' : '현재가 / 전일대비'}</th>
-                            <th style={{ textAlign: 'center', width: '8%' }}>수량</th>
-                            <th style={{ textAlign: 'center', width: '16%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('rate')}>
-                                평가 / 변동 {sortKey === 'rate' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <th style={{ textAlign: 'center', width: '16%' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                    <span>현재가 /</span>
+                                    <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'dailyPercent' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('dailyPercent')} title="일간 변동률 기준 정렬">
+                                        전일대비{sortKey === 'dailyPercent' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                                    </span>
+                                    {!isPrivate && <span>/ 평단가</span>}
+                                </div>
                             </th>
-                            <th style={{ textAlign: 'center', width: '10%', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('weight')}>
+                            <th style={{ textAlign: 'center', width: '8%' }}>수량</th>
+                            <th style={{ textAlign: 'center', width: '16%' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'value' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('value')} title="평가액 기준 정렬">
+                                        평가액{sortKey === 'value' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                                    </span>
+                                    <span style={{ opacity: 0.5 }}>/</span>
+                                    <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'plPercent' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('plPercent')} title="총 수익률 기준 정렬">
+                                        수익률{sortKey === 'plPercent' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                                    </span>
+                                </div>
+                            </th>
+                            <th style={{ textAlign: 'center', width: '10%', cursor: 'pointer', userSelect: 'none', color: sortKey === 'weight' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('weight')}>
                                 매입 비중 {sortKey === 'weight' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </th>
                             <th style={{ textAlign: 'center', width: '12%' }}>거래 / 수정 / 삭제</th>
@@ -110,16 +126,22 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     </thead>
                     <tbody>
                         {[...investments].sort((a, b) => {
-                            const getRate = (inv: Investment) => {
-                                const curr = inv.currentPrice || inv.avgPrice;
-                                return inv.avgPrice > 0 ? ((curr - inv.avgPrice) / inv.avgPrice) : 0;
-                            };
-                            const getWeight = (inv: Investment) => {
-                                const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
-                                return subTotal > 0 ? convertToKRW(val, inv.currency || 'KRW', rate) / subTotal : 0;
-                            };
-                            const valA = sortKey === 'rate' ? getRate(a) : getWeight(a);
-                            const valB = sortKey === 'rate' ? getRate(b) : getWeight(b);
+                            const getVal = (inv: Investment) => getActivePrice(inv) * inv.shares;
+                            const getPlPercent = (inv: Investment) => inv.avgPrice > 0 ? ((getActivePrice(inv) - inv.avgPrice) / inv.avgPrice) : 0;
+                            const getDailyPercent = (inv: Investment) => (inv.isOverMarket && inv.overMarketChangePercent !== undefined) ? inv.overMarketChangePercent : (inv.changePercent || 0);
+
+                            let valA = 0, valB = 0;
+                            if (sortKey === 'value' || sortKey === 'weight') {
+                                valA = getVal(a);
+                                valB = getVal(b);
+                            } else if (sortKey === 'plPercent') {
+                                valA = getPlPercent(a);
+                                valB = getPlPercent(b);
+                            } else if (sortKey === 'dailyPercent') {
+                                valA = getDailyPercent(a);
+                                valB = getDailyPercent(b);
+                            }
+
                             return sortDir === 'desc' ? valB - valA : valA - valB;
                         }).map((inv) => (
                             <InvestmentTableRow
@@ -132,7 +154,8 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                 onDelete={onDelete}
                                 onTransaction={onTransaction}
                             />
-                        ))}
+                        ))
+                        }
                     </tbody>
                 </table>
             </div>
