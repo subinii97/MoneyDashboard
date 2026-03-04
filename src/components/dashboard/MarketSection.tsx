@@ -15,31 +15,50 @@ interface MarketSectionProps {
 }
 
 export function MarketSection({ data, loading, lastFetched }: MarketSectionProps) {
-    const formatMarketTime = (timeStr: string) => {
-        if (!timeStr) return '실시간';
-        try {
-            const date = new Date(timeStr);
-            if (isNaN(date.getTime())) return timeStr;
+    const renderStatusTime = (item: any, isAlwaysLive = false) => {
+        let isLive = isAlwaysLive;
+        let displayTime = '';
 
-            const now = new Date();
-            const diffMs = now.getTime() - date.getTime();
-            const diffMins = Math.floor(diffMs / 60000);
+        if (item.time) {
+            const date = new Date(item.time);
+            if (!isNaN(date.getTime())) {
+                const now = new Date();
+                const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 
-            // If update within last 5 mins, show "Just now" or current time
-            if (diffMins < 5) return '실시간';
+                displayTime = isToday
+                    ? date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+                    : `${date.getMonth() + 1}.${date.getDate()} ${date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 
-            const isToday = date.getDate() === now.getDate() &&
-                date.getMonth() === now.getMonth() &&
-                date.getFullYear() === now.getFullYear();
-
-            if (isToday) {
-                return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
-            } else {
-                return `${date.getMonth() + 1}.${date.getDate()} ${date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+                if (!isAlwaysLive) {
+                    if (item.status === 'OPEN') {
+                        isLive = true;
+                    } else if (item.status === 'CLOSE') {
+                        isLive = false;
+                    } else {
+                        const diffMins = (now.getTime() - date.getTime()) / 60000;
+                        isLive = diffMins < 5;
+                    }
+                }
             }
-        } catch (e) {
-            return timeStr;
+        } else if (item.status === 'OPEN') {
+            isLive = true;
         }
+
+        const statusText = isLive ? '실시간' : '장마감';
+        const color = isLive ? '#16a34a' : 'var(--muted)';
+        const dot = isLive ? '●' : '○';
+
+        return (
+            <div style={{ fontSize: '0.8rem', color, fontWeight: '500', display: 'flex', alignItems: 'center' }}>
+                <span style={{ marginRight: '0.3rem' }}>{dot}</span>
+                {statusText}
+                {displayTime && (
+                    <span style={{ opacity: 0.8, fontSize: '0.75rem', marginLeft: '0.3rem' }}>
+                        ({displayTime})
+                    </span>
+                )}
+            </div>
+        );
     };
 
     const rowStyle: React.CSSProperties = {
@@ -119,9 +138,7 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
                         <div key={idx.id} style={rowStyle}>
                             <div>
                                 <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{idx.name || idx.id}</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: '500' }}>
-                                    {idx.status === 'OPEN' ? <span style={{ color: '#16a34a' }}>● 장중</span> : (idx.status === 'CLOSE' ? <span>○ 장마감</span> : <span>○ {formatMarketTime(idx.time)}</span>)}
-                                </div>
+                                {renderStatusTime(idx)}
                             </div>
                             {renderPriceInfo(idx)}
                         </div>
@@ -141,27 +158,15 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
                     </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {data.rates.map((rate: any) => {
-                        const timeStatus = formatMarketTime(rate.time);
-                        const isLive = timeStatus === '실시간';
-                        return (
-                            <div key={rate.id} style={rowStyle}>
-                                <div>
-                                    <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{rate.name || rate.id}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: '500' }}>
-                                        <span style={{ color: isLive ? '#16a34a' : 'var(--muted)', marginRight: '0.3rem' }}>{isLive ? '●' : '○'}</span>
-                                        {isLive ? '실시간' : timeStatus}
-                                        {isLive && rate.time && (
-                                            <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '0.2rem' }}>
-                                                ({new Date(rate.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })})
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                                {renderPriceInfo(rate)}
+                    {data.rates.map((rate: any) => (
+                        <div key={rate.id} style={rowStyle}>
+                            <div>
+                                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{rate.name || rate.id}</div>
+                                {renderStatusTime(rate)}
                             </div>
-                        );
-                    })}
+                            {renderPriceInfo(rate)}
+                        </div>
+                    ))}
                 </div>
             </SpotlightCard>
 
@@ -181,7 +186,7 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
                         <div key={coin.id} style={rowStyle}>
                             <div>
                                 <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{coin.name || coin.id}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: '500' }}>● 실시간 (Binance)</div>
+                                {renderStatusTime(coin, true)}
                             </div>
                             {renderPriceInfo(coin, '$')}
                         </div>
@@ -205,7 +210,7 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
                         <div key={com.id} style={rowStyle}>
                             <div>
                                 <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{com.name || com.id}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: '500' }}>● 실시간 (Investing)</div>
+                                {renderStatusTime(com, true)}
                             </div>
                             {renderPriceInfo(com, '$')}
                         </div>
