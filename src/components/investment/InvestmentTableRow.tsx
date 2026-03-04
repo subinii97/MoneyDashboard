@@ -91,11 +91,6 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
             {/* ── 가격 3행: 현재가 / 전일대비 / 평단가 ── */}
             <td style={{ textAlign: 'right', padding: '0.6rem 0.6rem', borderRight: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: '700', fontSize: '1.05rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem' }}>
-                    {inv.isOverMarket && (
-                        <span style={{ fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', background: 'var(--accent)', color: 'white', fontWeight: '800' }}>
-                            {inv.overMarketSession === 'PRE_MARKET' ? 'PRE' : 'POST'}
-                        </span>
-                    )}
                     {formatPrice(currentPrice)}
                 </div>
                 {inv.change !== undefined ? (
@@ -103,12 +98,28 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                         {inv.change >= 0 ? '▲' : '▼'}{Math.abs(inv.change).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({Math.abs(inv.changePercent || 0).toFixed(2)}%)
                     </div>
                 ) : <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.15rem' }}>—</div>}
+
+                {inv.isOverMarket && inv.overMarketPrice !== undefined && (
+                    <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem', marginTop: '0.3rem' }}>
+                        <span style={{ fontSize: '0.55rem', padding: '1px 3px', borderRadius: '4px', background: 'var(--accent)', color: 'white', fontWeight: '800' }}>
+                            {inv.overMarketSession === 'PRE_MARKET' ? 'PRE' : 'POST'}
+                        </span>
+                        <span style={{ fontWeight: '700', color: 'var(--foreground)' }}>
+                            {formatPrice(inv.overMarketPrice)}
+                        </span>
+                        {(inv.overMarketChangePercent !== undefined && inv.overMarketChangePercent !== 0) && (
+                            <span style={{ color: inv.overMarketChangePercent >= 0 ? '#dc2626' : '#2563eb', fontSize: '0.7rem', fontWeight: '600' }}>
+                                {inv.overMarketChangePercent > 0 ? '+' : ''}{inv.overMarketChangePercent.toFixed(2)}%
+                            </span>
+                        )}
+                    </div>
+                )}
+
                 {!isPrivate && (
                     <div style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.2rem', opacity: 0.8, fontWeight: '500' }}>
                         평단 {formatPrice(inv.avgPrice)}
                     </div>
                 )}
-
             </td>
 
             {/* ── 수량 ── */}

@@ -56,6 +56,9 @@ export interface Investment {
     tags?: string[];
     isOverMarket?: boolean;
     overMarketSession?: string;
+    overMarketPrice?: number;
+    overMarketChange?: number;
+    overMarketChangePercent?: number;
 }
 
 export interface AssetDetail {
