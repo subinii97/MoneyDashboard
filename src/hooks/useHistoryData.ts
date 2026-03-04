@@ -75,8 +75,11 @@ export function useHistoryData() {
                                     const info = priceData.results.find((r: any) =>
                                         r.symbol.trim().toUpperCase() === h.symbol.trim().toUpperCase()
                                     );
-                                    if (info && info.price) {
-                                        return { ...h, currentPrice: info.price };
+                                    if (info) {
+                                        const activePrice = (info.isOverMarket && info.overMarketPrice !== undefined) ? info.overMarketPrice : info.price;
+                                        if (activePrice) {
+                                            return { ...h, currentPrice: activePrice };
+                                        }
                                     }
                                     return h;
                                 });
