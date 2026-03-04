@@ -16,7 +16,12 @@ export function mapInvestmentWithPrice(inv: Investment, priceData: any) {
         name: (inv.name && inv.name !== inv.symbol) ? inv.name : (info?.name || inv.name),
         change: info?.change,
         changePercent: info?.changePercent,
-        marketType: inv.marketType || (inv.symbol.includes('.') || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas')
+        marketType: inv.marketType || (inv.symbol.includes('.') || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas'),
+        isOverMarket: info?.isOverMarket,
+        overMarketSession: info?.overMarketSession,
+        overMarketPrice: info?.overMarketPrice,
+        overMarketChange: info?.overMarketChange,
+        overMarketChangePercent: info?.overMarketChangePercent
     };
 }
 
