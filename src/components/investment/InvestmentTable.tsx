@@ -30,30 +30,35 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             setSortDir('desc');
         }
     };
+    const getActivePrice = (s: Investment) => (s.isOverMarket && s.overMarketPrice !== undefined) ? s.overMarketPrice : (s.currentPrice || s.avgPrice);
+    const getActiveChange = (s: Investment) => (s.isOverMarket && s.overMarketChange !== undefined) ? s.overMarketChange : (s.change || 0);
+
     const subTotal = investments.reduce((acc, s) => {
-        const val = (s.currentPrice || s.avgPrice) * s.shares;
+        const val = getActivePrice(s) * s.shares;
         return acc + convertToKRW(val, s.currency || 'KRW', rate);
     }, 0);
 
     const totalPL = investments.reduce((acc, s) => {
-        const pl = ((s.currentPrice || s.avgPrice) - s.avgPrice) * s.shares;
+        const pl = (getActivePrice(s) - s.avgPrice) * s.shares;
         return acc + convertToKRW(pl, s.currency || 'KRW', rate);
     }, 0);
     const totalPLPercent = (subTotal - totalPL) > 0 ? (totalPL / (subTotal - totalPL)) * 100 : 0;
 
     const dailyChange = investments.reduce((acc, s) => {
         const symbolTransactions = (transactions || []).filter(tx => tx.symbol === s.symbol);
+        const p = getActivePrice(s);
+        const c = getActiveChange(s);
 
         let netBoughtShares = 0;
         let txProfit = 0;
-        const prevClose = (s.currentPrice || s.avgPrice) - (s.change || 0);
+        const prevClose = p - c;
 
         symbolTransactions.forEach(tx => {
             const txShares = tx.shares || 0;
             const txPrice = tx.price || 0;
             if (tx.type === 'BUY') {
                 netBoughtShares += txShares;
-                txProfit += ((s.currentPrice || s.avgPrice) - txPrice) * txShares;
+                txProfit += (p - txPrice) * txShares;
             } else if (tx.type === 'SELL') {
                 netBoughtShares -= txShares;
                 txProfit += (txPrice - prevClose) * txShares;
@@ -62,7 +67,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
 
         // Shares held since yesterday
         const initialShares = s.shares - netBoughtShares;
-        const initialSharesProfit = (s.change || 0) * initialShares;
+        const initialSharesProfit = c * initialShares;
 
         const totalAdjustedProfit = initialSharesProfit + txProfit;
         return acc + convertToKRW(totalAdjustedProfit, s.currency || 'KRW', rate);
