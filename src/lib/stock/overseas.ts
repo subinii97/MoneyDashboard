@@ -62,12 +62,17 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
     let change = extractNumber(String(data.compareToPreviousClosePricePrice || data.compareToPreviousClosePrice || '0'));
     let changePercent = extractNumber(String(data.fluctuationsRatio || '0'));
 
+    let isOverMarket = false;
+    let overMarketSession = '';
+
     if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
         const over = data.overMarketPriceInfo;
-        if (over.overMarketPrice && over.overMarketPrice !== '0' && over.overMarketPrice !== '') {
-            price = extractNumber(over.overMarketPrice);
+        if (over.overPrice && over.overPrice !== '0' && over.overPrice !== '') {
+            price = extractNumber(over.overPrice);
             change = extractNumber(String(over.compareToPreviousClosePrice || '0'));
             changePercent = extractNumber(String(over.fluctuationsRatio || '0'));
+            isOverMarket = true;
+            overMarketSession = over.tradingSessionType; // usually 'PRE_MARKET' or 'AFTER_MARKET'
         }
     }
 
@@ -81,7 +86,9 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
         name: data.stockName || symbol,
         change: isNaN(change) ? 0 : change,
         changePercent: isNaN(changePercent) ? 0 : changePercent,
-        previousClose: isNaN(previousClose) ? price : previousClose
+        previousClose: isNaN(previousClose) ? price : previousClose,
+        isOverMarket,
+        overMarketSession
     };
 }
 
