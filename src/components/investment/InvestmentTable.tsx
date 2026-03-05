@@ -112,9 +112,9 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                     <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'value' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('value')} title="평가액 기준 정렬">
                                         평가액{sortKey === 'value' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                                     </span>
-                                    <span style={{ opacity: 0.5 }}>/</span>
+                                    <span style={{ opacity: 0.5 }}>|</span>
                                     <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'plPercent' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('plPercent')} title="총 수익률 기준 정렬">
-                                        수익률{sortKey === 'plPercent' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                                        변동률{sortKey === 'plPercent' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                                     </span>
                                 </div>
                             </th>

@@ -54,7 +54,11 @@ export function useAssets() {
     }, []);
 
     useEffect(() => {
-        fetchData();
+        fetchData(true);
+        const interval = setInterval(() => {
+            fetchData(true);
+        }, 10000);
+        return () => clearInterval(interval);
     }, [fetchData]);
 
     return { assets, history, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets };
