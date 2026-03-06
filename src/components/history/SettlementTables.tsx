@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { formatKRW } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Calendar, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface RenderChangeProps {
     val: number;
@@ -14,29 +14,27 @@ interface RenderChangeProps {
 const RenderChange: React.FC<RenderChangeProps> = ({ val, percent, showPercentOnly = false, hidePercent = false }) => {
     if (val === 0 && percent === 0) return <span style={{ color: 'var(--muted)' }}>-</span>;
     const isUp = val > 0 || (percent > 0 && !hidePercent);
-    const Icon = isUp ? TrendingUp : TrendingDown;
     const color = isUp ? '#dc2626' : '#2563eb';
+    const triangle = isUp ? '▲' : '▼';
 
     if (showPercentOnly) {
         if (hidePercent) return null;
         return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem', color, fontWeight: '600' }}>
-                <Icon size={12} />
+                <span>{triangle}</span>
                 <span>{Math.abs(percent).toFixed(2)}%</span>
             </div>
         );
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color, fontWeight: '600' }}>
-                <Icon size={14} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', color, fontWeight: '600' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span>{triangle}</span>
                 <span>{formatKRW(Math.abs(val))}</span>
             </div>
             {!hidePercent && (
-                <span style={{ fontSize: '0.75rem', color, opacity: 0.8 }}>
-                    {isUp ? '+' : '-'}{Math.abs(percent).toFixed(2)}%
-                </span>
+                <span style={{ opacity: 0.85 }}>{isUp ? '+' : '-'}{Math.abs(percent).toFixed(2)}%</span>
             )}
         </div>
     );
@@ -156,9 +154,18 @@ export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly }
                         {monthlySettlements.map((m: any) => (
                             <tr key={m.month} style={{ borderBottom: '1px solid var(--border)' }}>
                                 <td style={{ padding: '1rem', fontWeight: '600', textAlign: 'center', borderRight: '1px solid var(--border)' }}>{m.month}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>{formatKRW(m.cashSavings)}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>{formatKRW(m.domestic)}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>{formatKRW(m.overseas)}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(m.metrics.cash.current)}</div>
+                                    <RenderChange val={m.metrics.cash.change} percent={m.metrics.cash.percent} hidePercent />
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(m.metrics.domestic.current)}</div>
+                                    <RenderChange val={m.metrics.domestic.change} percent={m.metrics.domestic.percent} showPercentOnly />
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatKRW(m.metrics.overseas.current)}</div>
+                                    <RenderChange val={m.metrics.overseas.change} percent={m.metrics.overseas.percent} showPercentOnly />
+                                </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{formatKRW(m.value)}</td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <RenderChange val={m.change} percent={m.changePercent} />

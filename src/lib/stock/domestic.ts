@@ -1,9 +1,8 @@
-import * as cheerio from 'cheerio';
 import { extractNumber, DEFAULT_USER_AGENT, MOBILE_USER_AGENT } from './utils';
 
 export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
     const code = symbol.split('.')[0];
-    const url = `https://finance.naver.com/item/main.naver?code=${code}`;
+    const url = `https://m.stock.naver.com/api/stock/${code}/basic`;
 
     try {
         const response = await fetch(url, {
@@ -12,43 +11,63 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
             next: forceRefresh ? undefined : { revalidate: 30 }
         });
 
-        if (!response.ok) return { symbol, error: 'Naver Finance access failed' };
+        if (!response.ok) return { symbol, error: 'Naver Finance API access failed' };
 
-        const contentType = response.headers.get('content-type');
-        const charset = contentType?.includes('charset=')
-            ? contentType.split('charset=')[1].split(';')[0].trim().toLowerCase()
-            : 'utf-8';
+        const data = await response.json();
 
-        const buffer = await response.arrayBuffer();
-        const decoder = new TextDecoder(charset || 'utf-8');
-        const html = decoder.decode(buffer);
-        const $ = cheerio.load(html);
+        const name = data.stockName || symbol;
+        const price = extractNumber(data.closePrice);
 
-        const name = $('.wrap_company h2 a').text().trim() || $('.wrap_company h2').text().trim();
-        const priceText = $('.no_today .blind').first().text() || $('.no_today em').first().text();
-        const price = extractNumber(priceText);
+        if (price === 0) return { symbol, error: 'Price not found on Naver API' };
 
-        if (price === 0) return { symbol, error: 'Price not found on Naver' };
+        const changeMagnitude = extractNumber(data.compareToPreviousClosePrice);
+        const changePercentMagnitude = extractNumber(data.fluctuationsRatio);
 
-        const previousCloseText = $('.no_info td.first em').first().text() || $('.no_info tr:nth-of-type(1) td em').first().text();
-        const previousClose = extractNumber(previousCloseText);
+        // UPPER_LIMIT(상한가), RISING → 양수 / LOWER_LIMIT(하한가), FALLING → 음수
+        const dirName: string = data.compareToPreviousPrice?.name || '';
+        const changeSign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1
+            : (dirName === 'RISING' || dirName === 'UPPER_LIMIT') ? 1 : 0;
 
-        const change = price - previousClose;
-        const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
+        const change = changeMagnitude * changeSign;
+        const changePercent = changePercentMagnitude * changeSign;
+        const previousClose = price - change;
 
-        return {
+        const quote: any = {
             symbol,
             price,
             currency: 'KRW',
             exchange: symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KRX',
-            name: name || symbol,
+            name,
             change,
             changePercent,
-            previousClose
+            previousClose,
+            marketStatus: data.marketStatus || 'CLOSE'
         };
+
+        // Check for over-market (NXT)
+        if (data.overMarketPriceInfo && data.overMarketPriceInfo.overMarketStatus === 'OPEN') {
+            const overInfo = data.overMarketPriceInfo;
+            quote.isOverMarket = true;
+            // AFTER_MARKET = NXT (한국 시간외단일가), PRE_MARKET = 프리마켓
+            const sessionType: string = overInfo.tradingSessionType || 'AFTER_MARKET';
+            quote.overMarketSession = sessionType === 'AFTER_MARKET' ? 'NXT' : sessionType;
+            quote.overMarketPrice = extractNumber(overInfo.overPrice);
+
+            const overDirName: string = overInfo.compareToPreviousPrice?.name || '';
+            const overChangeSign = (overDirName === 'FALLING' || overDirName === 'LOWER_LIMIT') ? -1
+                : (overDirName === 'RISING' || overDirName === 'UPPER_LIMIT') ? 1 : 0;
+
+            const overChangeMagnitude = extractNumber(overInfo.compareToPreviousClosePrice);
+            const overPercentMagnitude = extractNumber(overInfo.fluctuationsRatio);
+
+            quote.overMarketChange = overChangeMagnitude * overChangeSign;
+            quote.overMarketChangePercent = overPercentMagnitude * overChangeSign;
+        }
+
+        return quote;
     } catch (error) {
-        console.error(`Error scraping Naver for ${symbol}:`, error);
-        return { symbol, error: 'Naver scraping failed' };
+        console.error(`Error fetching Naver API for ${symbol}:`, error);
+        return { symbol, error: 'Naver API failed' };
     }
 }
 

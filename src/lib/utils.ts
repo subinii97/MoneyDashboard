@@ -15,3 +15,11 @@ export const convertToKRW = (value: number, currency: string, rate: number) => {
 
     return value;
 };
+
+/**
+ * Heuristic to determine if a symbol is domestic (KRX) or overseas.
+ */
+export const isDomesticSymbol = (symbol: string) => {
+    const s = symbol.toUpperCase();
+    return s.includes('.KS') || s.includes('.KQ') || /^\d{6}/.test(s);
+};

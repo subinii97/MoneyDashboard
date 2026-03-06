@@ -1,4 +1,5 @@
 import { Investment } from './types';
+import { isDomesticSymbol } from './utils';
 
 /**
  * Maps raw investment data with live price information.
@@ -16,7 +17,7 @@ export function mapInvestmentWithPrice(inv: Investment, priceData: any) {
         name: (inv.name && inv.name !== inv.symbol) ? inv.name : (info?.name || inv.name),
         change: info?.change,
         changePercent: info?.changePercent,
-        marketType: inv.marketType || (inv.symbol.includes('.') || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas'),
+        marketType: inv.marketType || (isDomesticSymbol(inv.symbol) || (info && info.exchange === 'KRX') ? 'Domestic' : 'Overseas'),
         isOverMarket: info?.isOverMarket,
         overMarketSession: info?.overMarketSession,
         overMarketPrice: info?.overMarketPrice,

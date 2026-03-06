@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { RefreshCw, Layers, List, Eye, EyeOff, PlusCircle, Tag, PieChart } from 'lucide-react';
+import { Layers, List, Eye, EyeOff, PlusCircle, Tag, PieChart } from 'lucide-react';
 import { Investment, MarketType, Transaction, AssetCategory } from '@/lib/types';
 import { useAssets } from '@/hooks/useAssets';
 import { useInvestmentActions } from '@/hooks/useInvestmentActions';
@@ -140,9 +140,6 @@ export default function InvestmentManager() {
                     </button>
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
                         {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                    <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ padding: '0.75rem 1.25rem', cursor: isRefreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)', fontWeight: '600', fontSize: '0.9rem', opacity: isRefreshing ? 0.7 : 1 }}>
-                        <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? '갱신 중...' : '새로고침'}
                     </button>
                 </div>
             </header>

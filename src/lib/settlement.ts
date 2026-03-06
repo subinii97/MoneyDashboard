@@ -1,8 +1,13 @@
 import { HistoryEntry, AssetCategory } from './types';
-import { convertToKRW } from './utils';
+import { convertToKRW, isDomesticSymbol } from './utils';
 
 export const HISTORY_CATEGORIES: AssetCategory[] = [
     'Cash', 'Savings', 'Domestic Stock', 'Domestic Index', 'Domestic Bond',
+    'Overseas Stock', 'Overseas Index', 'Overseas Bond',
+];
+
+export const INVESTMENT_CATEGORIES: AssetCategory[] = [
+    'Domestic Stock', 'Domestic Index', 'Domestic Bond',
     'Overseas Stock', 'Overseas Index', 'Overseas Bond',
 ];
 
@@ -21,13 +26,14 @@ export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallba
         return Math.max(0, entry.totalValue - totalOthers);
     }
 
-    if (['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(cat)) {
+    if (INVESTMENT_CATEGORIES.includes(cat)) {
         if (allocationValue > 0) return allocationValue;
 
         const categoryInvestments = entry.holdings?.filter((h: any) => {
             if (h.category) return h.category === cat;
-            if (cat === 'Domestic Stock') return h.marketType === 'Domestic' || h.symbol.includes('.KS') || h.symbol.includes('.KQ') || /^\d{6}/.test(h.symbol);
-            if (cat === 'Overseas Stock') return h.marketType === 'Overseas' || (!h.symbol.includes('.KS') && !h.symbol.includes('.KQ') && !/^\d{6}/.test(h.symbol));
+            // Fallback categorization logic
+            if (cat === 'Domestic Stock') return h.marketType === 'Domestic' || isDomesticSymbol(h.symbol);
+            if (cat === 'Overseas Stock') return h.marketType === 'Overseas' || !isDomesticSymbol(h.symbol);
             return false;
         });
 
@@ -36,6 +42,29 @@ export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallba
     }
 
     return allocationValue;
+};
+
+/**
+ * Get summary metrics for a history entry: Cash (Cash+Savings), Domestic, and Overseas totals.
+ */
+export const getSummaryMetrics = (entry: HistoryEntry, rate = 1350) => {
+    const r = entry.exchangeRate || rate;
+    const cash = getCategoryValue(entry, 'Cash', r) + getCategoryValue(entry, 'Savings', r);
+    const domStock = getCategoryValue(entry, 'Domestic Stock', r);
+    const domIndex = getCategoryValue(entry, 'Domestic Index', r);
+    const domBond = getCategoryValue(entry, 'Domestic Bond', r);
+    const osStock = getCategoryValue(entry, 'Overseas Stock', r);
+    const osIndex = getCategoryValue(entry, 'Overseas Index', r);
+    const osBond = getCategoryValue(entry, 'Overseas Bond', r);
+
+    return {
+        cash,
+        domStock, domIndex, domBond,
+        osStock, osIndex, osBond,
+        domestic: domStock + domIndex + domBond,
+        overseas: osStock + osIndex + osBond,
+        total: cash + domStock + domIndex + domBond + osStock + osIndex + osBond
+    };
 };
 
 /**

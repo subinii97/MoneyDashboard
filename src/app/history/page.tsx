@@ -1,15 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
 import { useHistoryData } from '@/hooks/useHistoryData';
 import CumulativeReturnChart from '@/components/history/CumulativeReturnChart';
 import { DailySettlementTable, WeeklySettlementTable, MonthlySettlementTable } from '@/components/history/SettlementTables';
 import SettlementTrendChart from '@/components/history/SettlementTrendChart';
 
 export default function HistoryPage() {
-    const router = useRouter();
     const {
         dailySettlements,
         dailyGroupedByMonth,
@@ -80,9 +77,6 @@ export default function HistoryPage() {
                     <span className="section-label">Analytics</span>
                     <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-0.03em' }}>내역 관리</h1>
                 </div>
-                <button onClick={() => router.push('/')} className="glass" style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--muted)', flexShrink: 0 }}>
-                    <ChevronLeft size={20} />
-                </button>
             </header>
 
             <SettlementTrendChart

@@ -90,6 +90,7 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
         change: isNaN(change) ? 0 : change,
         changePercent: isNaN(changePercent) ? 0 : changePercent,
         previousClose: isNaN(previousClose) ? price : previousClose,
+        marketStatus: data.marketStatus || 'CLOSE',
         isOverMarket,
         overMarketSession,
         overMarketPrice,

@@ -8,7 +8,7 @@ import {
     FullSettlementMetrics,
     SettlementMetric,
 } from '@/lib/types';
-import { getCategoryValue } from '@/lib/settlement';
+import { getCategoryValue, calculateTWRMultipliers, getSummaryMetrics } from '@/lib/settlement';
 import { convertToKRW } from '@/lib/utils';
 
 export type { DailySettlement, WeeklySettlement, MonthlySettlement };
@@ -138,86 +138,29 @@ export function useHistoryData() {
         fetchData();
     }, []);
 
-    const getFullMetrics = (e: HistoryEntry, r: number) => {
-        const cash = getCategoryValue(e, 'Cash', r) + getCategoryValue(e, 'Savings', r);
-        const domStock = getCategoryValue(e, 'Domestic Stock', r);
-        const domIndex = getCategoryValue(e, 'Domestic Index', r);
-        const domBond = getCategoryValue(e, 'Domestic Bond', r);
-        const osStock = getCategoryValue(e, 'Overseas Stock', r);
-        const osIndex = getCategoryValue(e, 'Overseas Index', r);
-        const osBond = getCategoryValue(e, 'Overseas Bond', r);
-
-        const getHoldings = (cat: AssetCategory) => {
-            return e.holdings?.filter((h: any) => {
-                if (h.category) return h.category === cat;
-                if (cat === 'Domestic Stock') return h.marketType === 'Domestic' || h.symbol.includes('.KS') || h.symbol.includes('.KQ') || /^\d{6}/.test(h.symbol);
-                if (cat === 'Overseas Stock') return h.marketType === 'Overseas' || (!h.symbol.includes('.KS') && !h.symbol.includes('.KQ') && !/^\d{6}/.test(h.symbol));
-                return false;
-            }) || [];
-        };
-
-        return {
-            cash, domStock, domIndex, domBond, osStock, osIndex, osBond,
-            holdingsMap: {
-                domStock: getHoldings('Domestic Stock'),
-                domIndex: getHoldings('Domestic Index'),
-                domBond: getHoldings('Domestic Bond'),
-                osStock: getHoldings('Overseas Stock'),
-                osIndex: getHoldings('Overseas Index'),
-                osBond: getHoldings('Overseas Bond')
-            }
-        };
-    };
-
-    const calcMarketChange = (currM: any, prevM: any, key: string) => {
-        const currTotal = currM[key] as number;
-        if (!prevM) return { current: currTotal, change: 0, percent: 0 };
-        return { current: currTotal, change: 0, percent: 0 }; // Calculated globally via cash-flow instead
-    };
+    const twrDom = useMemo(() => calculateTWRMultipliers(history, 'Domestic', rate), [history, rate]);
+    const twrOs = useMemo(() => calculateTWRMultipliers(history, 'Overseas', rate), [history, rate]);
 
     const dailySettlements = useMemo((): DailySettlement[] => {
         const filtered = history.filter(entry => entry.holdings && entry.holdings.length > 0);
+
         return filtered.map((entry, index, arr) => {
             const prevEntry = index > 0 ? arr[index - 1] : null;
             const r = entry.exchangeRate || rate;
-            const currM = getFullMetrics(entry, r);
-            const prevM = prevEntry ? getFullMetrics(prevEntry, prevEntry.exchangeRate || rate) : null;
+            const currM = getSummaryMetrics(entry, r);
+            const prevM = prevEntry ? getSummaryMetrics(prevEntry, prevEntry.exchangeRate || rate) : null;
 
-            const domStockRes = calcMarketChange(currM, prevM, 'domStock');
-            const domIndexRes = calcMarketChange(currM, prevM, 'domIndex');
-            const domBondRes = calcMarketChange(currM, prevM, 'domBond');
-            const osStockRes = calcMarketChange(currM, prevM, 'osStock');
-            const osIndexRes = calcMarketChange(currM, prevM, 'osIndex');
-            const osBondRes = calcMarketChange(currM, prevM, 'osBond');
+            // TWR: 당일 수익률 = 누적 배수 비율 - 1
+            const prevTwrDomMult = prevEntry ? (twrDom[prevEntry.date] ?? 1) : 1;
+            const currTwrDomMult = twrDom[entry.date] ?? 1;
+            const domDayReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
 
-            const domTotal = domStockRes.current + domIndexRes.current + domBondRes.current;
-            const prevDomTotal = prevM ? prevM.domStock + prevM.domIndex + prevM.domBond : 0;
+            const prevTwrOsMult = prevEntry ? (twrOs[prevEntry.date] ?? 1) : 1;
+            const currTwrOsMult = twrOs[entry.date] ?? 1;
+            const osDayReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
 
-            const osTotal = osStockRes.current + osIndexRes.current + osBondRes.current;
-            const prevOsTotal = prevM ? prevM.osStock + prevM.osIndex + prevM.osBond : 0;
-
-            // Compute precise Dom/Os change using Net Cash Flow
-            // Net Additions = BUYS - SELLS
-            let domNetAdditions = 0;
-            let osNetAdditions = 0;
-
-            const dailyTxs = transactions.filter(t => t.date === entry.date && (t.type === 'BUY' || t.type === 'SELL'));
-            dailyTxs.forEach(t => {
-                const isDom = t.symbol?.includes('.KS') || t.symbol?.includes('.KQ') || /^\d{6}/.test(t.symbol) || t.currency === 'KRW';
-                const txValueKRW = convertToKRW(t.amount || (t.price * t.shares), t.currency || (isDom ? 'KRW' : 'USD'), r);
-
-                if (t.type === 'BUY') {
-                    if (isDom) domNetAdditions += txValueKRW;
-                    else osNetAdditions += txValueKRW;
-                } else if (t.type === 'SELL') {
-                    if (isDom) domNetAdditions -= txValueKRW;
-                    else osNetAdditions -= txValueKRW;
-                }
-            });
-
-            // True Market Profit = Ending - Starting - NetAdditions
-            const domChange = prevM ? (domTotal - prevDomTotal - domNetAdditions) : 0;
-            const osChange = prevM ? (osTotal - prevOsTotal - osNetAdditions) : 0;
+            const domChange = (prevM?.domestic || 0) * domDayReturn;
+            const osChange = (prevM?.overseas || 0) * osDayReturn;
 
             const ds: DailySettlement = {
                 ...entry,
@@ -229,32 +172,23 @@ export function useHistoryData() {
                         change: prevM ? currM.cash - prevM.cash : 0,
                         percent: (prevM && prevM.cash > 0) ? ((currM.cash - prevM.cash) / prevM.cash) * 100 : 0
                     },
-                    domStock: domStockRes,
-                    domIndex: domIndexRes,
-                    domBond: domBondRes,
-                    osStock: osStockRes,
-                    osIndex: osIndexRes,
-                    osBond: osBondRes,
-                    domestic: {
-                        current: domTotal,
-                        change: domChange,
-                        percent: prevDomTotal > 0 ? (domChange / prevDomTotal) * 100 : 0
-                    },
-                    overseas: {
-                        current: osTotal,
-                        change: osChange,
-                        percent: prevOsTotal > 0 ? (osChange / prevOsTotal) * 100 : 0
-                    }
+                    domStock: { current: currM.domStock, change: 0, percent: 0 }, // Individual market changes are now simplified
+                    domIndex: { current: currM.domIndex, change: 0, percent: 0 },
+                    domBond: { current: currM.domBond, change: 0, percent: 0 },
+                    osStock: { current: currM.osStock, change: 0, percent: 0 },
+                    osIndex: { current: currM.osIndex, change: 0, percent: 0 },
+                    osBond: { current: currM.osBond, change: 0, percent: 0 },
+                    domestic: { current: currM.domestic, change: domChange, percent: domDayReturn * 100 },
+                    overseas: { current: currM.overseas, change: osChange, percent: osDayReturn * 100 }
                 }
             };
 
-            // Main change is now the sum of market performance (excluding capital flow)
-            ds.change = ds.metrics.domestic.change + ds.metrics.overseas.change;
+            ds.change = prevEntry ? (entry.totalValue - prevEntry.totalValue) : 0;
             ds.changePercent = (prevEntry && prevEntry.totalValue > 0) ? (ds.change / prevEntry.totalValue) * 100 : 0;
 
             return ds;
         }).reverse();
-    }, [history, rate]);
+    }, [history, rate, twrDom, twrOs]);
 
     const dailyGroupedByMonth = useMemo(() => {
         const grouped: Record<string, DailySettlement[]> = {};
@@ -269,6 +203,12 @@ export function useHistoryData() {
     const weeklySettlements = useMemo((): WeeklySettlement[] => {
         const settlements: WeeklySettlement[] = [];
         if (history.length > 0) {
+            const filtered = history.filter(e => e.holdings && e.holdings.length > 0);
+
+            // 주별 TWR: 일별과 동일한 누적 배수 맵 재사용
+            // const twrDom = calculateTWRMultipliers(filtered, 'Domestic', rate); // Removed, using outer twrDom
+            // const twrOs = calculateTWRMultipliers(filtered, 'Overseas', rate); // Removed, using outer twrOs
+
             const grouped: Record<string, HistoryEntry> = {};
             history.forEach(entry => {
                 const d = new Date(entry.date);
@@ -288,45 +228,20 @@ export function useHistoryData() {
                 const entry = grouped[key];
                 const prev = index > 0 ? grouped[keys[index - 1]] : null;
                 const r = entry.exchangeRate || rate;
-                const currM = getFullMetrics(entry, r);
-                const prevM = prev ? getFullMetrics(prev, prev.exchangeRate || rate) : null;
+                const currM = getSummaryMetrics(entry, r);
+                const prevM = prev ? getSummaryMetrics(prev, prev.exchangeRate || rate) : null;
 
-                const domStockRes = calcMarketChange(currM, prevM, 'domStock');
-                const domIndexRes = calcMarketChange(currM, prevM, 'domIndex');
-                const domBondRes = calcMarketChange(currM, prevM, 'domBond');
-                const osStockRes = calcMarketChange(currM, prevM, 'osStock');
-                const osIndexRes = calcMarketChange(currM, prevM, 'osIndex');
-                const osBondRes = calcMarketChange(currM, prevM, 'osBond');
+                // 주간 TWR = 이번 주 말 누적 배수 / 지난 주 말 누적 배수 - 1
+                const prevTwrDomMult = prev ? (twrDom[prev.date] ?? 1) : 1;
+                const currTwrDomMult = twrDom[entry.date] ?? 1;
+                const weekDomReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
 
-                const domTotal = currM.domStock + currM.domIndex + currM.domBond;
-                const prevDomTotal = prevM ? prevM.domStock + prevM.domIndex + prevM.domBond : 0;
+                const prevTwrOsMult = prev ? (twrOs[prev.date] ?? 1) : 1;
+                const currTwrOsMult = twrOs[entry.date] ?? 1;
+                const weekOsReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
 
-                const osTotal = currM.osStock + currM.osIndex + currM.osBond;
-                const prevOsTotal = prevM ? prevM.osStock + prevM.osIndex + prevM.osBond : 0;
-
-                // Compute precise Dom/Os change using Net Cash Flow over the week
-                let domNetAdditions = 0;
-                let osNetAdditions = 0;
-
-                const startDate = prev ? prev.date : '2000-01-01';
-                const endDate = key; // usually entry.date but we use 'key' which is the closest Friday that was settled
-
-                const weekTxs = transactions.filter(t => t.date > startDate && t.date <= entry.date && (t.type === 'BUY' || t.type === 'SELL'));
-                weekTxs.forEach(t => {
-                    const isDom = t.symbol?.includes('.KS') || t.symbol?.includes('.KQ') || /^\d{6}/.test(t.symbol) || t.currency === 'KRW';
-                    const txValueKRW = convertToKRW(t.amount || (t.price * t.shares), t.currency || (isDom ? 'KRW' : 'USD'), r);
-
-                    if (t.type === 'BUY') {
-                        if (isDom) domNetAdditions += txValueKRW;
-                        else osNetAdditions += txValueKRW;
-                    } else if (t.type === 'SELL') {
-                        if (isDom) domNetAdditions -= txValueKRW;
-                        else osNetAdditions -= txValueKRW;
-                    }
-                });
-
-                const domChange = prevM ? (domTotal - prevDomTotal - domNetAdditions) : 0;
-                const osChange = prevM ? (osTotal - prevOsTotal - osNetAdditions) : 0;
+                const domChange = (prevM?.domestic || 0) * weekDomReturn;
+                const osChange = (prevM?.overseas || 0) * weekOsReturn;
 
                 settlements.push({
                     period: `${new Date(new Date(key).setDate(new Date(key).getDate() - 5)).toISOString().substring(2, 10)} ~ ${key.substring(2)}`,
@@ -335,21 +250,21 @@ export function useHistoryData() {
                     changePercent: (prev && prev.totalValue > 0) ? ((entry.totalValue - prev.totalValue) / prev.totalValue) * 100 : 0,
                     metrics: {
                         cash: { current: currM.cash, change: prevM ? currM.cash - prevM.cash : 0, percent: 0 },
-                        domStock: domStockRes,
-                        domIndex: domIndexRes,
-                        domBond: domBondRes,
-                        osStock: osStockRes,
-                        osIndex: osIndexRes,
-                        osBond: osBondRes,
-                        domestic: { current: domTotal, change: domChange, percent: prevDomTotal > 0 ? (domChange / prevDomTotal) * 100 : 0 },
-                        overseas: { current: osTotal, change: osChange, percent: prevOsTotal > 0 ? (osChange / prevOsTotal) * 100 : 0 }
+                        domStock: { current: currM.domStock, change: 0, percent: 0 },
+                        domIndex: { current: currM.domIndex, change: 0, percent: 0 },
+                        domBond: { current: currM.domBond, change: 0, percent: 0 },
+                        osStock: { current: currM.osStock, change: 0, percent: 0 },
+                        osIndex: { current: currM.osIndex, change: 0, percent: 0 },
+                        osBond: { current: currM.osBond, change: 0, percent: 0 },
+                        domestic: { current: currM.domestic, change: domChange, percent: weekDomReturn * 100 },
+                        overseas: { current: currM.overseas, change: osChange, percent: weekOsReturn * 100 }
                     }
                 });
             });
             settlements.reverse();
         }
         return settlements;
-    }, [history, rate]);
+    }, [history, rate, twrDom, twrOs]);
 
     const monthlySettlements = useMemo((): MonthlySettlement[] => {
         const map: Record<string, HistoryEntry> = {};
@@ -363,29 +278,41 @@ export function useHistoryData() {
             const entry = map[m];
             const prev = index > 0 ? map[keys[index - 1]] : null;
             const r = entry.exchangeRate || rate;
-            const currM = getFullMetrics(entry, r);
+            const currM = getSummaryMetrics(entry, r);
+            const prevM = prev ? getSummaryMetrics(prev, prev.exchangeRate || rate) : null;
+
+            // 월간 TWR = 이번 달 말 누적 배수 / 지난 달 말 누적 배수 - 1
+            const prevTwrDomMult = prev ? (twrDom[prev.date] ?? 1) : 1;
+            const currTwrDomMult = twrDom[entry.date] ?? 1;
+            const monDomReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
+
+            const prevTwrOsMult = prev ? (twrOs[prev.date] ?? 1) : 1;
+            const currTwrOsMult = twrOs[entry.date] ?? 1;
+            const monOsReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
+
+            const domChange = (prevM?.domestic || 0) * monDomReturn;
+            const osChange = (prevM?.overseas || 0) * monOsReturn;
 
             return {
                 month: m,
                 value: entry.totalValue,
-                cashSavings: currM.cash,
-                domestic: currM.domStock + currM.domIndex + currM.domBond,
-                overseas: currM.osStock + currM.osIndex + currM.osBond,
                 change: prev ? entry.totalValue - prev.totalValue : 0,
                 changePercent: (prev && prev.totalValue > 0) ? ((entry.totalValue - prev.totalValue) / prev.totalValue) * 100 : 0,
                 metrics: {
-                    cash: currM.cash,
-                    domStock: currM.domStock,
-                    domIndex: currM.domIndex,
-                    domBond: currM.domBond,
-                    osStock: currM.osStock,
-                    osIndex: currM.osIndex,
-                    osBond: currM.osBond,
+                    cash: { current: currM.cash, change: prevM ? currM.cash - prevM.cash : 0, percent: 0 },
+                    domStock: { current: currM.domStock, change: 0, percent: 0 },
+                    domIndex: { current: currM.domIndex, change: 0, percent: 0 },
+                    domBond: { current: currM.domBond, change: 0, percent: 0 },
+                    osStock: { current: currM.osStock, change: 0, percent: 0 },
+                    osIndex: { current: currM.osIndex, change: 0, percent: 0 },
+                    osBond: { current: currM.osBond, change: 0, percent: 0 },
+                    domestic: { current: currM.domestic, change: domChange, percent: monDomReturn * 100 },
+                    overseas: { current: currM.overseas, change: osChange, percent: monOsReturn * 100 }
                 },
                 isManual: !entry.holdings || entry.holdings.length === 0
             };
         }).reverse();
-    }, [history, rate]);
+    }, [history, rate, twrDom, twrOs]);
 
     return {
         dailySettlements,

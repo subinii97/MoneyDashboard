@@ -13,6 +13,9 @@ interface InvestmentTableRowProps {
     onEdit: (inv: Investment) => void;
     onDelete: (id: string) => void;
     onTransaction: (inv: Investment) => void;
+    isBoughtToday?: boolean;
+    getActiveChange?: (inv: Investment) => number;
+    getActiveChangePercent?: (inv: Investment) => number;
 }
 
 const getExchangeStyle = (ex: string) => {
@@ -28,13 +31,70 @@ const getExchangeStyle = (ex: string) => {
 };
 
 export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
-    inv, rate, isPrivate, subTotal, onEdit, onDelete, onTransaction
+    inv, rate, isPrivate, subTotal, onEdit, onDelete, onTransaction,
+    isBoughtToday = false, getActiveChange, getActiveChangePercent
 }) => {
     const isUSD = inv.currency === 'USD';
     const isOverActive = inv.isOverMarket && inv.overMarketPrice !== undefined;
     const currentPriceActive = isOverActive ? inv.overMarketPrice! : (inv.currentPrice || inv.avgPrice);
-    const activeChange = isOverActive ? (inv.overMarketChange ?? inv.change) : inv.change;
-    const activeChangePercent = isOverActive ? (inv.overMarketChangePercent ?? inv.changePercent) : inv.changePercent;
+
+    // 외부에서 주입된 함수가 있으면 사용, 없으면 기본값
+    const resolvedChange = getActiveChange
+        ? getActiveChange(inv)
+        : isOverActive ? (inv.overMarketChange ?? inv.change ?? 0) : (inv.change || 0);
+    const resolvedChangePercent = getActiveChangePercent
+        ? getActiveChangePercent(inv)
+        : isOverActive ? (inv.overMarketChangePercent ?? inv.changePercent ?? 0) : (inv.changePercent || 0);
+
+    const activeChange = resolvedChange;
+    const activeChangePercent = resolvedChangePercent;
+
+    // ── 시장 상태 배지 ──────────────────────────────────────────────
+    const renderMarketBadge = () => {
+        const isDomestic = inv.currency === 'KRW';
+        const mStatus = inv.marketStatus || 'CLOSE';
+        const exLabel = inv.exchange === 'KOSDAQ' ? 'KOSDAQ' : (inv.exchange || 'KRX');
+
+        let dot: string;
+        let label: string;
+        let color: string;
+
+        if (isOverActive) {
+            // NXT / PRE / AFTER 장외 거래 중
+            const session = inv.overMarketSession || '';
+            dot = '●';
+            if (session === 'NXT') {
+                label = 'NXT';
+                color = '#16a34a';
+            } else if (session === 'PRE_MARKET') {
+                label = '프리마켓';
+                color = '#d97706';
+            } else {
+                label = isDomestic ? 'NXT' : '애프터';
+                color = '#16a34a';
+            }
+        } else if (mStatus === 'OPEN') {
+            // 정규장 거래 중
+            dot = '●';
+            label = isDomestic ? exLabel : (inv.exchange || 'OPEN');
+            color = '#16a34a';
+        } else {
+            // 장마감
+            dot = '○';
+            label = '장마감';
+            color = 'var(--muted)';
+        }
+
+        return (
+            <span style={{
+                fontSize: '0.7rem', fontWeight: '600', color,
+                display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+            }}>
+                <span style={{ fontSize: '0.5rem' }}>{dot}</span>
+                {label}
+            </span>
+        );
+    };
 
     const marketVal = currentPriceActive * inv.shares;
     const marketValKRW = convertToKRW(marketVal, inv.currency || 'KRW', rate);
@@ -60,8 +120,9 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
     return (
         <tr style={{ borderBottom: '1px solid var(--border)' }}>
 
-            {/* ── 종목 (거래소 배지 + 이름 + 티커) ── */}
+            {/* ── 종목 (1행: 거래소+이름+티커+분류 / 2행: 장상태+태그) ── */}
             <td style={{ borderRight: '1px solid var(--border)', padding: '0.75rem 0.75rem' }}>
+                {/* 1행: 거래소 배지 · 종목명 · 티커 · 주식/지수 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <span style={{
                         padding: '1px 5px', borderRadius: '4px',
@@ -70,16 +131,18 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                         border: `1px solid ${ex.color}33`, flexShrink: 0,
                     }}>{ex.label}</span>
                     <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{inv.name || inv.symbol}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: '600', color: 'var(--muted)', opacity: 0.7, letterSpacing: '0.03em' }}>
+                        {inv.symbol}
+                    </span>
                     {(inv.category || inv.marketType) && (
                         <span style={{ fontSize: '0.58rem', padding: '1px 3px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.5, flexShrink: 0 }}>
                             {inv.category?.includes('Stock') ? '주식' : inv.category?.includes('Index') ? '지수' : '주식'}
                         </span>
                     )}
                 </div>
-                <div style={{ marginTop: '0.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: '600', color: 'var(--muted)', opacity: 0.7, letterSpacing: '0.03em' }}>
-                        {inv.symbol}
-                    </span>
+                {/* 2행: 장 상태 + 사용자 태그 */}
+                <div style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    {renderMarketBadge()}
                     {inv.tags && inv.tags.length > 0 && inv.tags.map(tag => (
                         <span key={tag} style={{
                             padding: '0px 4px', borderRadius: '8px', fontSize: '0.58rem',
@@ -95,16 +158,11 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
             {/* ── 가격 3행: 현재가 / 전일대비 / 평단가 ── */}
             <td style={{ textAlign: 'right', padding: '0.6rem 0.6rem', borderRight: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: '700', fontSize: '1.05rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem' }}>
-                    {isOverActive && (
-                        <span style={{ fontSize: '0.55rem', padding: '1px 3px', borderRadius: '4px', background: 'var(--accent)', color: 'white', fontWeight: '800' }}>
-                            {inv.overMarketSession === 'PRE_MARKET' ? 'PRE' : 'POST'}
-                        </span>
-                    )}
                     {formatPrice(currentPriceActive)}
                 </div>
                 {activeChange !== undefined ? (
                     <div style={{ fontSize: '0.75rem', color: activeChange >= 0 ? '#dc2626' : '#2563eb', fontWeight: '600', marginTop: '0.15rem' }}>
-                        {activeChange >= 0 ? '▲' : '▼'}{Math.abs(activeChange).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({Math.abs(activeChangePercent || 0).toFixed(2)}%)
+                        {activeChange >= 0 ? '▲' : '▼'}{Math.abs(activeChange).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({activeChange < 0 ? '-' : ''}{Math.abs(activeChangePercent || 0).toFixed(2)}%)
                     </div>
                 ) : <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.15rem' }}>—</div>}
 
@@ -127,7 +185,7 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                 )}
                 <div style={{ fontSize: isPrivate ? '1.15rem' : '0.75rem', fontWeight: '700', marginTop: '0.15rem' }}>
                     {!isPrivate && <>{pl >= 0 ? '+' : ''}{formatPrice(pl)} </>}
-                    {!isPrivate ? `(${plPercent >= 0 ? '+' : ''}${Math.abs(plPercent).toFixed(2)}%)` : `${plPercent >= 0 ? '+' : ''}${Math.abs(plPercent).toFixed(2)}%`}
+                    {!isPrivate ? `(${plPercent >= 0 ? '+' : '-'}${Math.abs(plPercent).toFixed(2)}%)` : `${plPercent >= 0 ? '+' : '-'}${Math.abs(plPercent).toFixed(2)}%`}
                 </div>
             </td>
 

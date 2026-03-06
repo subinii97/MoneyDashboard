@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, EyeOff, RefreshCw, DollarSign } from 'lucide-react';
+import { Eye, EyeOff, DollarSign } from 'lucide-react';
 import { formatKRW, convertToKRW } from '@/lib/utils';
 import { useAssets } from '@/hooks/useAssets';
 import { useMarketData } from '@/hooks/useMarketData';
@@ -14,10 +14,6 @@ export default function Home() {
     const { assets, history, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData } = useAssets();
     const { marketData, loading: marketLoading, lastFetched, fetchMarketData } = useMarketData();
     const [isPrivate, setIsPrivate] = useState(false);
-
-    const handleRefresh = async () => {
-        await Promise.all([fetchData(true), fetchMarketData(true)]);
-    };
 
     if (loading) return <div className="flex-center" style={{ padding: '2rem' }}>Loading...</div>;
 
@@ -70,9 +66,6 @@ export default function Home() {
                 <div className="flex-center" style={{ gap: '1rem', marginTop: '1rem' }}>
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass flex-center" style={{ width: '42px', height: '42px', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
                         {isPrivate ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                    <button onClick={handleRefresh} disabled={isRefreshing} className="glass flex-center" style={{ width: '42px', height: '42px', cursor: isRefreshing ? 'not-allowed' : 'pointer', color: 'var(--foreground)', opacity: isRefreshing ? 0.7 : 1 }}>
-                        <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                     </button>
 
                     {displayRate && (

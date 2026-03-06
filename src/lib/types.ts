@@ -59,6 +59,7 @@ export interface Investment {
     overMarketPrice?: number;
     overMarketChange?: number;
     overMarketChangePercent?: number;
+    marketStatus?: string; // 'OPEN' | 'CLOSE'
 }
 
 export interface AssetDetail {
@@ -143,19 +144,8 @@ export interface WeeklySettlement {
 export interface MonthlySettlement {
     month: string;
     value: number;
-    cashSavings: number;
-    domestic: number;
-    overseas: number;
     change: number;
     changePercent: number;
-    metrics: {
-        cash: number;
-        domStock: number;
-        domIndex: number;
-        domBond: number;
-        osStock: number;
-        osIndex: number;
-        osBond: number;
-    };
+    metrics: FullSettlementMetrics;
     isManual?: boolean;
 }

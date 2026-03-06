@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Save, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Save, Eye, EyeOff } from 'lucide-react';
 import { Assets, AssetAllocation, AssetCategory, MarketType, AssetDetail } from '@/lib/types';
 import { convertToKRW } from '@/lib/utils';
 import { useAssets } from '@/hooks/useAssets';
@@ -17,11 +17,11 @@ const FIXED_CATEGORIES: AssetCategory[] = [
 ];
 
 export default function PortfolioPage() {
-    const { assets, loading, isRefreshing, rate, lastUpdated, fetchData, setAssets } = useAssets();
+    const [hasChanges, setHasChanges] = useState(false);
+    const { assets, loading, isRefreshing, rate, lastUpdated, fetchData, setAssets } = useAssets(hasChanges);
     const [isSaving, setIsSaving] = useState(false);
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
     const [navTarget, setNavTarget] = useState<string | null>(null);
 
     const enrichAllocations = useCallback((data: Assets) => {
@@ -124,9 +124,6 @@ export default function PortfolioPage() {
                     <div style={{ display: 'flex', gap: '1rem' }}>
                         <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
                             {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
-                        </button>
-                        <button onClick={() => fetchData(true)} disabled={isRefreshing} className="glass" style={{ padding: '0.75rem 1.5rem', cursor: isRefreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--foreground)', opacity: isRefreshing ? 0.7 : 1 }}>
-                            <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? '갱신 중...' : '새로고침'}
                         </button>
                     </div>
                 </header>

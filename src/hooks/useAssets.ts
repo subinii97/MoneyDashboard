@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Assets, Investment, HistoryEntry } from '@/lib/types';
 import { mapInvestmentWithPrice, extractExchangeRate } from '@/lib/assets';
 
-export function useAssets() {
+export function useAssets(paused = false) {
+    const pausedRef = useRef(paused);
+    useEffect(() => { pausedRef.current = paused; }, [paused]);
     const [assets, setAssets] = useState<Assets>({ investments: [], allocations: [] });
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -56,8 +58,8 @@ export function useAssets() {
     useEffect(() => {
         fetchData(true);
         const interval = setInterval(() => {
-            fetchData(true);
-        }, 10000);
+            if (!pausedRef.current) fetchData(true);
+        }, 5000);
         return () => clearInterval(interval);
     }, [fetchData]);
 

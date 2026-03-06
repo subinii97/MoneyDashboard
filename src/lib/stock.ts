@@ -3,6 +3,7 @@ import { fetchNaverQuote, fetchDomesticIndex } from './stock/domestic';
 import { fetchNaverOverseasQuote, fetchOverseasIndex } from './stock/overseas';
 import { fetchExchangeRate as fetchNavRate, fetchMarketExchangeRate as fetchMktRate } from './stock/exchange';
 import { extractNumber } from './stock/utils';
+import { isDomesticSymbol } from './utils';
 
 // In-memory cache
 const quoteCache: Record<string, { data: any, timestamp: number }> = {};
@@ -28,7 +29,7 @@ export async function fetchQuote(symbol: string, forceRefresh = false) {
     }
 
     let res;
-    if (cleanSymbol.endsWith('.KS') || cleanSymbol.endsWith('.KQ') || /^\d{6}/.test(cleanSymbol)) {
+    if (isDomesticSymbol(cleanSymbol)) {
         res = await fetchNaverQuote(cleanSymbol, forceRefresh);
     } else {
         res = await fetchNaverOverseasQuote(cleanSymbol, forceRefresh);

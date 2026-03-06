@@ -31,7 +31,31 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         }
     };
     const getActivePrice = (s: Investment) => (s.isOverMarket && s.overMarketPrice !== undefined) ? s.overMarketPrice : (s.currentPrice || s.avgPrice);
-    const getActiveChange = (s: Investment) => (s.isOverMarket && s.overMarketChange !== undefined) ? s.overMarketChange : (s.change || 0);
+
+    // 오늘 BUY 거래가 있는 종목 심볼 집합
+    const todayBuySymbols = new Set(
+        transactions
+            .filter(t => t.type === 'BUY')
+            .map(t => t.symbol?.toUpperCase().trim())
+            .filter(Boolean)
+    );
+
+    // 매수 당일: 평단가 기준 변동 / 이외: 전일대비 변동
+    const getActiveChange = (s: Investment) => {
+        const activePrice = getActivePrice(s);
+        if (todayBuySymbols.has(s.symbol?.toUpperCase().trim())) {
+            return activePrice - s.avgPrice;
+        }
+        return (s.isOverMarket && s.overMarketChange !== undefined) ? s.overMarketChange : (s.change || 0);
+    };
+
+    // 매수 당일 변동률 계산용 (행 단위 정렬 기준에도 사용)
+    const getActiveChangePercent = (s: Investment) => {
+        if (todayBuySymbols.has(s.symbol?.toUpperCase().trim())) {
+            return s.avgPrice > 0 ? ((getActivePrice(s) - s.avgPrice) / s.avgPrice) * 100 : 0;
+        }
+        return (s.isOverMarket && s.overMarketChangePercent !== undefined) ? s.overMarketChangePercent : (s.changePercent || 0);
+    };
 
     const subTotal = investments.reduce((acc, s) => {
         const val = getActivePrice(s) * s.shares;
@@ -128,7 +152,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         {[...investments].sort((a, b) => {
                             const getVal = (inv: Investment) => getActivePrice(inv) * inv.shares;
                             const getPlPercent = (inv: Investment) => inv.avgPrice > 0 ? ((getActivePrice(inv) - inv.avgPrice) / inv.avgPrice) : 0;
-                            const getDailyPercent = (inv: Investment) => (inv.isOverMarket && inv.overMarketChangePercent !== undefined) ? inv.overMarketChangePercent : (inv.changePercent || 0);
+                            const getDailyPercent = (inv: Investment) => getActiveChangePercent(inv);
 
                             let valA = 0, valB = 0;
                             if (sortKey === 'value' || sortKey === 'weight') {
