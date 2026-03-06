@@ -78,7 +78,14 @@ export function useHistoryData() {
                                     if (info) {
                                         const activePrice = (info.isOverMarket && info.overMarketPrice !== undefined) ? info.overMarketPrice : info.price;
                                         if (activePrice) {
-                                            return { ...h, currentPrice: activePrice };
+                                            return {
+                                                ...h,
+                                                currentPrice: activePrice,
+                                                marketStatus: info.marketStatus,
+                                                isOverMarket: info.isOverMarket,
+                                                overMarketPrice: info.overMarketPrice,
+                                                overMarketSession: info.overMarketSession
+                                            };
                                         }
                                     }
                                     return h;

@@ -28,8 +28,8 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
         const changeSign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1
             : (dirName === 'RISING' || dirName === 'UPPER_LIMIT') ? 1 : 0;
 
-        const change = changeMagnitude * changeSign;
-        const changePercent = changePercentMagnitude * changeSign;
+        const change = Math.abs(changeMagnitude) * changeSign;
+        const changePercent = Math.abs(changePercentMagnitude) * changeSign;
         const previousClose = price - change;
 
         const quote: any = {
@@ -47,21 +47,23 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
         // Check for over-market (NXT)
         if (data.overMarketPriceInfo && data.overMarketPriceInfo.overMarketStatus === 'OPEN') {
             const overInfo = data.overMarketPriceInfo;
-            quote.isOverMarket = true;
-            // AFTER_MARKET = NXT (한국 시간외단일가), PRE_MARKET = 프리마켓
             const sessionType: string = overInfo.tradingSessionType || 'AFTER_MARKET';
-            quote.overMarketSession = sessionType === 'AFTER_MARKET' ? 'NXT' : sessionType;
-            quote.overMarketPrice = extractNumber(overInfo.overPrice);
 
-            const overDirName: string = overInfo.compareToPreviousPrice?.name || '';
-            const overChangeSign = (overDirName === 'FALLING' || overDirName === 'LOWER_LIMIT') ? -1
-                : (overDirName === 'RISING' || overDirName === 'UPPER_LIMIT') ? 1 : 0;
+            if (sessionType !== 'REGULAR_MARKET') {
+                quote.isOverMarket = true;
+                quote.overMarketSession = sessionType === 'AFTER_MARKET' ? 'NXT' : sessionType;
+                quote.overMarketPrice = extractNumber(overInfo.overPrice);
 
-            const overChangeMagnitude = extractNumber(overInfo.compareToPreviousClosePrice);
-            const overPercentMagnitude = extractNumber(overInfo.fluctuationsRatio);
+                const overDirName: string = overInfo.compareToPreviousPrice?.name || '';
+                const overChangeSign = (overDirName === 'FALLING' || overDirName === 'LOWER_LIMIT') ? -1
+                    : (overDirName === 'RISING' || overDirName === 'UPPER_LIMIT') ? 1 : 0;
 
-            quote.overMarketChange = overChangeMagnitude * overChangeSign;
-            quote.overMarketChangePercent = overPercentMagnitude * overChangeSign;
+                const overChangeMagnitude = extractNumber(overInfo.compareToPreviousClosePrice);
+                const overPercentMagnitude = extractNumber(overInfo.fluctuationsRatio);
+
+                quote.overMarketChange = Math.abs(overChangeMagnitude) * overChangeSign;
+                quote.overMarketChangePercent = Math.abs(overPercentMagnitude) * overChangeSign;
+            }
         }
 
         return quote;

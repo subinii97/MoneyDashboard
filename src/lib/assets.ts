@@ -22,7 +22,8 @@ export function mapInvestmentWithPrice(inv: Investment, priceData: any) {
         overMarketSession: info?.overMarketSession,
         overMarketPrice: info?.overMarketPrice,
         overMarketChange: info?.overMarketChange,
-        overMarketChangePercent: info?.overMarketChangePercent
+        overMarketChangePercent: info?.overMarketChangePercent,
+        marketStatus: info?.marketStatus
     };
 }
 
