@@ -145,8 +145,8 @@ export function useHistoryData() {
         fetchData();
     }, []);
 
-    const twrDom = useMemo(() => calculateTWRMultipliers(history, 'Domestic', rate), [history, rate]);
-    const twrOs = useMemo(() => calculateTWRMultipliers(history, 'Overseas', rate), [history, rate]);
+    const twrDom = useMemo(() => calculateTWRMultipliers(history, 'Domestic', rate, transactions), [history, rate, transactions]);
+    const twrOs = useMemo(() => calculateTWRMultipliers(history, 'Overseas', rate, transactions), [history, rate, transactions]);
 
     const dailySettlements = useMemo((): DailySettlement[] => {
         const filtered = history.filter(entry => entry.holdings && entry.holdings.length > 0);
@@ -216,6 +216,17 @@ export function useHistoryData() {
             // const twrDom = calculateTWRMultipliers(filtered, 'Domestic', rate); // Removed, using outer twrDom
             // const twrOs = calculateTWRMultipliers(filtered, 'Overseas', rate); // Removed, using outer twrOs
 
+            const symbolMap: Record<string, string> = {};
+            history.forEach(h => {
+                if (h.holdings) {
+                    h.holdings.forEach(inv => {
+                        if (inv.symbol && inv.name && !symbolMap[inv.symbol]) {
+                            symbolMap[inv.symbol] = inv.name;
+                        }
+                    });
+                }
+            });
+
             const grouped: Record<string, HistoryEntry> = {};
             history.forEach(entry => {
                 const d = new Date(entry.date);
@@ -250,8 +261,18 @@ export function useHistoryData() {
                 const domChange = (prevM?.domestic || 0) * weekDomReturn;
                 const osChange = (prevM?.overseas || 0) * weekOsReturn;
 
+                const startDate = new Date(new Date(key).setDate(new Date(key).getDate() - 5)).toISOString().substring(0, 10);
+                const endDate = key;
+                const weeklyTx = transactions.filter((t: any) => t.date >= startDate && t.date <= endDate).map(t => ({
+                    ...t,
+                    name: t.symbol ? symbolMap[t.symbol] : undefined
+                }));
+
                 settlements.push({
-                    period: `${new Date(new Date(key).setDate(new Date(key).getDate() - 5)).toISOString().substring(2, 10)} ~ ${key.substring(2)}`,
+                    period: `${startDate.substring(2)} ~ ${endDate.substring(2)}`,
+                    startDate,
+                    endDate,
+                    transactions: weeklyTx,
                     value: entry.totalValue,
                     change: prev ? entry.totalValue - prev.totalValue : 0,
                     changePercent: (prev && prev.totalValue > 0) ? ((entry.totalValue - prev.totalValue) / prev.totalValue) * 100 : 0,
@@ -271,7 +292,7 @@ export function useHistoryData() {
             settlements.reverse();
         }
         return settlements;
-    }, [history, rate, twrDom, twrOs]);
+    }, [history, rate, twrDom, twrOs, transactions]);
 
     const monthlySettlements = useMemo((): MonthlySettlement[] => {
         const map: Record<string, HistoryEntry> = {};
@@ -321,6 +342,18 @@ export function useHistoryData() {
         }).reverse();
     }, [history, rate, twrDom, twrOs]);
 
+    const refreshTransactions = async () => {
+        try {
+            const txRes = await fetch('/api/transactions?t=' + Date.now());
+            if (txRes.ok) {
+                const txData = await txRes.json();
+                setTransactions(Array.isArray(txData) ? txData : []);
+            }
+        } catch (e) {
+            console.error('Failed to refetch transactions', e);
+        }
+    };
+
     return {
         dailySettlements,
         dailyGroupedByMonth,
@@ -328,6 +361,7 @@ export function useHistoryData() {
         monthlySettlements,
         loading,
         rate,
-        setHistory
+        setHistory,
+        refreshTransactions
     };
 }

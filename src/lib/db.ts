@@ -77,3 +77,10 @@ try {
 } catch {
   // Column already exists
 }
+
+// Migration: add costBasis column to transactions if missing (매도 실현손익 계산용)
+try {
+  db.exec(`ALTER TABLE transactions ADD COLUMN costBasis REAL`);
+} catch {
+  // Column already exists
+}

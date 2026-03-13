@@ -62,17 +62,47 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         return acc + convertToKRW(val, s.currency || 'KRW', rate);
     }, 0);
 
-    const totalPL = investments.reduce((acc, s) => {
+    // 당일 매도 실현 손익 계산
+    const isDomestic = title.includes('국내');
+    const sellTransactions = transactions.filter(t => {
+        if (t.type !== 'SELL' || !t.symbol || !t.shares || !t.price) return false;
+        // 해당 시장의 매도 거래만 필터링
+        const matchingInv = investments.find(inv => inv.symbol.toUpperCase().trim() === t.symbol!.toUpperCase().trim());
+        if (matchingInv) return true; // 아직 보유 중인 종목 (일부 매도)
+        // 전량 매도된 종목: 통화로 시장 구분
+        return isDomestic ? (t.currency === 'KRW') : (t.currency === 'USD');
+    });
+
+    const realizedPL = sellTransactions.reduce((acc, t) => {
+        const sellPrice = t.price!;
+        const shares = t.shares!;
+        // costBasis가 있으면 사용, 없으면 현재 보유 종목의 avgPrice로 fallback
+        let costBasis = t.costBasis;
+        if (!costBasis) {
+            const inv = investments.find(inv => inv.symbol.toUpperCase().trim() === t.symbol!.toUpperCase().trim());
+            costBasis = inv?.avgPrice;
+        }
+        if (!costBasis) return acc; // costBasis를 알 수 없으면 제외
+        const pl = (sellPrice - costBasis) * shares;
+        return acc + convertToKRW(pl, t.currency || 'KRW', rate);
+    }, 0);
+
+    // 미실현 손익 (현재 보유 종목)
+    const unrealizedPL = investments.reduce((acc, s) => {
         const pl = (getActivePrice(s) - s.avgPrice) * s.shares;
         return acc + convertToKRW(pl, s.currency || 'KRW', rate);
     }, 0);
-    const totalPLPercent = (subTotal - totalPL) > 0 ? (totalPL / (subTotal - totalPL)) * 100 : 0;
+
+    // 총 손익 = 미실현 + 실현
+    const totalPL = unrealizedPL + realizedPL;
+    const totalCost = subTotal - unrealizedPL; // 현재 보유 종목 총 매입금액
+    const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
 
     const dailyChange = investments.reduce((acc, s) => {
         const c = getActiveChange(s);
         const dailyProfitForCurrentHoldings = c * s.shares;
         return acc + convertToKRW(dailyProfitForCurrentHoldings, s.currency || 'KRW', rate);
-    }, 0);
+    }, 0) + realizedPL; // 일간 변동에도 매도 실현 손익 포함
     const dailyChangePercent = (subTotal - dailyChange) > 0 ? (dailyChange / (subTotal - dailyChange)) * 100 : 0;
 
     if (investments.length === 0) return null;

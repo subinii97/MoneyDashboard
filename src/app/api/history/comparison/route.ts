@@ -83,8 +83,11 @@ export async function GET(request: Request) {
         const nasdaqBase = getIndexPrice(nasdaq, refDate);
         const dowBase = getIndexPrice(dow, refDate);
 
-        const domesticMultipliers = calculateTWRMultipliers(allRows, 'Domestic');
-        const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas');
+        // 매도 거래 데이터 조회 (TWR에서 매도 종목 가격 반영용)
+        const allTransactions = db.prepare('SELECT * FROM transactions WHERE type = ? AND date >= ? ORDER BY date ASC').all('SELL', startDate) as any[];
+
+        const domesticMultipliers = calculateTWRMultipliers(allRows, 'Domestic', 1350, allTransactions);
+        const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas', 1350, allTransactions);
 
         const domesticBase = domesticMultipliers[refDate] || 1;
         const overseasBase = overseasMultipliers[refDate] || 1;

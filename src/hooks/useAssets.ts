@@ -4,6 +4,7 @@ import { mapInvestmentWithPrice, extractExchangeRate } from '@/lib/assets';
 
 export function useAssets(paused = false) {
     const pausedRef = useRef(paused);
+    const fetchingRef = useRef(false);
     useEffect(() => { pausedRef.current = paused; }, [paused]);
     const [assets, setAssets] = useState<Assets>({ investments: [], allocations: [] });
     const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -14,6 +15,8 @@ export function useAssets(paused = false) {
     const [lastUpdated, setLastUpdated] = useState<string>('');
 
     const fetchData = useCallback(async (force = false) => {
+        if (fetchingRef.current) return; // 이전 요청 진행 중이면 스킵
+        fetchingRef.current = true;
         setIsRefreshing(true);
         try {
             const timestamp = Date.now();
@@ -29,15 +32,25 @@ export function useAssets(paused = false) {
             const investmentsRaw = assetData.investments || assetData.stocks || [];
             const symbols = Array.from(new Set(investmentsRaw.map((s: Investment) => s.symbol))).join(',');
 
-            const priceRes = await fetch(`/api/stock?symbols=${symbols}&t=${timestamp}${force ? '&refresh=true' : ''}`, { cache: 'no-store' });
-            const priceData = await priceRes.json();
+            if (symbols) {
+                try {
+                    const priceRes = await fetch(`/api/stock?symbols=${symbols}&t=${timestamp}${force ? '&refresh=true' : ''}`, { cache: 'no-store' });
+                    const priceData = await priceRes.json();
 
-            const { rate: newRate, time: newRateTime } = extractExchangeRate(priceData);
-            setRate(newRate);
-            setRateTime(newRateTime);
+                    const { rate: newRate, time: newRateTime } = extractExchangeRate(priceData);
+                    setRate(newRate);
+                    setRateTime(newRateTime);
 
-            const updatedInvestments = investmentsRaw.map((inv: Investment) => mapInvestmentWithPrice(inv, priceData));
-            setAssets({ investments: updatedInvestments, allocations: assetData.allocations || assetData.others || [] });
+                    const updatedInvestments = investmentsRaw.map((inv: Investment) => mapInvestmentWithPrice(inv, priceData));
+                    setAssets({ investments: updatedInvestments, allocations: assetData.allocations || assetData.others || [] });
+                } catch (e) {
+                    console.error('Failed to fetch stock prices', e);
+                    // 가격 조회 실패 시에도 기존 자산 데이터는 반영
+                    setAssets({ investments: investmentsRaw, allocations: assetData.allocations || assetData.others || [] });
+                }
+            } else {
+                setAssets({ investments: investmentsRaw, allocations: assetData.allocations || assetData.others || [] });
+            }
 
             // Auto-snapshot
             fetch('/api/snapshot', {
@@ -52,6 +65,7 @@ export function useAssets(paused = false) {
         } finally {
             setLoading(false);
             setIsRefreshing(false);
+            fetchingRef.current = false;
         }
     }, []);
 

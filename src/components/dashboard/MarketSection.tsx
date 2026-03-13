@@ -1,6 +1,7 @@
 'use client';
 
 import { SpotlightCard } from '@/components/common/SpotlightCard';
+import { Sparkline } from '@/components/common/Sparkline';
 import { TrendingUp, TrendingDown, Globe, Landmark } from 'lucide-react';
 
 interface MarketSectionProps {
@@ -10,11 +11,12 @@ interface MarketSectionProps {
         crypto?: any[];
         commodities?: any[];
     };
+    sparklines: Record<string, number[]>;
     loading: boolean;
     lastFetched: Date | null;
 }
 
-export function MarketSection({ data, loading, lastFetched }: MarketSectionProps) {
+export function MarketSection({ data, sparklines, loading, lastFetched }: MarketSectionProps) {
     const renderStatusTime = (item: any, isAlwaysLive = false) => {
         let isLive = isAlwaysLive;
         let displayTime = '';
@@ -67,7 +69,7 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
         alignItems: 'center',
         padding: '1.2rem 0',
         borderBottom: '1px solid var(--white-10)',
-        height: '80px' // Fixed height for consistency
+        height: '80px'
     };
 
     if (loading && (!data.indices.length || !data.rates.length)) {
@@ -113,108 +115,69 @@ export function MarketSection({ data, loading, lastFetched }: MarketSectionProps
         </div>
     );
 
-    const getLatestTime = (items: any[]) => {
-        if (!items || items.length === 0) return '';
-        const times = items.map(i => i.time).filter(Boolean);
-        if (times.length === 0) return '';
-        return times.sort().reverse()[0];
-    };
+    const renderRow = (item: any, sparkKey: string, isAlwaysLive = false, prefix = '', suffix = '') => (
+        <div key={item.id} style={rowStyle}>
+            <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{item.name || item.id}</div>
+                {renderStatusTime(item, isAlwaysLive)}
+            </div>
+            <div style={{ flex: '0 0 auto', margin: '0 1rem' }}>
+                <Sparkline
+                    data={sparklines[sparkKey] || []}
+                    width={100}
+                    height={32}
+                    color={(item.change || 0) >= 0 ? '#dc2626' : '#3b82f6'}
+                />
+            </div>
+            <div style={{ flex: '0 0 auto' }}>
+                {renderPriceInfo(item, prefix, suffix)}
+            </div>
+        </div>
+    );
+
+    const renderSectionHeader = (icon: React.ReactNode, title: string) => (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)' }}>
+                {icon} {title}
+            </h2>
+            <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
+                <div>자동 갱신 중</div>
+                <div style={{ fontWeight: '600' }}>{lastFetched ? lastFetched.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '조회 중'}</div>
+            </div>
+        </div>
+    );
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2.5rem', marginBottom: '4rem' }}>
             {/* Indices */}
             <SpotlightCard style={{ padding: '2.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)' }}>
-                        <Globe size={24} color="var(--primary)" /> 주요 지수
-                    </h2>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
-                        <div>자동 갱신 중</div>
-                        <div style={{ fontWeight: '600' }}>{lastFetched ? lastFetched.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '조회 중'}</div>
-                    </div>
-                </div>
+                {renderSectionHeader(<Globe size={24} color="var(--primary)" />, '주요 지수')}
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {data.indices.map((idx: any) => (
-                        <div key={idx.id} style={rowStyle}>
-                            <div>
-                                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{idx.name || idx.id}</div>
-                                {renderStatusTime(idx)}
-                            </div>
-                            {renderPriceInfo(idx)}
-                        </div>
-                    ))}
+                    {data.indices.map((idx: any) => renderRow(idx, idx.id))}
                 </div>
             </SpotlightCard>
 
             {/* Exchange Rates */}
             <SpotlightCard style={{ padding: '2.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)' }}>
-                        <Landmark size={24} color="var(--accent)" /> 실시간 환율
-                    </h2>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
-                        <div>자동 갱신 중</div>
-                        <div style={{ fontWeight: '600' }}>{lastFetched ? lastFetched.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '조회 중'}</div>
-                    </div>
-                </div>
+                {renderSectionHeader(<Landmark size={24} color="var(--accent)" />, '실시간 환율')}
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {data.rates.map((rate: any) => (
-                        <div key={rate.id} style={rowStyle}>
-                            <div>
-                                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{rate.name || rate.id}</div>
-                                {renderStatusTime(rate)}
-                            </div>
-                            {renderPriceInfo(rate)}
-                        </div>
-                    ))}
+                    {data.rates.map((rate: any) => renderRow(rate, rate.id))}
                 </div>
             </SpotlightCard>
 
             {/* Crypto */}
             <SpotlightCard style={{ padding: '2.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)' }}>
-                        <Globe size={24} color="#f59e0b" /> 가상화폐 시장
-                    </h2>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
-                        <div>자동 갱신 중</div>
-                        <div style={{ fontWeight: '600' }}>{lastFetched ? lastFetched.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '조회 중'}</div>
-                    </div>
-                </div>
+                {renderSectionHeader(<Globe size={24} color="#f59e0b" />, '가상화폐 시장')}
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {(data.crypto || []).map((coin: any) => (
-                        <div key={coin.id} style={rowStyle}>
-                            <div>
-                                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{coin.name || coin.id}</div>
-                                {renderStatusTime(coin, true)}
-                            </div>
-                            {renderPriceInfo(coin, '$')}
-                        </div>
-                    ))}
+                    {(data.crypto || []).map((coin: any) => renderRow(coin, coin.id, true, '$'))}
                 </div>
             </SpotlightCard>
 
             {/* Commodities */}
             <SpotlightCard style={{ padding: '2.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--foreground)' }}>
-                        <TrendingUp size={24} color="#ec4899" /> 실물 자산 및 원유
-                    </h2>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'right' }}>
-                        <div>자동 갱신 중</div>
-                        <div style={{ fontWeight: '600' }}>{lastFetched ? lastFetched.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '조회 중'}</div>
-                    </div>
-                </div>
+                {renderSectionHeader(<TrendingUp size={24} color="#ec4899" />, '실물 자산 및 원유')}
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {(data.commodities || []).map((com: any) => (
-                        <div key={com.id} style={rowStyle}>
-                            <div>
-                                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{com.name || com.id}</div>
-                                {renderStatusTime(com, true)}
-                            </div>
-                            {renderPriceInfo(com, '$')}
-                        </div>
-                    ))}
+                    {(data.commodities || []).map((com: any) => renderRow(com, com.id, true, '$'))}
                 </div>
             </SpotlightCard>
         </div>

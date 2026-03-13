@@ -13,7 +13,8 @@ export default function HistoryPage() {
         weeklySettlements,
         monthlySettlements,
         loading,
-        setHistory
+        setHistory,
+        refreshTransactions
     } = useHistoryData();
 
     const [showAddMonthly, setShowAddMonthly] = useState(false);
@@ -102,6 +103,7 @@ export default function HistoryPage() {
 
             <WeeklySettlementTable
                 weeklySettlements={weeklySettlements}
+                refreshTransactions={refreshTransactions}
             />
 
             <MonthlySettlementTable

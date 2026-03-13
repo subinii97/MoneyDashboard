@@ -84,13 +84,15 @@ export interface Assets {
 }
 
 export interface Transaction {
-    id: string;
+    id: string; // sqlite integer but parsed as string/number usually, we keep as string
     date: string;
     type: TransactionType;
     symbol?: string;
+    name?: string;
     amount: number;
     shares?: number;
     price?: number;
+    costBasis?: number;  // 매도 시 평균매입가 (실현 손익 계산용)
     currency: Currency;
     notes?: string;
 }
@@ -135,6 +137,9 @@ export interface DailySettlement extends HistoryEntry {
 
 export interface WeeklySettlement {
     period: string;
+    startDate?: string;
+    endDate?: string;
+    transactions?: Transaction[];
     value: number;
     change: number;
     changePercent: number;

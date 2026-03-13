@@ -70,10 +70,22 @@ export const getSummaryMetrics = (entry: HistoryEntry, rate = 1350) => {
 /**
  * Calculate Time-Weighted Return (TWR) multipliers for a series of history entries.
  * TWR removes the impact of cash inflows/outflows.
+ * @param transactions - optional array of all transactions, used to find sell prices for sold positions
  */
-export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic' | 'Overseas', fallbackRate = 1350) => {
+export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic' | 'Overseas', fallbackRate = 1350, transactions?: any[]) => {
     let cumReturn = 1;
     const multipliersMap: Record<string, number> = {};
+
+    // 날짜별 매도 거래 맵 구축
+    const sellTxByDate: Record<string, any[]> = {};
+    if (transactions) {
+        transactions
+            .filter((t: any) => t.type === 'SELL' && t.symbol && t.price)
+            .forEach((t: any) => {
+                if (!sellTxByDate[t.date]) sellTxByDate[t.date] = [];
+                sellTxByDate[t.date].push(t);
+            });
+    }
 
     for (let i = 0; i < allRows.length; i++) {
         const today = allRows[i];
@@ -99,6 +111,9 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
         const ratePrev = yesterday.exchangeRate || fallbackRate;
         const rateCurr = today.exchangeRate || fallbackRate;
 
+        // 당일 매도 거래 목록
+        const todaySellTxs = sellTxByDate[today.date] || [];
+
         prevHoldings.forEach((ph: any) => {
             const pPrice = ph.currentPrice || ph.avgPrice;
             const pVal = pPrice * ph.shares;
@@ -106,7 +121,17 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
             prevMarketValue += pValKRW;
 
             const ch = currHoldings.find((h: any) => h.symbol === ph.symbol);
-            const cPrice = ch ? (ch.currentPrice || ch.avgPrice) : pPrice;
+            let cPrice: number;
+            if (ch) {
+                // 아직 보유 중 → 오늘 가격 사용
+                cPrice = ch.currentPrice || ch.avgPrice;
+            } else {
+                // 전량 매도됨 → 매도가 사용 (없으면 전일가 fallback)
+                const sellTx = todaySellTxs.find((t: any) =>
+                    t.symbol?.toUpperCase().trim() === ph.symbol?.toUpperCase().trim()
+                );
+                cPrice = sellTx ? sellTx.price : pPrice;
+            }
             const cVal = cPrice * ph.shares;
             const cValKRW = convertToKRW(cVal, ph.currency || (type === 'Domestic' ? 'KRW' : 'USD'), rateCurr);
             projectedMarketValue += cValKRW;

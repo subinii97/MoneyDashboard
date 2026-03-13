@@ -193,6 +193,7 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
             amount: Number(txForm.shares) * Number(txForm.price),
             shares: Number(txForm.shares),
             price: Number(txForm.price),
+            costBasis: txForm.type === 'SELL' ? selectedInv.avgPrice : undefined,
             currency: (selectedInv.currency as any) || 'KRW',
             notes: txForm.notes
         };
@@ -217,12 +218,15 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
         let tempAllocations = adjustCash(assets.allocations, editingTx, 'revert');
 
         // 2. Apply new transaction
+        // revert 후 투자 상태에서 avgPrice를 가져와 costBasis로 저장
+        const revertedInv = tempInvestments.find(inv => inv.symbol === editingTx.symbol);
         const newTx: Transaction = {
             ...editingTx,
             date: txForm.date, type: txForm.type,
             amount: Number(txForm.shares) * Number(txForm.price),
             shares: Number(txForm.shares),
             price: Number(txForm.price),
+            costBasis: txForm.type === 'SELL' && revertedInv ? revertedInv.avgPrice : undefined,
             notes: txForm.notes
         };
 

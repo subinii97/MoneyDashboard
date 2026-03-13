@@ -25,13 +25,14 @@ export async function POST(request: Request) {
         const tx = await request.json();
 
         const insertTx = db.prepare(`
-            INSERT OR REPLACE INTO transactions (id, date, type, symbol, amount, shares, price, currency, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO transactions (id, date, type, symbol, amount, shares, price, currency, notes, costBasis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         insertTx.run(
             tx.id, tx.date, tx.type, tx.symbol || null, tx.amount,
-            tx.shares || null, tx.price || null, tx.currency, tx.notes || null
+            tx.shares || null, tx.price || null, tx.currency, tx.notes || null,
+            tx.costBasis || null
         );
 
         return NextResponse.json({ success: true });
