@@ -1,43 +1,118 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Calendar } from 'lucide-react';
 
 interface CumulativeReturnChartProps {
     data: any[];
     scope: string;
     onScopeChange: (scope: any) => void;
+    customDates?: { start: string, end: string };
+    onCustomDatesChange?: (dates: { start: string, end: string }) => void;
 }
 
-const CumulativeReturnChart: React.FC<CumulativeReturnChartProps> = ({ data, scope, onScopeChange }) => {
+const CumulativeReturnChart: React.FC<CumulativeReturnChartProps> = ({ data, scope, onScopeChange, customDates, onCustomDatesChange }) => {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
     return (
         <section style={{ marginBottom: '4rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <TrendingUp size={24} color="var(--primary)" />
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>누적 수익률 비교</h2>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>누적 수익률</h2>
                 </div>
-                <div className="glass" style={{ display: 'flex', gap: '0.25rem', padding: '0.25rem' }}>
-                    {(['1w', '2w', '1m', '3m', '1y', 'weekly'] as const).map((s) => (
-                        <button
-                            key={s}
-                            onClick={() => onScopeChange(s)}
-                            style={{
-                                padding: '0.4rem 0.8rem',
-                                fontSize: '0.8rem',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: scope === s ? 'var(--primary)' : 'transparent',
-                                color: scope === s ? 'white' : 'var(--muted)',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                fontWeight: '600'
-                            }}
-                        >
-                            {s === '1w' ? '1주' : s === '2w' ? '2주' : s === '1m' ? '1달' : s === '3m' ? '3달' : s === '1y' ? '1년' : '주별'}
-                        </button>
-                    ))}
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
+                    <div className="glass" style={{ display: 'flex', gap: '0.25rem', padding: '0.25rem' }}>
+                        {(['1w', '2w', '1m', '3m', 'weekly', 'custom'] as const).map((s) => (
+                            <button
+                                key={s}
+                                onClick={() => {
+                                    onScopeChange(s);
+                                    if (s === 'custom') {
+                                        setIsDropdownOpen(!isDropdownOpen);
+                                    } else {
+                                        setIsDropdownOpen(false);
+                                    }
+                                }}
+                                style={{
+                                    padding: '0.4rem 0.8rem',
+                                    fontSize: '0.8rem',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: scope === s ? 'var(--primary)' : 'transparent',
+                                    color: scope === s ? 'white' : 'var(--muted)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                {s === '1w' ? '1주' : s === '2w' ? '2주' : s === '1m' ? '1달' : s === '3m' ? '3달' : s === 'weekly' ? '주별' : '기간'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {isDropdownOpen && scope === 'custom' && customDates && onCustomDatesChange && (
+                        <div ref={dropdownRef} className="glass" style={{ 
+                            position: 'absolute', 
+                            top: '100%', 
+                            right: 0, 
+                            marginTop: '0.5rem', 
+                            padding: '1rem', 
+                            borderRadius: '12px',
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            gap: '0.75rem',
+                            zIndex: 50,
+                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                            animation: 'fadeIn 0.2s ease-out'
+                        }}>
+                            <style>{`
+                                @keyframes fadeIn {
+                                    from { opacity: 0; transform: translateY(-10px); }
+                                    to { opacity: 1; transform: translateY(0); }
+                                }
+                            `}</style>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Calendar size={16} color="var(--primary)" />
+                                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--foreground)' }}>조회 기간 설정</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input
+                                    type="date"
+                                    value={customDates.start}
+                                    onChange={(e) => onCustomDatesChange({ ...customDates, start: e.target.value })}
+                                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.85rem', outline: 'none' }}
+                                />
+                                <span style={{ color: 'var(--muted)', fontWeight: '500' }}>~</span>
+                                <input
+                                    type="date"
+                                    value={customDates.end}
+                                    onChange={(e) => onCustomDatesChange({ ...customDates, end: e.target.value })}
+                                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.85rem', outline: 'none' }}
+                                />
+                            </div>
+                            <button 
+                                onClick={() => setIsDropdownOpen(false)}
+                                style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem', borderRadius: '6px', border: 'none', background: 'var(--primary)', color: 'white', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                                적용하기
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 

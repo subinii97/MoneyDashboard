@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Layers, List, Eye, EyeOff, PlusCircle, Tag, PieChart } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Layers, List, Eye, EyeOff, PlusCircle, Tag, PieChart, StickyNote } from 'lucide-react';
 import { Investment, MarketType, Transaction, AssetCategory } from '@/lib/types';
 import { useAssets } from '@/hooks/useAssets';
 import { useInvestmentActions } from '@/hooks/useInvestmentActions';
@@ -14,6 +14,8 @@ import { ChartModal } from '@/components/investment/ChartModal';
 import { EditModal } from '@/components/investment/EditModal';
 import { TransactionModal } from '@/components/investment/TransactionModal';
 import { TodayTransactions } from '@/components/investment/TodayTransactions';
+import { MemoPanel } from '@/components/investment/MemoPanel';
+import CumulativeReturnChart from '@/components/history/CumulativeReturnChart';
 
 export default function InvestmentManager() {
     const { assets, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets } = useAssets();
@@ -29,10 +31,35 @@ export default function InvestmentManager() {
     } = useInvestmentActions({ assets, rate, lastUpdated, fetchData, setAssets });
 
     const [isPrivate, setIsPrivate] = useState(false);
+    const [isMemoOpen, setIsMemoOpen] = useState(false);
     const [showChartModal, setShowChartModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
+    const [comparisonData, setComparisonData] = useState<any[]>([]);
+    const [chartScope, setChartScope] = useState<'1w' | '2w' | '1m' | '3m' | 'weekly' | 'custom'>('1m');
+
+    const [customDates, setCustomDates] = useState({
+        start: new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().split('T')[0],
+        end: new Date().toISOString().split('T')[0]
+    });
+
+    useEffect(() => {
+        const fetchComparison = async () => {
+            try {
+                let url = `/api/history/comparison?scope=${chartScope}`;
+                if (chartScope === 'custom') {
+                    url += `&start=${customDates.start}&end=${customDates.end}`;
+                }
+                const res = await fetch(url);
+                const data = await res.json();
+                setComparisonData(data);
+            } catch (err) {
+                console.error('Failed to fetch comparison data', err);
+            }
+        };
+        fetchComparison();
+    }, [chartScope, customDates]);
 
     // New asset form
     const [newInvestment, setNewInvestment] = useState({
@@ -124,11 +151,10 @@ export default function InvestmentManager() {
         <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem' }}>
                 <div>
-                    <span className="section-label">자산 관리</span>
-                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>투자 현황</h1>
+                    <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>투자</h1>
                     <p style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.9rem' }}>
                         1 USD = <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{rate.toLocaleString()}</span> KRW
-                        {lastUpdated && <span style={{ opacity: 0.8, marginLeft: '4px' }}>• {lastUpdated} 갱신</span>}
+                        {lastUpdated && <span style={{ opacity: 0.8, marginLeft: '4px' }}>• {lastUpdated} updated</span>}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
@@ -141,8 +167,19 @@ export default function InvestmentManager() {
                     <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
                         {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
+                    <button onClick={() => setIsMemoOpen(true)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isMemoOpen ? 'var(--primary)' : 'var(--foreground)' }}>
+                        <StickyNote size={20} />
+                    </button>
                 </div>
             </header>
+
+            <CumulativeReturnChart
+                data={comparisonData}
+                scope={chartScope}
+                onScopeChange={setChartScope}
+                customDates={customDates}
+                onCustomDatesChange={setCustomDates}
+            />
 
             {/* Tag Filter */}
             {(() => {
@@ -269,6 +306,8 @@ export default function InvestmentManager() {
                     onCancel={() => setShowAddModal(false)}
                 />
             )}
+
+            <MemoPanel isOpen={isMemoOpen} onClose={() => setIsMemoOpen(false)} />
         </main>
     );
 }

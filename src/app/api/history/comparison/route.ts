@@ -7,23 +7,37 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const scope = searchParams.get('scope') || '1m';
+        const customStart = searchParams.get('start');
+        const customEnd = searchParams.get('end');
 
+        let startDateStr = '';
+        let endDateStr = '';
         let daysCount = 30;
         let isWeekly = false;
-        if (scope === '1w') daysCount = 7;
-        else if (scope === '2w') daysCount = 14;
-        else if (scope === '1m') daysCount = 30;
-        else if (scope === '3m') daysCount = 90;
-        else if (scope === '1y') daysCount = 365;
-        else if (scope === 'weekly') {
-            daysCount = 730;
-            isWeekly = true;
-        }
 
         const now = new Date();
-        const start = new Date(now);
-        start.setDate(now.getDate() - daysCount);
-        const startDate = start.toISOString().substring(0, 10);
+
+        if (scope === 'custom' && customStart && customEnd) {
+            startDateStr = customStart;
+            endDateStr = customEnd;
+            const sDate = new Date(startDateStr);
+            const eDate = new Date(endDateStr);
+            daysCount = Math.ceil((eDate.getTime() - sDate.getTime()) / (1000 * 3600 * 24)) + 1;
+        } else {
+            if (scope === '1w') daysCount = 7;
+            else if (scope === '2w') daysCount = 14;
+            else if (scope === '1m') daysCount = 30;
+            else if (scope === '3m') daysCount = 90;
+            else if (scope === 'weekly') {
+                daysCount = 730;
+                isWeekly = true;
+            }
+
+            const start = new Date(now);
+            start.setDate(now.getDate() - daysCount + 1);
+            startDateStr = start.toISOString().substring(0, 10);
+            endDateStr = now.toISOString().substring(0, 10);
+        }
 
         const [kospi, kosdaq, nasdaq, dow] = await Promise.all([
             fetchMarketIndexHistory('KOSPI', daysCount + 20),
@@ -32,25 +46,31 @@ export async function GET(request: Request) {
             fetchMarketIndexHistory('DOW', daysCount + 20)
         ]);
 
-        const allRows = db.prepare('SELECT * FROM history WHERE date >= ? ORDER BY date ASC').all(startDate) as any[];
+        const allRows = db.prepare('SELECT * FROM history WHERE date >= ? AND date <= ? ORDER BY date ASC').all(startDateStr, endDateStr) as any[];
 
         try {
-            const snapshotUrl = new URL('/api/snapshot', request.url);
-            const liveSnapshotRes = await fetch(snapshotUrl.toString(), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ auto: true })
-            });
-            if (liveSnapshotRes.ok) {
-                const liveData = await liveSnapshotRes.json();
-                if (liveData && liveData.success && liveData.entry && !liveData.isSettled) {
-                    const liveEntry = liveData.entry;
-                    liveEntry.isLive = true; // Mark as live for potential UI usage
-                    const existingIndex = allRows.findIndex(r => r.date === liveEntry.date);
-                    if (existingIndex >= 0) {
-                        allRows[existingIndex] = liveEntry;
-                    } else {
-                        allRows.push(liveEntry);
+            const maxDateObj = new Date(endDateStr);
+            const todayObj = new Date();
+            const isTodayInScope = maxDateObj.toISOString().substring(0, 10) === todayObj.toISOString().substring(0, 10) || maxDateObj > todayObj;
+
+            if (isTodayInScope) {
+                const snapshotUrl = new URL('/api/snapshot', request.url);
+                const liveSnapshotRes = await fetch(snapshotUrl.toString(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ auto: true })
+                });
+                if (liveSnapshotRes.ok) {
+                    const liveData = await liveSnapshotRes.json();
+                    if (liveData && liveData.success && liveData.entry && !liveData.isSettled) {
+                        const liveEntry = liveData.entry;
+                        liveEntry.isLive = true; // Mark as live for potential UI usage
+                        const existingIndex = allRows.findIndex(r => r.date === liveEntry.date);
+                        if (existingIndex >= 0) {
+                            allRows[existingIndex] = liveEntry;
+                        } else {
+                            allRows.push(liveEntry);
+                        }
                     }
                 }
             }
@@ -84,7 +104,7 @@ export async function GET(request: Request) {
         const dowBase = getIndexPrice(dow, refDate);
 
         // 매도 거래 데이터 조회 (TWR에서 매도 종목 가격 반영용)
-        const allTransactions = db.prepare('SELECT * FROM transactions WHERE type = ? AND date >= ? ORDER BY date ASC').all('SELL', startDate) as any[];
+        const allTransactions = db.prepare('SELECT * FROM transactions WHERE type = ? AND date >= ? AND date <= ? ORDER BY date ASC').all('SELL', startDateStr, endDateStr) as any[];
 
         const domesticMultipliers = calculateTWRMultipliers(allRows, 'Domestic', 1350, allTransactions);
         const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas', 1350, allTransactions);
