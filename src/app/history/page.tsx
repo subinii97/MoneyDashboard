@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useHistoryData } from '@/hooks/useHistoryData';
-import CumulativeReturnChart from '@/components/history/CumulativeReturnChart';
 import { DailySettlementTable, WeeklySettlementTable, MonthlySettlementTable } from '@/components/history/SettlementTables';
 import SettlementTrendChart from '@/components/history/SettlementTrendChart';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function HistoryPage() {
     const {
@@ -20,21 +20,9 @@ export default function HistoryPage() {
     const [showAddMonthly, setShowAddMonthly] = useState(false);
     const [newMonthly, setNewMonthly] = useState({ month: '', value: '', cash: '', domestic: '', overseas: '' });
     const [dailyMonthIndex, setDailyMonthIndex] = useState(0);
-    const [comparisonData, setComparisonData] = useState<any[]>([]);
     const [chartScope, setChartScope] = useState<'1w' | '2w' | '1m' | '3m' | '1y' | 'weekly'>('1m');
+    const [isPrivate, setIsPrivate] = useState(false);
 
-    useEffect(() => {
-        const fetchComparison = async () => {
-            try {
-                const res = await fetch(`/api/history/comparison?scope=${chartScope}`);
-                const data = await res.json();
-                setComparisonData(data);
-            } catch (err) {
-                console.error('Failed to fetch comparison data', err);
-            }
-        };
-        fetchComparison();
-    }, [chartScope]);
 
     const handleAddMonthly = async () => {
         if (!newMonthly.month || !newMonthly.value) return;
@@ -78,6 +66,11 @@ export default function HistoryPage() {
                     <span className="section-label">Analytics</span>
                     <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-0.03em' }}>내역 관리</h1>
                 </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={() => setIsPrivate(!isPrivate)} className="glass" style={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isPrivate ? 'var(--primary)' : 'var(--foreground)' }}>
+                        {isPrivate ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                </div>
             </header>
 
             <SettlementTrendChart
@@ -86,12 +79,7 @@ export default function HistoryPage() {
                 monthlyData={monthlySettlements}
                 scope={chartScope}
                 onScopeChange={setChartScope}
-            />
-
-            <CumulativeReturnChart
-                data={comparisonData}
-                scope={chartScope}
-                onScopeChange={setChartScope}
+                isPrivate={isPrivate}
             />
 
             <DailySettlementTable
@@ -99,16 +87,19 @@ export default function HistoryPage() {
                 getDayOfWeek={getDayOfWeek}
                 monthIndex={dailyMonthIndex}
                 setMonthIndex={setDailyMonthIndex}
+                isPrivate={isPrivate}
             />
 
             <WeeklySettlementTable
                 weeklySettlements={weeklySettlements}
                 refreshTransactions={refreshTransactions}
+                isPrivate={isPrivate}
             />
 
             <MonthlySettlementTable
                 monthlySettlements={monthlySettlements}
                 setShowAddMonthly={setShowAddMonthly}
+                isPrivate={isPrivate}
             />
 
             {showAddMonthly && (

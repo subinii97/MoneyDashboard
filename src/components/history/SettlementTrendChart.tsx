@@ -11,11 +11,12 @@ interface SettlementTrendChartProps {
     monthlyData: any[];
     scope: ChartScope;
     onScopeChange: (scope: ChartScope) => void;
+    isPrivate?: boolean;
 }
 
 export type ChartScope = '1w' | '2w' | '1m' | '3m' | '1y' | 'weekly';
 
-const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, weeklyData, monthlyData, scope, onScopeChange }) => {
+const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, weeklyData, monthlyData, scope, onScopeChange, isPrivate }) => {
 
     const categories = useMemo(() => [
         { key: 'osBond', name: '해외채권', color: '#7c2d12' },
@@ -188,7 +189,7 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
                             fontSize={10}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
+                            tickFormatter={(val) => isPrivate ? '***' : `${(val / 1000000).toFixed(0)}M`}
                             domain={yDomain}
                             allowDataOverflow={true}
                         />
@@ -209,12 +210,12 @@ const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, 
                                                             <div style={{ width: '7px', height: '7px', borderRadius: '1.5px', background: entry.color }}></div>
                                                             <span style={{ color: 'var(--foreground)' }}>{entry.name}</span>
                                                         </div>
-                                                        <span style={{ fontWeight: '700' }}>{formatKRW(entry.value)}</span>
+                                                        <span style={{ fontWeight: '700' }}>{isPrivate ? '*****' : formatKRW(entry.value)}</span>
                                                     </div>
                                                 ))}
                                                 <div style={{ marginTop: '0.4rem', paddingTop: '0.4rem', borderTop: '1px dotted var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '800', color: 'var(--primary)' }}>
                                                     <span>{activeCategories.length === categories.length ? '총 합계' : '선택 합계'}</span>
-                                                    <span>{formatKRW(total)}</span>
+                                                    <span>{isPrivate ? '*****' : formatKRW(total)}</span>
                                                 </div>
                                             </div>
                                         </div>
