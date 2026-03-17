@@ -60,6 +60,13 @@ db.exec(`
     base_currency TEXT DEFAULT 'USD',
     target_currency TEXT DEFAULT 'KRW'
   );
+
+  CREATE TABLE IF NOT EXISTS memos (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    date TEXT NOT NULL
+  );
 `);
 
 export default db;
