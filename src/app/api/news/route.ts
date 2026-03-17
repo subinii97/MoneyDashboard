@@ -27,16 +27,15 @@ const RSS_SOURCES: Record<string, { name: string, url: string }[]> = {
         { name: 'CNN News', url: 'http://rss.cnn.com/rss/edition_world.rss' }
     ],
     breaking: [
-        // 국내
-        { name: '연합뉴스', url: 'https://www.yna.co.kr/rss/news.xml' },
-        { name: 'SBS 국제', url: 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER' },
-        // 해외
-        { name: 'Bloomberg', url: 'https://feeds.bloomberg.com/markets/news.rss' },
-        { name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
-        { name: 'The Guardian', url: 'https://www.theguardian.com/world/rss' },
-        { name: 'NYT World', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
+        // 세계 경제
+        { name: 'Bloomberg Markets', url: 'https://feeds.bloomberg.com/markets/news.rss' },
         { name: 'Financial Times', url: 'https://www.ft.com/rss/home/uk' },
+        { name: 'CNBC World', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362' },
+        // 세계 정치 / 국제
+        { name: 'SBS 국제', url: 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER' },
+        { name: 'NYT World', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
         { name: 'BBC World', url: 'http://feeds.bbci.co.uk/news/world/rss.xml' },
+        { name: 'CNN World', url: 'http://rss.cnn.com/rss/edition_world.rss' }
     ],
     iran: [
         // 이란/중동 전쟁 특집 – 광범위한 소스에서 Iran 관련 기사 수집
