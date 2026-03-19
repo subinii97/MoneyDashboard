@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { repo } from '@/lib/db';
 
 export async function POST(request: Request) {
     try {
@@ -10,20 +10,16 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Date and totalValue are required' }, { status: 400 });
         }
 
-        // Insert or replace a summary record in history
-        // holdings will be NULL or empty array string to indicate it's a summary record
-        db.prepare(`
-            INSERT OR REPLACE INTO history (date, totalValue, snapshotValue, manualAdjustment, exchangeRate, holdings, allocations)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(
+        repo.history.upsert({
             date,
             totalValue,
-            totalValue,
-            0,
-            1350, // Default or placeholder
-            JSON.stringify([]), // No holdings for manual monthly entries
-            JSON.stringify(allocations || [])
-        );
+            snapshotValue: totalValue,
+            manualAdjustment: 0,
+            exchangeRate: 1350, // Default or placeholder
+            holdings: [], 
+            allocations: allocations || [],
+            meta: { domesticSettled: true, overseasSettled: true } // Manual entries are considered settled
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {

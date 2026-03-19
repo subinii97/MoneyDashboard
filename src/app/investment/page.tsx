@@ -44,22 +44,23 @@ export default function InvestmentManager() {
         end: new Date().toISOString().split('T')[0]
     });
 
-    useEffect(() => {
-        const fetchComparison = async () => {
-            try {
-                let url = `/api/history/comparison?scope=${chartScope}`;
-                if (chartScope === 'custom') {
-                    url += `&start=${customDates.start}&end=${customDates.end}`;
-                }
-                const res = await fetch(url);
-                const data = await res.json();
-                setComparisonData(data);
-            } catch (err) {
-                console.error('Failed to fetch comparison data', err);
+    const fetchComparison = useCallback(async () => {
+        try {
+            let url = `/api/history/comparison?scope=${chartScope}`;
+            if (chartScope === 'custom') {
+                url += `&start=${customDates.start}&end=${customDates.end}`;
             }
-        };
-        fetchComparison();
+            const res = await fetch(url);
+            const data = await res.json();
+            setComparisonData(data);
+        } catch (err) {
+            console.error('Failed to fetch comparison data', err);
+        }
     }, [chartScope, customDates]);
+
+    useEffect(() => {
+        fetchComparison();
+    }, [fetchComparison, lastUpdated]);
 
     // New asset form
     const [newInvestment, setNewInvestment] = useState({

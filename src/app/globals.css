@@ -40,10 +40,17 @@
     -webkit-font-smoothing: antialiased;
 }
 
+body,
+input,
+button,
+textarea,
+select {
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+}
+
 body {
     background: var(--body-bg);
     color: var(--foreground);
-    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
 }

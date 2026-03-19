@@ -1,20 +1,10 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { repo } from '@/lib/db';
 
 export async function GET() {
     try {
-        const investmentsRaw = db.prepare('SELECT * FROM investments').all();
-        const investments = investmentsRaw.map((row: any) => ({
-            ...row,
-            tags: row.tags ? JSON.parse(row.tags) : undefined
-        }));
-        const allocationsRows = db.prepare('SELECT * FROM allocations').all();
-
-        const allocations = allocationsRows.map((row: any) => ({
-            ...row,
-            details: row.details ? JSON.parse(row.details) : undefined
-        }));
-
+        const investments = repo.investments.getAll();
+        const allocations = repo.allocations.getAll();
         return NextResponse.json({ investments, allocations });
     } catch (error) {
         console.error('Failed to fetch assets:', error);
@@ -26,35 +16,12 @@ export async function POST(request: Request) {
     try {
         const { investments, allocations } = await request.json();
 
-        const insertInvestment = db.prepare(`
-            INSERT OR REPLACE INTO investments (id, symbol, name, shares, avgPrice, currency, exchange, marketType, category, purchaseDate, targetWeight, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        const insertAllocation = db.prepare(`
-            INSERT OR REPLACE INTO allocations (id, category, value, currency, targetWeight, details)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `);
-
-        db.transaction(() => {
-            db.prepare('DELETE FROM investments').run();
-            db.prepare('DELETE FROM allocations').run();
-
-            for (const inv of (investments || [])) {
-                insertInvestment.run(
-                    inv.id, inv.symbol, inv.name || null, inv.shares, inv.avgPrice,
-                    inv.currency || null, inv.exchange || null, inv.marketType,
-                    inv.category || null, inv.purchaseDate || null, inv.targetWeight || 0,
-                    inv.tags && inv.tags.length > 0 ? JSON.stringify(inv.tags) : null
-                );
-            }
-            for (const alc of (allocations || [])) {
-                insertAllocation.run(
-                    alc.id, alc.category, alc.value, alc.currency, alc.targetWeight,
-                    alc.details ? JSON.stringify(alc.details) : null
-                );
-            }
-        })();
+        if (investments) {
+            repo.investments.saveAll(investments);
+        }
+        if (allocations) {
+            repo.allocations.saveAll(allocations);
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

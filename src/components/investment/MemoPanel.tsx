@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ChevronDown, ChevronRight, Edit2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Plus, Trash2, ChevronDown, ChevronRight, Edit2, Bold, Italic, Underline, Highlighter } from 'lucide-react';
 
 interface Memo {
     id: string;
@@ -22,6 +22,12 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editContent, setEditContent] = useState('');
+    const contentRef = useRef<HTMLDivElement>(null);
+    const editContentRef = useRef<HTMLDivElement>(null);
+
+    const execCmd = (cmd: string, value?: string) => {
+        document.execCommand(cmd, false, value);
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -42,7 +48,8 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
     };
 
     const handleCreate = async () => {
-        if (!title.trim() || !content.trim()) return;
+        const content = contentRef.current?.innerHTML || '';
+        if (!title.trim() || !content.trim() || content === '<br>') return;
 
         try {
             const res = await fetch('/api/memos', {
@@ -56,7 +63,7 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
                 setMemos([newMemo, ...memos]);
                 setIsCreating(false);
                 setTitle('');
-                setContent('');
+                if (contentRef.current) contentRef.current.innerHTML = '';
             }
         } catch (e) {
             console.error('Failed to create memo', e);
@@ -68,7 +75,7 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
         try {
             const res = await fetch(`/api/memos/${id}`, { method: 'DELETE' });
             if (res.ok) {
-                setMemos(memos.filter(m => m.id !== id));
+                setMemos(memos.filter((m: Memo) => m.id !== id));
             }
         } catch (e) {
             console.error('Failed to delete memo', e);
@@ -76,18 +83,19 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
     };
 
     const handleUpdate = async (id: string) => {
-        if (!editTitle.trim() || !editContent.trim()) return;
+        const content = editContentRef.current?.innerHTML || '';
+        if (!editTitle.trim() || !content.trim() || content === '<br>') return;
 
         try {
             const res = await fetch(`/api/memos/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: editTitle, content: editContent })
+                body: JSON.stringify({ title: editTitle, content })
             });
 
             if (res.ok) {
                 const updatedMemo = await res.json();
-                setMemos(memos.map(m => m.id === id ? updatedMemo : m));
+                setMemos(memos.map((m: Memo) => m.id === id ? updatedMemo : m));
                 setEditingId(null);
             }
         } catch (e) {
@@ -99,8 +107,13 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
         e.stopPropagation();
         setEditingId(memo.id);
         setEditTitle(memo.title);
-        setEditContent(memo.content);
         setExpandedId(memo.id);
+        // We set the innerHTML after the next render once the ref is bound
+        setTimeout(() => {
+            if (editContentRef.current) {
+                editContentRef.current.innerHTML = memo.content;
+            }
+        }, 0);
     };
 
     const formatDate = (dateStr: string) => {
@@ -150,16 +163,26 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                         <input 
                             placeholder="제목을 입력하세요" 
-                            style={{ padding: '0.5rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.9rem' }}
+                            style={{ padding: '0.5rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.9rem', fontFamily: 'inherit', fontVariantNumeric: 'normal' }}
                             value={title}
                             onChange={e => setTitle(e.target.value)}
                             autoFocus
                         />
-                        <textarea 
-                            placeholder="내용을 입력하세요" 
-                            style={{ padding: '0.5rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', minHeight: '80px', resize: 'vertical', fontSize: '0.9rem' }}
-                            value={content}
-                            onChange={e => setContent(e.target.value)}
+                        <div style={{ display: 'flex', gap: '0.25rem', padding: '0.2rem', background: 'var(--border)', borderRadius: '6px 6px 0 0' }}>
+                            <button onMouseDown={e => { e.preventDefault(); execCmd('bold'); }} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer', padding: '2px' }}><Bold size={16} /></button>
+                            <button onMouseDown={e => { e.preventDefault(); execCmd('italic'); }} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer', padding: '2px' }}><Italic size={16} /></button>
+                            <button onMouseDown={e => { e.preventDefault(); execCmd('underline'); }} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer', padding: '2px' }}><Underline size={16} /></button>
+                            <button onMouseDown={e => { e.preventDefault(); execCmd('backColor', '#fef08a'); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '2px' }}><Highlighter size={16} /></button>
+                        </div>
+                        <div 
+                            ref={contentRef}
+                            contentEditable
+                            style={{ 
+                                padding: '0.5rem 0.6rem', borderRadius: '0 0 6px 6px', border: '1px solid var(--border)', borderTop: 'none',
+                                background: 'var(--background)', color: 'var(--foreground)', minHeight: '100px', fontSize: '0.9rem', 
+                                fontFamily: 'inherit', fontVariantNumeric: 'normal', lineHeight: '1.5', outline: 'none', overflowY: 'auto',
+                                whiteSpace: 'pre-wrap'
+                            }}
                         />
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
                             <button 
@@ -183,7 +206,7 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
                 {memos.length === 0 && !isCreating && (
                     <p style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '2rem' }}>저장된 메모가 없습니다.</p>
                 )}
-                {memos.map(memo => (
+                {memos.map((memo: Memo) => (
                     <div key={memo.id} className="glass" style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
                         <div 
                             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -226,14 +249,25 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
                                 {editingId === memo.id ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                         <input 
-                                            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.9rem' }}
+                                            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.9rem', fontFamily: 'inherit', fontVariantNumeric: 'normal' }}
                                             value={editTitle}
                                             onChange={e => setEditTitle(e.target.value)}
                                         />
-                                        <textarea 
-                                            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', minHeight: '60px', resize: 'vertical', fontSize: '0.9rem' }}
-                                            value={editContent}
-                                            onChange={e => setEditContent(e.target.value)}
+                                        <div style={{ display: 'flex', gap: '0.25rem', padding: '0.2rem', background: 'var(--border)', borderRadius: '4px 4px 0 0' }}>
+                                            <button onMouseDown={e => { e.preventDefault(); execCmd('bold'); }} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer', padding: '2px' }}><Bold size={14} /></button>
+                                            <button onMouseDown={e => { e.preventDefault(); execCmd('italic'); }} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer', padding: '2px' }}><Italic size={14} /></button>
+                                            <button onMouseDown={e => { e.preventDefault(); execCmd('underline'); }} style={{ background: 'none', border: 'none', color: 'var(--foreground)', cursor: 'pointer', padding: '2px' }}><Underline size={14} /></button>
+                                            <button onMouseDown={e => { e.preventDefault(); execCmd('backColor', '#fef08a'); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '2px' }}><Highlighter size={14} /></button>
+                                        </div>
+                                        <div 
+                                            ref={editContentRef}
+                                            contentEditable
+                                            style={{ 
+                                                padding: '0.4rem', borderRadius: '0 0 4px 4px', border: '1px solid var(--border)', borderTop: 'none',
+                                                background: 'var(--background)', color: 'var(--foreground)', minHeight: '80px', fontSize: '0.9rem', 
+                                                fontFamily: 'inherit', fontVariantNumeric: 'normal', lineHeight: '1.5', outline: 'none', overflowY: 'auto',
+                                                whiteSpace: 'pre-wrap'
+                                            }}
                                         />
                                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
                                             <button 
@@ -251,9 +285,10 @@ export function MemoPanel({ isOpen, onClose }: MemoPanelProps) {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ color: 'var(--muted)', fontSize: '0.9rem', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
-                                        {memo.content}
-                                    </div>
+                                    <div 
+                                        style={{ color: 'var(--muted)', fontSize: '0.9rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', fontFamily: 'inherit', fontVariantNumeric: 'normal' }}
+                                        dangerouslySetInnerHTML={{ __html: memo.content }}
+                                    />
                                 )}
                             </div>
                         )}

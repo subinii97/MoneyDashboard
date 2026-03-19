@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { fetchMarketIndexHistory } from '@/lib/stock';
+import { repo } from '@/lib/db';
+import { fetchMarketIndexHistory, fetchMarketIndex } from '@/lib/stock';
 import { calculateTWRMultipliers, syncOverseasFriday } from '@/lib/settlement';
+import { toLocalDateStr } from '@/lib/utils';
 
 export async function GET(request: Request) {
     try {
@@ -35,8 +36,8 @@ export async function GET(request: Request) {
 
             const start = new Date(now);
             start.setDate(now.getDate() - daysCount + 1);
-            startDateStr = start.toISOString().substring(0, 10);
-            endDateStr = now.toISOString().substring(0, 10);
+            startDateStr = toLocalDateStr(start);
+            endDateStr = toLocalDateStr(now);
         }
 
         const [kospi, kosdaq, nasdaq, dow] = await Promise.all([
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
             fetchMarketIndexHistory('DOW', daysCount + 20)
         ]);
 
-        const allRows = db.prepare('SELECT * FROM history WHERE date >= ? AND date <= ? ORDER BY date ASC').all(startDateStr, endDateStr) as any[];
+        const allRows = repo.history.getInRange(startDateStr, endDateStr);
 
         try {
             const maxDateObj = new Date(endDateStr);
@@ -64,7 +65,25 @@ export async function GET(request: Request) {
                     const liveData = await liveSnapshotRes.json();
                     if (liveData && liveData.success && liveData.entry && !liveData.isSettled) {
                         const liveEntry = liveData.entry;
-                        liveEntry.isLive = true; // Mark as live for potential UI usage
+                        liveEntry.isLive = true;
+
+                        try {
+                            const [liveKospi, liveKosdaq, liveNasdaq, liveDow] = await Promise.all([
+                                fetchMarketIndex('KOSPI').catch(() => null),
+                                fetchMarketIndex('KOSDAQ').catch(() => null),
+                                fetchMarketIndex('.IXIC').catch(() => null),
+                                fetchMarketIndex('.DJI').catch(() => null)
+                            ]);
+                            liveEntry.liveIndices = {
+                                kospi: liveKospi?.price,
+                                kosdaq: liveKosdaq?.price,
+                                nasdaq: liveNasdaq?.price,
+                                dow: liveDow?.price
+                            };
+                        } catch (e) {
+                            console.error('Failed to fetch live indices for comparison:', e);
+                        }
+
                         const existingIndex = allRows.findIndex(r => r.date === liveEntry.date);
                         if (existingIndex >= 0) {
                             allRows[existingIndex] = liveEntry;
@@ -103,8 +122,7 @@ export async function GET(request: Request) {
         const nasdaqBase = getIndexPrice(nasdaq, refDate);
         const dowBase = getIndexPrice(dow, refDate);
 
-        // 매도 거래 데이터 조회 (TWR에서 매도 종목 가격 반영용)
-        const allTransactions = db.prepare('SELECT * FROM transactions WHERE type = ? AND date >= ? AND date <= ? ORDER BY date ASC').all('SELL', startDateStr, endDateStr) as any[];
+        const allTransactions = repo.transactions.getTypeInRange('SELL', startDateStr, endDateStr);
 
         const domesticMultipliers = calculateTWRMultipliers(allRows, 'Domestic', 1350, allTransactions);
         const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas', 1350, allTransactions);
@@ -120,13 +138,25 @@ export async function GET(request: Request) {
             const date = row.date;
             const overseasVal = syncOverseasFriday(date, overseasMultipliers);
 
+            let currentKospi = getIndexPrice(kospi, date);
+            let currentKosdaq = getIndexPrice(kosdaq, date);
+            let currentNasdaq = getIndexPrice(nasdaq, date);
+            let currentDow = getIndexPrice(dow, date);
+
+            if (row.isLive && row.liveIndices) {
+                if (row.liveIndices.kospi) currentKospi = row.liveIndices.kospi;
+                if (row.liveIndices.kosdaq) currentKosdaq = row.liveIndices.kosdaq;
+                if (row.liveIndices.nasdaq) currentNasdaq = row.liveIndices.nasdaq;
+                if (row.liveIndices.dow) currentDow = row.liveIndices.dow;
+            }
+
             return {
                 date: date,
                 isLive: row.isLive || false,
-                kospi: calcRelReturn(getIndexPrice(kospi, date), kospiBase),
-                kosdaq: calcRelReturn(getIndexPrice(kosdaq, date), kosdaqBase),
-                nasdaq: calcRelReturn(getIndexPrice(nasdaq, date), nasdaqBase),
-                dow: calcRelReturn(getIndexPrice(dow, date), dowBase),
+                kospi: calcRelReturn(currentKospi, kospiBase),
+                kosdaq: calcRelReturn(currentKosdaq, kosdaqBase),
+                nasdaq: calcRelReturn(currentNasdaq, nasdaqBase),
+                dow: calcRelReturn(currentDow, dowBase),
                 myDomestic: calcRelReturn(domesticMultipliers[date] || 1, domesticBase),
                 myOverseas: calcRelReturn(overseasVal, overseasBase)
             };

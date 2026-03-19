@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { repo } from '@/lib/db';
 
 export async function GET(request: Request) {
     try {
@@ -7,12 +7,11 @@ export async function GET(request: Request) {
         const date = searchParams.get('date');
 
         if (date) {
-            const transactions = db.prepare('SELECT * FROM transactions WHERE date = ? ORDER BY id DESC').all(date);
+            const transactions = repo.transactions.getByDate(date);
             return NextResponse.json(transactions);
         }
 
-        // Limit default fetch to recent 100 or something if needed, but for now just all is okay as long as date filter exists
-        const transactions = db.prepare('SELECT * FROM transactions ORDER BY date DESC').all();
+        const transactions = repo.transactions.getAll();
         return NextResponse.json(transactions);
     } catch (error) {
         console.error('Failed to fetch transactions:', error);
@@ -23,18 +22,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const tx = await request.json();
-
-        const insertTx = db.prepare(`
-            INSERT OR REPLACE INTO transactions (id, date, type, symbol, amount, shares, price, currency, notes, costBasis)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        insertTx.run(
-            tx.id, tx.date, tx.type, tx.symbol || null, tx.amount,
-            tx.shares || null, tx.price || null, tx.currency, tx.notes || null,
-            tx.costBasis || null
-        );
-
+        repo.transactions.save(tx);
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Failed to save transaction:', error);
@@ -45,7 +33,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
     try {
         const { id } = await request.json();
-        db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
+        repo.transactions.delete(id);
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Failed to delete transaction:', error);

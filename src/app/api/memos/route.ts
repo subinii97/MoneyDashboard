@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { repo } from '@/lib/db';
 import crypto from 'crypto';
 
 export async function GET() {
     try {
-        const memos = db.prepare('SELECT * FROM memos ORDER BY date DESC').all();
+        const memos = repo.memos.getAll();
         return NextResponse.json(memos);
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
@@ -23,10 +23,9 @@ export async function POST(req: Request) {
         const id = crypto.randomUUID();
         const date = new Date().toISOString();
 
-        db.prepare('INSERT INTO memos (id, title, content, date) VALUES (?, ?, ?, ?)')
-          .run(id, title, content, date);
+        repo.memos.save({ id, title, content, date });
 
-        const newMemo = db.prepare('SELECT * FROM memos WHERE id = ?').get(id);
+        const newMemo = repo.memos.getById(id);
         
         return NextResponse.json(newMemo);
     } catch (e: any) {

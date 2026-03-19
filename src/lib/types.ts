@@ -97,6 +97,18 @@ export interface Transaction {
     notes?: string;
 }
 
+export interface SettlementMeta {
+    domesticSettled: boolean;
+    overseasSettled: boolean;
+}
+
+export interface LiveIndices {
+    kospi?: number;
+    kosdaq?: number;
+    nasdaq?: number;
+    dow?: number;
+}
+
 export interface HistoryEntry {
     date: string;
     totalValue: number;
@@ -107,7 +119,8 @@ export interface HistoryEntry {
     transactions?: Transaction[];
     exchangeRate?: number;
     isLive?: boolean;
-    meta?: any;
+    liveIndices?: LiveIndices;
+    meta?: SettlementMeta;
 }
 
 // ── Settlement types ──────────────────────────────────────────────────────────

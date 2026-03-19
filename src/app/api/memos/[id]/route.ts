@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { repo } from '@/lib/db';
 
 export async function PUT(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const resolvedParams = await params;
-        const id = resolvedParams.id;
+        const { id } = await params;
         const body = await req.json();
         const { title, content } = body;
 
@@ -16,13 +15,13 @@ export async function PUT(
         }
 
         const date = new Date().toISOString();
-        const result = db.prepare('UPDATE memos SET title = ?, content = ?, date = ? WHERE id = ?').run(title, content, date, id);
+        repo.memos.save({ id, title, content, date });
 
-        if (result.changes === 0) {
+        const updatedMemo = repo.memos.getById(id);
+        if (!updatedMemo) {
             return NextResponse.json({ error: 'Memo not found' }, { status: 404 });
         }
-
-        const updatedMemo = db.prepare('SELECT * FROM memos WHERE id = ?').get(id);
+        
         return NextResponse.json(updatedMemo);
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
@@ -34,18 +33,12 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const resolvedParams = await params;
-        const id = resolvedParams.id;
+        const { id } = await params;
         if (!id) {
             return NextResponse.json({ error: 'Memo ID required' }, { status: 400 });
         }
 
-        const result = db.prepare('DELETE FROM memos WHERE id = ?').run(id);
-
-        if (result.changes === 0) {
-            return NextResponse.json({ error: 'Memo not found' }, { status: 404 });
-        }
-
+        repo.memos.delete(id);
         return NextResponse.json({ success: true, id });
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });

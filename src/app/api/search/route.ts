@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { DEFAULT_USER_AGENT } from '@/lib/stock/utils';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
 
     try {
         const url = `https://m.stock.naver.com/front-api/search/autoComplete?query=${encodeURIComponent(query)}&target=stock`;
-        const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } });
+        const response = await fetch(url, { headers: { 'User-Agent': DEFAULT_USER_AGENT } });
 
         if (!response.ok) {
             return NextResponse.json({ results: [] });

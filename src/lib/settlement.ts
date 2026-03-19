@@ -1,4 +1,4 @@
-import { HistoryEntry, AssetCategory } from './types';
+import { HistoryEntry, AssetCategory, MarketType } from './types';
 import { convertToKRW, isDomesticSymbol } from './utils';
 
 export const HISTORY_CATEGORIES: AssetCategory[] = [
@@ -38,7 +38,11 @@ export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallba
         });
 
         return categoryInvestments?.reduce((sum: number, h: any) =>
-            sum + convertToKRW((h.currentPrice || h.avgPrice) * h.shares, h.currency || (h.marketType === 'Domestic' ? 'KRW' : 'USD'), entryRate), 0) || 0;
+            sum + convertToKRW(
+                (h.currentPrice || h.avgPrice) * h.shares,
+                h.currency || (h.marketType === 'Domestic' ? 'KRW' : 'USD'),
+                entryRate
+            ), 0) || 0;
     }
 
     return allocationValue;
@@ -68,15 +72,41 @@ export const getSummaryMetrics = (entry: HistoryEntry, rate = 1350) => {
 };
 
 /**
- * Calculate Time-Weighted Return (TWR) multipliers for a series of history entries.
- * TWR removes the impact of cash inflows/outflows.
- * @param transactions - optional array of all transactions, used to find sell prices for sold positions
+ * Safely parse holdings — handles both pre-parsed arrays and JSON strings.
  */
-export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic' | 'Overseas', fallbackRate = 1350, transactions?: any[]) => {
+const parseHoldings = (raw: any): any[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return []; }
+    }
+    return [];
+};
+
+/**
+ * Filter holdings by market type.
+ */
+const filterByMarketType = (holdings: any[], type: MarketType): any[] =>
+    holdings.filter((h: any) =>
+        h.marketType === type ||
+        h.category?.startsWith(type) ||
+        h.category?.includes(type)
+    );
+
+/**
+ * Calculate Time-Weighted Return (TWR) multipliers for a series of history entries.
+ * TWR removes the impact of external cash inflows/outflows.
+ */
+export const calculateTWRMultipliers = (
+    allRows: HistoryEntry[],
+    type: MarketType,
+    fallbackRate = 1350,
+    transactions?: any[]
+): Record<string, number> => {
     let cumReturn = 1;
     const multipliersMap: Record<string, number> = {};
 
-    // 날짜별 매도 거래 맵 구축
+    // Build sell-transaction lookup by date for accurate price at sell time
     const sellTxByDate: Record<string, any[]> = {};
     if (transactions) {
         transactions
@@ -95,11 +125,8 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
         }
 
         const yesterday = allRows[i - 1];
-        const prevHoldings = (yesterday.holdings ? JSON.parse(typeof yesterday.holdings === 'string' ? yesterday.holdings : JSON.stringify(yesterday.holdings)) : [])
-            .filter((h: any) => h.marketType === type || h.category?.startsWith(type) || h.category?.includes(type));
-
-        const currHoldingsAll = (today.holdings ? JSON.parse(typeof today.holdings === 'string' ? today.holdings : JSON.stringify(today.holdings)) : []);
-        const currHoldings = currHoldingsAll.filter((h: any) => h.marketType === type || h.category?.startsWith(type) || h.category?.includes(type));
+        const prevHoldings = filterByMarketType(parseHoldings(yesterday.holdings), type);
+        const currHoldings = filterByMarketType(parseHoldings(today.holdings), type);
 
         if (prevHoldings.length === 0 && currHoldings.length === 0) {
             multipliersMap[today.date] = cumReturn;
@@ -110,34 +137,28 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
         let projectedMarketValue = 0;
         const ratePrev = yesterday.exchangeRate || fallbackRate;
         const rateCurr = today.exchangeRate || fallbackRate;
-
-        // 당일 매도 거래 목록
         const todaySellTxs = sellTxByDate[today.date] || [];
+        const defaultCurrency = type === 'Domestic' ? 'KRW' : 'USD';
 
+        // Price each previous holding at today's price (or sell price if sold today)
         prevHoldings.forEach((ph: any) => {
             const pPrice = ph.currentPrice || ph.avgPrice;
-            const pVal = pPrice * ph.shares;
-            const pValKRW = convertToKRW(pVal, ph.currency || (type === 'Domestic' ? 'KRW' : 'USD'), ratePrev);
-            prevMarketValue += pValKRW;
+            prevMarketValue += convertToKRW(pPrice * ph.shares, ph.currency || defaultCurrency, ratePrev);
 
             const ch = currHoldings.find((h: any) => h.symbol === ph.symbol);
             let cPrice: number;
             if (ch) {
-                // 아직 보유 중 → 오늘 가격 사용
                 cPrice = ch.currentPrice || ch.avgPrice;
             } else {
-                // 전량 매도됨 → 매도가 사용 (없으면 전일가 fallback)
                 const sellTx = todaySellTxs.find((t: any) =>
                     t.symbol?.toUpperCase().trim() === ph.symbol?.toUpperCase().trim()
                 );
                 cPrice = sellTx ? sellTx.price : pPrice;
             }
-            const cVal = cPrice * ph.shares;
-            const cValKRW = convertToKRW(cVal, ph.currency || (type === 'Domestic' ? 'KRW' : 'USD'), rateCurr);
-            projectedMarketValue += cValKRW;
+            projectedMarketValue += convertToKRW(cPrice * ph.shares, ph.currency || defaultCurrency, rateCurr);
         });
 
-        // Add profit of new shares bought today
+        // Account for new positions opened today (adjust for cash flow neutrality)
         currHoldings.forEach((ch: any) => {
             const ph = prevHoldings.find((h: any) => h.symbol === ch.symbol);
             const prevShares = ph ? ph.shares : 0;
@@ -145,17 +166,15 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
             if (ch.shares > prevShares) {
                 const newShares = ch.shares - prevShares;
                 const cPrice = ch.currentPrice || ch.avgPrice;
-                const currency = ch.currency || (type === 'Domestic' ? 'KRW' : 'USD');
+                const currency = ch.currency || defaultCurrency;
 
                 const prevCost = ph ? ph.shares * ph.avgPrice : 0;
                 const currCost = ch.shares * ch.avgPrice;
                 const costOfNewShares = currCost - prevCost;
 
-                const costOfNewSharesKRW = convertToKRW(costOfNewShares, currency, rateCurr);
-                const currentValueOfNewSharesKRW = convertToKRW(newShares * cPrice, currency, rateCurr);
-
-                prevMarketValue += costOfNewSharesKRW;
-                projectedMarketValue += currentValueOfNewSharesKRW;
+                // Add new cost to previous value (neutral to TWR)
+                prevMarketValue += convertToKRW(costOfNewShares, currency, rateCurr);
+                projectedMarketValue += convertToKRW(newShares * cPrice, currency, rateCurr);
             }
         });
 
@@ -168,8 +187,9 @@ export const calculateTWRMultipliers = (allRows: HistoryEntry[], type: 'Domestic
 
 /**
  * Sync Friday overseas returns with Saturday morning data point for US markets.
+ * US markets close late on Friday KST, so their "day return" appears on Saturday.
  */
-export const syncOverseasFriday = (date: string, multipliers: Record<string, number>) => {
+export const syncOverseasFriday = (date: string, multipliers: Record<string, number>): number => {
     let val = multipliers[date] || 1;
     const dObj = new Date(date + 'T00:00:00');
     if (dObj.getDay() === 5) { // Friday

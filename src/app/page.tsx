@@ -51,7 +51,7 @@ export default function Home() {
     const change = lastSnapshot ? totalValue - (lastSnapshot.totalValue || 0) : 0;
     const changePercent = (lastSnapshot && lastSnapshot.totalValue > 0) ? (change / lastSnapshot.totalValue) * 100 : 0;
 
-    const formatTime = (time: string) => {
+    const formatTime = (time: string | undefined) => {
         if (!time) return '';
         const date = new Date(time);
         return isNaN(date.getTime()) ? time : date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });

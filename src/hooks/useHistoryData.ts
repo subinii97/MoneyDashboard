@@ -6,10 +6,35 @@ import {
     WeeklySettlement,
     MonthlySettlement,
     FullSettlementMetrics,
-    SettlementMetric,
 } from '@/lib/types';
 import { getCategoryValue, calculateTWRMultipliers, getSummaryMetrics } from '@/lib/settlement';
 import { convertToKRW } from '@/lib/utils';
+
+// ── Local helpers ─────────────────────────────────────────────────────────────
+
+/** Recalculate investment-category allocations from updated holdings prices. */
+function recalcAllocations(
+    allocations: any[],
+    holdings: any[],
+    exchangeRate: number
+): any[] {
+    const INVESTMENT_CATS: AssetCategory[] = [
+        'Domestic Stock', 'Overseas Stock',
+        'Domestic Index', 'Overseas Index',
+        'Domestic Bond', 'Overseas Bond',
+    ];
+    return allocations.map((alc: any) => {
+        if (!INVESTMENT_CATS.includes(alc.category)) return alc;
+        const categoryValue = holdings
+            .filter((h: any) => h.category === alc.category)
+            .reduce((sum: number, h: any) => {
+                const val = (h.currentPrice || h.avgPrice) * h.shares;
+                return sum + (h.currency === 'USD' ? val * exchangeRate : val);
+            }, 0);
+        return { ...alc, value: categoryValue / (alc.currency === 'USD' ? exchangeRate : 1) };
+    });
+}
+
 
 export type { DailySettlement, WeeklySettlement, MonthlySettlement };
 
@@ -99,24 +124,21 @@ export function useHistoryData() {
 
                                 // Add non-investment allocation values
                                 const nonInvValue = (entry.allocations || [])
-                                    .filter((a: any) => !['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(a.category))
-                                    .reduce((acc: number, a: any) => acc + (a.currency === 'USD' ? a.value * entry.exchangeRate : a.value), 0);
+                                    .filter((a: any) => ![
+                                        'Domestic Stock', 'Overseas Stock',
+                                        'Domestic Index', 'Overseas Index',
+                                        'Domestic Bond', 'Overseas Bond',
+                                    ].includes(a.category))
+                                    .reduce((acc: number, a: any) =>
+                                        acc + (a.currency === 'USD' ? a.value * entry.exchangeRate : a.value), 0);
 
-                                // 3. Sync entry.allocations so tables show updated values
+                                // Sync allocations to reflect updated holding prices
                                 if (entry.allocations) {
-                                    entry.allocations = entry.allocations.map((alc: any) => {
-                                        const isInvCat = ['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(alc.category);
-                                        if (isInvCat) {
-                                            const categoryValue = entry.holdings
-                                                .filter((h: any) => h.category === alc.category)
-                                                .reduce((sum: number, h: any) => {
-                                                    const val = (h.currentPrice || h.avgPrice) * h.shares;
-                                                    return sum + (h.currency === 'USD' ? val * entry.exchangeRate : val);
-                                                }, 0);
-                                            return { ...alc, value: categoryValue / (alc.currency === 'USD' ? entry.exchangeRate : 1) };
-                                        }
-                                        return alc;
-                                    });
+                                    entry.allocations = recalcAllocations(
+                                        entry.allocations,
+                                        entry.holdings,
+                                        entry.exchangeRate
+                                    );
                                 }
 
                                 entry.totalValue = invValue + nonInvValue;
