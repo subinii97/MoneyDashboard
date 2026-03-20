@@ -106,9 +106,13 @@ export function useHistoryData() {
                                             return {
                                                 ...h,
                                                 currentPrice: activePrice,
+                                                change: info.change,
+                                                changePercent: info.changePercent,
                                                 marketStatus: info.marketStatus,
                                                 isOverMarket: info.isOverMarket,
                                                 overMarketPrice: info.overMarketPrice,
+                                                overMarketChange: info.overMarketChange,
+                                                overMarketChangePercent: info.overMarketChangePercent,
                                                 overMarketSession: info.overMarketSession
                                             };
                                         }

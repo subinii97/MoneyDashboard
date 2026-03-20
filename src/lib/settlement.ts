@@ -142,10 +142,21 @@ export const calculateTWRMultipliers = (
 
         // Price each previous holding at today's price (or sell price if sold today)
         prevHoldings.forEach((ph: any) => {
-            const pPrice = ph.currentPrice || ph.avgPrice;
-            prevMarketValue += convertToKRW(pPrice * ph.shares, ph.currency || defaultCurrency, ratePrev);
+            let pPrice = ph.currentPrice || ph.avgPrice;
 
             const ch = currHoldings.find((h: any) => h.symbol === ph.symbol);
+            
+            // If today is live, retroactively calibrate the previous day's closing price
+            // to precisely match the official change provided by the market API.
+            if (today.isLive && ch && ch.currentPrice !== undefined) {
+                const activeChange = (ch.isOverMarket && ch.overMarketChange !== undefined) ? ch.overMarketChange : ch.change;
+                if (activeChange !== undefined) {
+                    pPrice = ch.currentPrice - activeChange;
+                }
+            }
+
+            prevMarketValue += convertToKRW(pPrice * ph.shares, ph.currency || defaultCurrency, ratePrev);
+
             let cPrice: number;
             if (ch) {
                 cPrice = ch.currentPrice || ch.avgPrice;

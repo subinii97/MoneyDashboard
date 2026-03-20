@@ -80,8 +80,20 @@ export async function GET(request: Request) {
                                 nasdaq: liveNasdaq?.price,
                                 dow: liveDow?.price
                             };
+
+                            const symbols = liveEntry.holdings.map((h: any) => h.symbol).join(',');
+                            const priceRes = await fetch(new URL(`/api/stock?symbols=${symbols}`, request.url).toString());
+                            const priceData = await priceRes.json();
+
+                            liveEntry.holdings.forEach((h: any) => {
+                                const info = priceData.results.find((r: any) => r.symbol === h.symbol);
+                                if (info) {
+                                    h.currentPrice = (info.isOverMarket && info.overMarketPrice !== undefined) ? info.overMarketPrice : info.price;
+                                    h.change = (info.isOverMarket && info.overMarketChange !== undefined) ? info.overMarketChange : (info.change || 0);
+                                }
+                            });
                         } catch (e) {
-                            console.error('Failed to fetch live indices for comparison:', e);
+                            console.error('Failed to fetch live indices/prices for comparison:', e);
                         }
 
                         const existingIndex = allRows.findIndex(r => r.date === liveEntry.date);
