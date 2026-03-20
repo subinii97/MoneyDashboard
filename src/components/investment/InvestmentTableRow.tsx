@@ -161,8 +161,11 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                     {formatPrice(currentPriceActive)}
                 </div>
                 {activeChange !== undefined ? (
-                    <div style={{ fontSize: '0.75rem', color: activeChange >= 0 ? '#dc2626' : '#2563eb', fontWeight: '600', marginTop: '0.15rem' }}>
-                        {activeChange >= 0 ? '▲' : '▼'}{Math.abs(activeChange).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} ({activeChange < 0 ? '-' : ''}{Math.abs(activeChangePercent || 0).toFixed(2)}%)
+                    <div style={{ fontSize: '0.75rem', color: activeChange > 0 ? '#dc2626' : (activeChange < 0 ? '#2563eb' : 'var(--foreground)'), fontWeight: '600', marginTop: '0.15rem' }}>
+                        {activeChange > 0 && '▲'}
+                        {activeChange < 0 && '▼'}
+                        {Math.abs(activeChange).toLocaleString(undefined, { maximumFractionDigits: isUSD ? 2 : 0 })} 
+                        {' '}({activeChange > 0 ? '+' : (activeChange < 0 ? '-' : '')}{Math.abs(activeChangePercent || 0).toFixed(2)}%)
                     </div>
                 ) : <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.15rem' }}>—</div>}
 

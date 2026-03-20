@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Eye, EyeOff, DollarSign } from 'lucide-react';
-import { formatKRW, convertToKRW } from '@/lib/utils';
+import { formatKRW, convertToKRW, toLocalDateStr } from '@/lib/utils';
 import { useAssets } from '@/hooks/useAssets';
 import { useMarketData } from '@/hooks/useMarketData';
 
@@ -47,9 +47,21 @@ export default function Home() {
     };
 
     const totalValue = calculateTotal();
-    const lastSnapshot = history[history.length - 1];
-    const change = lastSnapshot ? totalValue - (lastSnapshot.totalValue || 0) : 0;
-    const changePercent = (lastSnapshot && lastSnapshot.totalValue > 0) ? (change / lastSnapshot.totalValue) * 100 : 0;
+    
+    // Find the correct previous snapshot to calculate day-over-day change
+    // If before 7AM (US market still open for 'yesterday'), treat 'today' as 'yesterday'
+    const now = new Date();
+    const currentTradingDate = new Date(now);
+    if (now.getHours() < 7) {
+        currentTradingDate.setDate(currentTradingDate.getDate() - 1);
+    }
+    const currentTradingDateStr = toLocalDateStr(currentTradingDate);
+    
+    // We compare with the most recent snapshot strictly BEFORE the current trading day
+    const prevSnapshot = [...history].reverse().find(h => h.date < currentTradingDateStr);
+
+    const change = prevSnapshot ? totalValue - (prevSnapshot.totalValue || 0) : 0;
+    const changePercent = (prevSnapshot && prevSnapshot.totalValue > 0) ? (change / prevSnapshot.totalValue) * 100 : 0;
 
     const formatTime = (time: string | undefined) => {
         if (!time) return '';
