@@ -160,7 +160,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
 
     if (investments.length === 0) return null;
 
-    const renderSummaryItem = (label: string, value: number, percent: number | { krw: number; usd: number }, isSubTotal = false) => {
+    const renderSummaryItem = (label: string, value: number, percent: number | { krw: number; usd: number }, isSubTotal = false, minWidth?: string) => {
         let percentEl;
         if (typeof percent === 'number') {
             percentEl = (
@@ -194,7 +194,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         }
 
         return (
-            <div style={{ textAlign: 'left' }}>
+            <div style={{ textAlign: 'left', minWidth: minWidth || 'auto' }}>
                 <span className="section-label" style={{ marginBottom: '0.2rem' }}>{label}</span>
                 {!isPrivate && (
                     <div style={{
@@ -230,9 +230,9 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
-                        {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true)}
-                        {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp)}
-                        {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent)}
+                        {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true, '180px')}
+                        {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp, false, '130px')}
+                        {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent, false, '130px')}
                     </div>
                 </div>
             </div>
