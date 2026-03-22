@@ -214,21 +214,26 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         <div style={{ padding: '1.5rem' }}>
             <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '2rem' }}>
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                        <span className="section-label" style={{ color: 'var(--muted)', margin: 0 }}>포트폴리오</span>
-                        {!isDomestic && (
-                            <div className="glass flex-center" style={{ padding: '0.2rem', borderRadius: '8px', cursor: 'pointer', gap: '0.2rem' }}>
-                                <button onClick={() => setIsUSDMode(false)} style={{ background: !isUSDMode ? 'var(--primary)' : 'transparent', color: !isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>KRW</button>
-                                <button onClick={() => setIsUSDMode(true)} style={{ background: isUSDMode ? 'var(--primary)' : 'transparent', color: isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>USD</button>
-                            </div>
-                        )}
-                    </div>
+                    <span className="section-label" style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>포트폴리오</span>
                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>{title}</h3>
                 </div>
-                <div className="flex-center" style={{ gap: '3rem', alignItems: 'flex-start' }}>
-                    {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true)}
-                    {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp)}
-                    {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent)}
+                <div className="flex-center" style={{ gap: '2rem', alignItems: 'flex-start' }}>
+                    {!isDomestic && (
+                        <div 
+                            className="glass flex-center" 
+                            style={{ padding: '0.2rem', borderRadius: '8px', gap: '0.2rem', marginTop: '0.2rem', cursor: 'pointer' }}
+                            onClick={() => setIsUSDMode(prev => !prev)}
+                            title="클릭하여 원화/달러 전환"
+                        >
+                            <button style={{ pointerEvents: 'none', background: !isUSDMode ? 'var(--primary)' : 'transparent', color: !isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>KRW</button>
+                            <button style={{ pointerEvents: 'none', background: isUSDMode ? 'var(--primary)' : 'transparent', color: isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>USD</button>
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
+                        {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true)}
+                        {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp)}
+                        {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent)}
+                    </div>
                 </div>
             </div>
 
