@@ -202,7 +202,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         fontWeight: '800',
                         color: !isSubTotal ? (value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)')) : 'inherit'
                     }}>
-                        {(value > 0 && !isSubTotal ? '+' : '') + (isUSDMode ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatKRW(value))}
+                        {(value > 0 && !isSubTotal ? '+' : '') + (isUSDMode ? (value < 0 ? `-$${Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`) : formatKRW(value))}
                     </div>
                 )}
                 {!isSubTotal && percentEl}
@@ -230,9 +230,9 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
-                        {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true, '180px')}
-                        {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp, false, '130px')}
-                        {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent, false, '130px')}
+                        {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true, '260px')}
+                        {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp, false, '180px')}
+                        {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent, false, '180px')}
                     </div>
                 </div>
             </div>

@@ -105,12 +105,12 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
     const plKRW = convertToKRW(marketVal, inv.currency || 'KRW', rate) - convertToKRW(costBasis, inv.currency || 'KRW', rate);
     const ex = getExchangeStyle(inv.exchange || '');
 
-    const formatPrice = (price: number) => {
+    const formatPrice = (price: number, hideCurrency = false) => {
         const abs = Math.abs(price);
         const sign = price < 0 ? '-' : '';
         if (isUSD) {
             const digits = abs < 100 ? 4 : 2;
-            return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+            return `${sign}${hideCurrency ? '' : '$'}${abs.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
         }
         return `${sign}${Math.floor(abs).toLocaleString()}`;
     };
@@ -187,7 +187,7 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                     <div style={{ fontSize: '1.05rem', fontWeight: '700' }}>{formatPrice(marketVal)}</div>
                 )}
                 <div style={{ fontSize: isPrivate ? '1.15rem' : '0.75rem', fontWeight: '700', marginTop: '0.15rem' }}>
-                    {!isPrivate && <>{pl >= 0 ? '+' : ''}{formatPrice(pl)} </>}
+                    {!isPrivate && <>{pl >= 0 ? '+' : ''}{formatPrice(pl, true)} </>}
                     {!isPrivate ? `(${plPercent >= 0 ? '+' : '-'}${Math.abs(plPercent).toFixed(2)}%)` : `${plPercent >= 0 ? '+' : '-'}${Math.abs(plPercent).toFixed(2)}%`}
                 </div>
             </td>
