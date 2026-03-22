@@ -15,6 +15,7 @@ export function useAssets(paused = false) {
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [rate, setRate] = useState<number>(1350);
+    const [yesterdayRate, setYesterdayRate] = useState<number>(1350);
     const [rateTime, setRateTime] = useState<string>('');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<string>('');
@@ -58,14 +59,14 @@ export function useAssets(paused = false) {
                     if (!priceRes.ok) throw new Error(`Stock API returned ${priceRes.status}`);
 
                     const priceData = await priceRes.json();
-                    const { rate: newRate, time: newTime } = extractExchangeRate(priceData);
-                    setRate(newRate);
-                    setRateTime(newTime);
+                    const extractedRates = extractExchangeRate(priceData);
+                    setRate(extractedRates.rate);
+                    setYesterdayRate(extractedRates.yesterdayRate);
+                    setRateTime(extractedRates.time);
 
                     const updatedInvestments = investmentsRaw.map(inv => mapInvestmentWithPrice(inv, priceData));
                     setAssets({ investments: updatedInvestments, allocations });
                 } catch (err) {
-                    // Price fetch failed — still display raw data
                     console.warn('Stock price fetch failed, using raw data:', err);
                     setAssets({ investments: investmentsRaw, allocations });
                 }
@@ -73,7 +74,6 @@ export function useAssets(paused = false) {
                 setAssets({ investments: investmentsRaw, allocations });
             }
 
-            // Trigger background auto-snapshot (fire-and-forget)
             fetch('/api/snapshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -98,5 +98,5 @@ export function useAssets(paused = false) {
         return () => clearInterval(timer);
     }, [fetchData]);
 
-    return { assets, history, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets };
+    return { assets, history, loading, isRefreshing, rate, yesterdayRate, rateTime, lastUpdated, fetchData, setAssets };
 }

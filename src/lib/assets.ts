@@ -30,19 +30,21 @@ export function mapInvestmentWithPrice(inv: Investment, priceData: any) {
 /**
  * Standardizes rate extraction from various API response formats.
  */
-export function extractExchangeRate(priceData: any): { rate: number, time: string } {
+export function extractExchangeRate(priceData: any): { rate: number, yesterdayRate: number, time: string } {
     if (priceData.exchangeRate) {
         if (typeof priceData.exchangeRate === 'object') {
             return {
                 rate: priceData.exchangeRate.rate,
+                yesterdayRate: priceData.exchangeRate.yesterdayRate || priceData.exchangeRate.rate,
                 time: priceData.exchangeRate.time
             };
         } else {
             return {
                 rate: priceData.exchangeRate,
+                yesterdayRate: priceData.exchangeRate,
                 time: ''
             };
         }
     }
-    return { rate: 1350, time: '' };
+    return { rate: 1350, yesterdayRate: 1350, time: '' };
 }

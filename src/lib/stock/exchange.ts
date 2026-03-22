@@ -3,6 +3,17 @@ import { extractNumber, DEFAULT_USER_AGENT, MOBILE_USER_AGENT } from './utils';
 
 export async function fetchExchangeRate(forceRefresh = false) {
     try {
+        // Use the market data API to get the exact change value for precise historical reconstruction
+        const marketData = await fetchMarketExchangeRate('FX_USDKRW', forceRefresh);
+        if (marketData && marketData.price > 0) {
+            return {
+                rate: marketData.price,
+                yesterdayRate: marketData.price - marketData.change,
+                time: marketData.time
+            };
+        }
+        
+        // Fallback to HTML scraping
         const url = 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW';
         const response = await fetch(url, {
             headers: { 'User-Agent': DEFAULT_USER_AGENT },
@@ -32,15 +43,22 @@ export async function fetchExchangeRate(forceRefresh = false) {
                 }
             });
         }
+        
+        // Try to find change from HTML if possible
+        const changeText = $('.head_info .change').first().text() || '0';
+        const changeVal = extractNumber(changeText);
+        const isMinus = $('.head_info .blind').first().text().includes('하락');
+        const finalChange = isMinus ? -changeVal : changeVal;
 
         const timeText = $('.exchange_info .date').first().text().trim() || $('.date').first().text().trim();
         return {
             rate: rateValue || 1350,
+            yesterdayRate: rateValue > 0 ? rateValue - finalChange : 1350,
             time: timeText || ''
         };
     } catch (e) {
         console.error('Exchange rate fetch error:', e);
-        return { rate: 1350, time: '' };
+        return { rate: 1350, yesterdayRate: 1350, time: '' };
     }
 }
 
