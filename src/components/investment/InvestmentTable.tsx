@@ -231,8 +231,8 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     )}
                     <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
                         {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true, '260px')}
-                        {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp, false, '180px')}
-                        {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent, false, '180px')}
+                        {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp)}
+                        {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent)}
                     </div>
                 </div>
             </div>
