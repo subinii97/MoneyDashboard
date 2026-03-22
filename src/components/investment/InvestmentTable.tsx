@@ -221,12 +221,12 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     {!isDomestic && (
                         <div 
                             className="glass flex-center" 
-                            style={{ padding: '0.2rem', borderRadius: '8px', gap: '0.2rem', marginTop: '0.2rem', cursor: 'pointer' }}
+                            style={{ padding: '0.2rem', borderRadius: '8px', gap: '0.2rem', marginTop: '0.2rem', cursor: 'pointer', flexDirection: 'column' }}
                             onClick={() => setIsUSDMode(prev => !prev)}
                             title="클릭하여 원화/달러 전환"
                         >
-                            <button style={{ pointerEvents: 'none', background: !isUSDMode ? 'var(--primary)' : 'transparent', color: !isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>KRW</button>
-                            <button style={{ pointerEvents: 'none', background: isUSDMode ? 'var(--primary)' : 'transparent', color: isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>USD</button>
+                            <button style={{ pointerEvents: 'none', background: !isUSDMode ? 'var(--primary)' : 'transparent', color: !isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', width: '100%' }}>KRW</button>
+                            <button style={{ pointerEvents: 'none', background: isUSDMode ? 'var(--primary)' : 'transparent', color: isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', width: '100%' }}>USD</button>
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
