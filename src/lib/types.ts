@@ -28,7 +28,7 @@ export const CATEGORY_MAP: Record<AssetCategory, string> = {
 export const CATEGORY_COLORS: Record<AssetCategory, string> = {
     'Cash': '#059669',
     'Savings': '#34d399',
-    'Domestic Stock': '#7c3aed',
+    'Domestic Stock': '#5f63b8',
     'Domestic Index': '#1d4ed8',
     'Domestic Bond': '#1e3a8a',
     'Overseas Stock': '#dc2626',
