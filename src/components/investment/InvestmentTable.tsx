@@ -10,6 +10,7 @@ interface InvestmentTableProps {
     transactions: Transaction[];
     title: string;
     rate: number;
+    yesterdayRate?: number;
     isPrivate: boolean;
     onEdit: (inv: Investment) => void;
     onDelete: (id: string) => void;
@@ -17,7 +18,7 @@ interface InvestmentTableProps {
 }
 
 export const InvestmentTable: React.FC<InvestmentTableProps> = ({
-    investments, transactions, title, rate, isPrivate, onEdit, onDelete, onTransaction
+    investments, transactions, title, rate, yesterdayRate, isPrivate, onEdit, onDelete, onTransaction
 }) => {
     const [sortKey, setSortKey] = useState<'value' | 'plPercent' | 'dailyPercent' | 'weight'>('value');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -32,7 +33,6 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
     };
     const getActivePrice = (s: Investment) => (s.isOverMarket && s.overMarketPrice !== undefined) ? s.overMarketPrice : (s.currentPrice || s.avgPrice);
 
-    // 오늘 BUY 거래가 있는 종목 심볼 집합
     const todayBuySymbols = new Set(
         transactions
             .filter(t => t.type === 'BUY')
@@ -40,7 +40,6 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             .filter(Boolean)
     );
 
-    // 매수 당일: 평단가 기준 변동 / 이외: 전일대비 변동
     const getActiveChange = (s: Investment) => {
         const activePrice = getActivePrice(s);
         if (todayBuySymbols.has(s.symbol?.toUpperCase().trim())) {
@@ -49,7 +48,6 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         return (s.isOverMarket && s.overMarketChange !== undefined) ? s.overMarketChange : (s.change || 0);
     };
 
-    // 매수 당일 변동률 계산용 (행 단위 정렬 기준에도 사용)
     const getActiveChangePercent = (s: Investment) => {
         if (todayBuySymbols.has(s.symbol?.toUpperCase().trim())) {
             return s.avgPrice > 0 ? ((getActivePrice(s) - s.avgPrice) / s.avgPrice) * 100 : 0;
@@ -62,64 +60,76 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         return acc + convertToKRW(val, s.currency || 'KRW', rate);
     }, 0);
 
-    // 당일 매도 실현 손익 계산
     const isDomestic = title.includes('국내');
     const sellTransactions = transactions.filter(t => {
         if (t.type !== 'SELL' || !t.symbol || !t.shares || !t.price) return false;
-        // 해당 시장의 매도 거래만 필터링
         const matchingInv = investments.find(inv => inv.symbol.toUpperCase().trim() === t.symbol!.toUpperCase().trim());
-        if (matchingInv) return true; // 아직 보유 중인 종목 (일부 매도)
-        // 전량 매도된 종목: 통화로 시장 구분
+        if (matchingInv) return true;
         return isDomestic ? (t.currency === 'KRW') : (t.currency === 'USD');
     });
 
     const realizedPL = sellTransactions.reduce((acc, t) => {
         const sellPrice = t.price!;
         const shares = t.shares!;
-        // costBasis가 있으면 사용, 없으면 현재 보유 종목의 avgPrice로 fallback
         let costBasis = t.costBasis;
         if (!costBasis) {
             const inv = investments.find(inv => inv.symbol.toUpperCase().trim() === t.symbol!.toUpperCase().trim());
             costBasis = inv?.avgPrice;
         }
-        if (!costBasis) return acc; // costBasis를 알 수 없으면 제외
+        if (!costBasis) return acc;
         const pl = (sellPrice - costBasis) * shares;
         return acc + convertToKRW(pl, t.currency || 'KRW', rate);
     }, 0);
 
-    // 미실현 손익 (현재 보유 종목)
     const unrealizedPL = investments.reduce((acc, s) => {
         const pl = (getActivePrice(s) - s.avgPrice) * s.shares;
         return acc + convertToKRW(pl, s.currency || 'KRW', rate);
     }, 0);
 
-    // 총 손익 = 미실현 + 실현
     const totalPL = unrealizedPL + realizedPL;
-    const totalCost = subTotal - unrealizedPL; // 현재 보유 종목 총 매입금액
+    const totalCost = subTotal - unrealizedPL;
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
 
-    const dailyChange = investments.reduce((acc, s) => {
+    // Pure USD return computation (original math, matches Investment tab's original USD identical percent)
+    const dailyChangePureValue = investments.reduce((acc, s) => {
         const c = getActiveChange(s);
         const dailyProfitForCurrentHoldings = c * s.shares;
         return acc + convertToKRW(dailyProfitForCurrentHoldings, s.currency || 'KRW', rate);
-    }, 0) + realizedPL; // 일간 변동에도 매도 실현 손익 포함
-    const dailyChangePercent = (subTotal - dailyChange) > 0 ? (dailyChange / (subTotal - dailyChange)) * 100 : 0;
+    }, 0) + realizedPL;
+    const pureUSDPercent = (subTotal - dailyChangePureValue) > 0 ? (dailyChangePureValue / (subTotal - dailyChangePureValue)) * 100 : 0;
+
+    let dailyChangeDispValue = dailyChangePureValue;
+    let dailyPercentDisp: number | { krw: number; usd: number } = pureUSDPercent;
+
+    if (!isDomestic && yesterdayRate && yesterdayRate !== rate && investments.length > 0) {
+        // Compute True KRW daily difference
+        const prevSubTotalTrueKRW = investments.reduce((acc, s) => {
+            const activePrice = getActivePrice(s);
+            const activeChange = getActiveChange(s);
+            const prevPrice = activePrice - activeChange;
+            // Converting yesterday's USD principal into KRW using YESTERDAY'S exchange rate
+            return acc + convertToKRW(prevPrice * s.shares, s.currency || 'KRW', yesterdayRate);
+        }, 0);
+
+        const currSubTotalTrueKRW = investments.reduce((acc, s) => {
+            const activePrice = getActivePrice(s);
+            // Converting today's USD principal into KRW using TODAY'S exchange rate
+            return acc + convertToKRW(activePrice * s.shares, s.currency || 'KRW', rate);
+        }, 0);
+
+        const trueDailyChangeKRW = (currSubTotalTrueKRW - prevSubTotalTrueKRW) + realizedPL;
+        const trueKRWPercent = prevSubTotalTrueKRW > 0 ? (trueDailyChangeKRW / prevSubTotalTrueKRW) * 100 : 0;
+
+        dailyChangeDispValue = trueDailyChangeKRW;
+        dailyPercentDisp = { krw: trueKRWPercent, usd: pureUSDPercent };
+    }
 
     if (investments.length === 0) return null;
 
-    const renderSummaryItem = (label: string, value: number, percent: number, isSubTotal = false) => (
-        <div style={{ textAlign: 'left' }}>
-            <span className="section-label" style={{ marginBottom: '0.2rem' }}>{label}</span>
-            {!isPrivate && (
-                <div style={{
-                    fontSize: isSubTotal ? '1.75rem' : '1.2rem',
-                    fontWeight: '800',
-                    color: !isSubTotal ? (value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)')) : 'inherit'
-                }}>
-                    {(value > 0 && !isSubTotal ? '+' : '') + formatKRW(value)}
-                </div>
-            )}
-            {!isSubTotal && (
+    const renderSummaryItem = (label: string, value: number, percent: number | { krw: number; usd: number }, isSubTotal = false) => {
+        let percentEl;
+        if (typeof percent === 'number') {
+            percentEl = (
                 <div style={{
                     fontSize: isPrivate ? '1.6rem' : '1.15rem',
                     fontWeight: '800',
@@ -127,10 +137,44 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 }}>
                     {(value > 0 ? '▲' : (value < 0 ? '▼' : '')) + Math.abs(percent).toFixed(2) + '%'}
                 </div>
-            )}
-        </div>
-    );
+            );
+        } else {
+            percentEl = (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.1rem', marginTop: '0.2rem' }}>
+                    <div style={{
+                        fontSize: isPrivate ? '1.5rem' : '1.05rem',
+                        fontWeight: '800',
+                        color: percent.krw > 0 ? '#dc2626' : (percent.krw < 0 ? '#3b82f6' : 'var(--muted)'),
+                    }}>
+                        {(percent.krw > 0 ? '▲' : (percent.krw < 0 ? '▼' : '')) + Math.abs(percent.krw).toFixed(2) + '% '}<span style={{fontSize: '0.8em', opacity: 0.8}}>(원화)</span>
+                    </div>
+                    <div style={{
+                        fontSize: isPrivate ? '1.35rem' : '0.95rem',
+                        fontWeight: '700',
+                        color: percent.usd > 0 ? '#dc2626' : (percent.usd < 0 ? '#3b82f6' : 'var(--muted)'),
+                    }}>
+                        {(percent.usd > 0 ? '▲' : (percent.usd < 0 ? '▼' : '')) + Math.abs(percent.usd).toFixed(2) + '% '}<span style={{fontSize: '0.8em', opacity: 0.8}}>(외화)</span>
+                    </div>
+                </div>
+            );
+        }
 
+        return (
+            <div style={{ textAlign: 'left' }}>
+                <span className="section-label" style={{ marginBottom: '0.2rem' }}>{label}</span>
+                {!isPrivate && (
+                    <div style={{
+                        fontSize: isSubTotal ? '1.75rem' : '1.2rem',
+                        fontWeight: '800',
+                        color: !isSubTotal ? (value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)')) : 'inherit'
+                    }}>
+                        {(value > 0 && !isSubTotal ? '+' : '') + formatKRW(value)}
+                    </div>
+                )}
+                {!isSubTotal && percentEl}
+            </div>
+        );
+    };
 
     return (
         <div style={{ padding: '1.5rem' }}>
@@ -141,7 +185,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 </div>
                 <div className="flex-center" style={{ gap: '3rem', alignItems: 'flex-start' }}>
                     {!isPrivate && renderSummaryItem('평가금액', subTotal, 0, true)}
-                    {renderSummaryItem('일간 변동', dailyChange, dailyChangePercent)}
+                    {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp)}
                     {renderSummaryItem('총 손익', totalPL, totalPLPercent)}
                 </div>
             </div>

@@ -18,7 +18,7 @@ import { MemoPanel } from '@/components/investment/MemoPanel';
 import CumulativeReturnChart from '@/components/history/CumulativeReturnChart';
 
 export default function InvestmentManager() {
-    const { assets, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets } = useAssets();
+    const { assets, history, loading, isRefreshing, rate, rateTime, lastUpdated, fetchData, setAssets } = useAssets();
 
     const {
         knownNames,
@@ -229,6 +229,7 @@ export default function InvestmentManager() {
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }} />
                     <InvestmentTable
                         investments={filtered('Overseas')} transactions={todayTransactions} title="해외 시장" rate={rate}
+                        yesterdayRate={history && history.length > 1 ? (([...history].reverse().find(h => h.date !== new Date().toISOString().split('T')[0]))?.exchangeRate || rate) : rate}
                         isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment}
                         onTransaction={openTxModal}
                     />
