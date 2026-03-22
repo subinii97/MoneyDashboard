@@ -22,6 +22,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
 }) => {
     const [sortKey, setSortKey] = useState<'value' | 'plPercent' | 'dailyPercent' | 'weight'>('value');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+    const [isUSDMode, setIsUSDMode] = useState(false);
 
     const toggleSort = (key: 'value' | 'plPercent' | 'dailyPercent' | 'weight') => {
         if (sortKey === key) {
@@ -59,6 +60,10 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         const val = getActivePrice(s) * s.shares;
         return acc + convertToKRW(val, s.currency || 'KRW', rate);
     }, 0);
+    const subTotalUSD = investments.reduce((acc, s) => {
+        const val = getActivePrice(s) * s.shares;
+        return acc + (s.currency === 'USD' ? val : val / rate);
+    }, 0);
 
     const isDomestic = title.includes('국내');
     const sellTransactions = transactions.filter(t => {
@@ -80,13 +85,30 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         const pl = (sellPrice - costBasis) * shares;
         return acc + convertToKRW(pl, t.currency || 'KRW', rate);
     }, 0);
+    const realizedPLUSD = sellTransactions.reduce((acc, t) => {
+        const sellPrice = t.price!;
+        const shares = t.shares!;
+        let costBasis = t.costBasis;
+        if (!costBasis) {
+            const inv = investments.find(inv => inv.symbol.toUpperCase().trim() === t.symbol!.toUpperCase().trim());
+            costBasis = inv?.avgPrice;
+        }
+        if (!costBasis) return acc;
+        const pl = (sellPrice - costBasis) * shares;
+        return acc + (t.currency === 'USD' ? pl : pl / rate);
+    }, 0);
 
     const unrealizedPL = investments.reduce((acc, s) => {
         const pl = (getActivePrice(s) - s.avgPrice) * s.shares;
         return acc + convertToKRW(pl, s.currency || 'KRW', rate);
     }, 0);
+    const unrealizedPLUSD = investments.reduce((acc, s) => {
+        const pl = (getActivePrice(s) - s.avgPrice) * s.shares;
+        return acc + (s.currency === 'USD' ? pl : pl / rate);
+    }, 0);
 
     const totalPL = unrealizedPL + realizedPL;
+    const totalPLUSD = unrealizedPLUSD + realizedPLUSD;
     const totalCost = subTotal - unrealizedPL;
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
 
@@ -96,9 +118,16 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         const dailyProfitForCurrentHoldings = c * s.shares;
         return acc + convertToKRW(dailyProfitForCurrentHoldings, s.currency || 'KRW', rate);
     }, 0) + realizedPL;
+
+    const dailyChangePureValueUSD = investments.reduce((acc, s) => {
+        const c = getActiveChange(s);
+        const dailyProfitForCurrentHoldings = c * s.shares;
+        return acc + (s.currency === 'USD' ? dailyProfitForCurrentHoldings : dailyProfitForCurrentHoldings / rate);
+    }, 0) + realizedPLUSD;
+
     const pureUSDPercent = (subTotal - dailyChangePureValue) > 0 ? (dailyChangePureValue / (subTotal - dailyChangePureValue)) * 100 : 0;
 
-    let dailyChangeDispValue = dailyChangePureValue;
+    let dailyChangeDispValue = isUSDMode ? dailyChangePureValueUSD : dailyChangePureValue;
     let dailyPercentDisp: number | { krw: number; usd: number } = pureUSDPercent;
 
     if (!isDomestic && yesterdayRate && investments.length > 0) {
@@ -120,8 +149,13 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         const trueDailyChangeKRW = (currSubTotalTrueKRW - prevSubTotalTrueKRW) + realizedPL;
         const trueKRWPercent = prevSubTotalTrueKRW > 0 ? (trueDailyChangeKRW / prevSubTotalTrueKRW) * 100 : 0;
 
-        dailyChangeDispValue = trueDailyChangeKRW;
-        dailyPercentDisp = { krw: trueKRWPercent, usd: pureUSDPercent };
+        if (isUSDMode) {
+            dailyChangeDispValue = dailyChangePureValueUSD;
+            dailyPercentDisp = pureUSDPercent;
+        } else {
+            dailyChangeDispValue = trueDailyChangeKRW;
+            dailyPercentDisp = trueKRWPercent;
+        }
     }
 
     if (investments.length === 0) return null;
@@ -168,7 +202,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         fontWeight: '800',
                         color: !isSubTotal ? (value > 0 ? '#dc2626' : (value < 0 ? '#3b82f6' : 'var(--muted)')) : 'inherit'
                     }}>
-                        {(value > 0 && !isSubTotal ? '+' : '') + formatKRW(value)}
+                        {(value > 0 && !isSubTotal ? '+' : '') + (isUSDMode ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatKRW(value))}
                     </div>
                 )}
                 {!isSubTotal && percentEl}
@@ -180,13 +214,21 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         <div style={{ padding: '1.5rem' }}>
             <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '2rem' }}>
                 <div>
-                    <span className="section-label" style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>포트폴리오</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                        <span className="section-label" style={{ color: 'var(--muted)', margin: 0 }}>포트폴리오</span>
+                        {!isDomestic && (
+                            <div className="glass flex-center" style={{ padding: '0.2rem', borderRadius: '8px', cursor: 'pointer', gap: '0.2rem' }}>
+                                <button onClick={() => setIsUSDMode(false)} style={{ background: !isUSDMode ? 'var(--primary)' : 'transparent', color: !isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>KRW</button>
+                                <button onClick={() => setIsUSDMode(true)} style={{ background: isUSDMode ? 'var(--primary)' : 'transparent', color: isUSDMode ? 'white' : 'var(--muted)', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>USD</button>
+                            </div>
+                        )}
+                    </div>
                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>{title}</h3>
                 </div>
                 <div className="flex-center" style={{ gap: '3rem', alignItems: 'flex-start' }}>
-                    {!isPrivate && renderSummaryItem('평가금액', subTotal, 0, true)}
+                    {!isPrivate && renderSummaryItem('평가금액', isUSDMode ? subTotalUSD : subTotal, 0, true)}
                     {renderSummaryItem('일간 변동', dailyChangeDispValue, dailyPercentDisp)}
-                    {renderSummaryItem('총 손익', totalPL, totalPLPercent)}
+                    {renderSummaryItem('총 손익', isUSDMode ? totalPLUSD : totalPL, totalPLPercent)}
                 </div>
             </div>
 
