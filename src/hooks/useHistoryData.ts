@@ -187,8 +187,6 @@ export function useHistoryData() {
             const isSat = dObj.getDay() === 6;
             const isSun = dObj.getDay() === 0;
 
-            let fridayOsPercentOverride: number | null = null;
-
             // Lookahead: If Friday, borrow Saturday's overseas value if it exists
             if (isFri && index > 0) {
                 const lookaheadEntry = index < arr.length - 1 ? arr[index + 1] : null;
@@ -197,32 +195,6 @@ export function useHistoryData() {
                     const diff = satM.overseas - currM.overseas;
                     currM.overseas = satM.overseas;
                     dsTotalValue += diff;
-
-                    // Attempt to calculate pure api-based market variation (-7%) from live entry or lookahead
-                    let osMarketLoss = 0; let osMarketCurrent = 0;
-                    
-                    // If we are looking at the most recent Friday (index is within 3 days of the end)
-                    // and there is a live entry, its API 'change' fields hold the exact Friday close data!
-                    const liveEntry = arr.find(e => e.isLive);
-                    const sourceEntry = (liveEntry && index >= arr.length - 3) ? liveEntry : lookaheadEntry;
-
-                    if (sourceEntry && sourceEntry.holdings) {
-                        let parsedH = Array.isArray(sourceEntry.holdings) ? sourceEntry.holdings : [];
-                        if (typeof sourceEntry.holdings === 'string') {
-                            try { parsedH = JSON.parse(sourceEntry.holdings); } catch(e) {}
-                        }
-                        parsedH.forEach((h: any) => {
-                            if (h.marketType === 'Overseas' || (h.category && h.category.startsWith('Overseas')) || (!h.marketType && h.symbol && !h.symbol.match(/^[0-9]+$/))) {
-                                const activeChange = (h.isOverMarket && h.overMarketChange !== undefined) ? h.overMarketChange : (h.change || 0);
-                                const activePrice = (h.isOverMarket && h.overMarketPrice !== undefined) ? h.overMarketPrice : (h.currentPrice || h.avgPrice);
-                                osMarketLoss += convertToKRW(activeChange * h.shares, h.currency || 'USD', sourceEntry.exchangeRate || rate);
-                                osMarketCurrent += convertToKRW(activePrice * h.shares, h.currency || 'USD', sourceEntry.exchangeRate || rate);
-                            }
-                        });
-                    }
-                    if (osMarketLoss !== 0) {
-                        fridayOsPercentOverride = (osMarketCurrent - osMarketLoss) > 0 ? (osMarketLoss / (osMarketCurrent - osMarketLoss)) * 100 : 0;
-                    }
                 }
             }
 
@@ -261,8 +233,30 @@ export function useHistoryData() {
             let finalOsPercent = isWeekend ? 0 : (prevM && prevM.overseas > 0 ? (osChange / prevM.overseas) * 100 : 0);
             let finalDomPercent = isWeekend ? 0 : (prevM && prevM.domestic > 0 ? (domChange / prevM.domestic) * 100 : 0);
 
-            if (isFri && fridayOsPercentOverride !== null) {
-                finalOsPercent = fridayOsPercentOverride;
+            // If we are looking at the most recent Friday (index is within 3 days of the end)
+            // and there is a live entry, its API 'change' fields hold the exact Friday close data!
+            if (isFri) {
+                let osMarketLoss = 0; let osMarketCurrent = 0;
+                const liveEntry = arr.find(e => e.isLive);
+                const sourceEntry = (liveEntry && index >= arr.length - 3) ? liveEntry : null;
+
+                if (sourceEntry && sourceEntry.holdings) {
+                    let parsedH = Array.isArray(sourceEntry.holdings) ? sourceEntry.holdings : [];
+                    if (typeof sourceEntry.holdings === 'string') {
+                        try { parsedH = JSON.parse(sourceEntry.holdings); } catch(e) {}
+                    }
+                    parsedH.forEach((h: any) => {
+                        if (h.marketType === 'Overseas' || (h.category && h.category.startsWith('Overseas')) || (!h.marketType && h.symbol && !h.symbol.match(/^[0-9]+$/))) {
+                            const activeChange = (h.isOverMarket && h.overMarketChange !== undefined) ? h.overMarketChange : (h.change || 0);
+                            const activePrice = (h.isOverMarket && h.overMarketPrice !== undefined) ? h.overMarketPrice : (h.currentPrice || h.avgPrice);
+                            osMarketLoss += convertToKRW(activeChange * h.shares, h.currency || 'USD', sourceEntry.exchangeRate || rate);
+                            osMarketCurrent += convertToKRW(activePrice * h.shares, h.currency || 'USD', sourceEntry.exchangeRate || rate);
+                        }
+                    });
+                }
+                if (osMarketLoss !== 0) {
+                    finalOsPercent = (osMarketCurrent - osMarketLoss) > 0 ? (osMarketLoss / (osMarketCurrent - osMarketLoss)) * 100 : 0;
+                }
             }
 
             const ds: DailySettlement = {
