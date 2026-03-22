@@ -1,5 +1,5 @@
 import { HistoryEntry, AssetCategory, MarketType } from './types';
-import { convertToKRW, isDomesticSymbol } from './utils';
+import { convertToKRW, isDomesticSymbol, toLocalDateStr } from './utils';
 
 export const HISTORY_CATEGORIES: AssetCategory[] = [
     'Cash', 'Savings', 'Domestic Stock', 'Domestic Index', 'Domestic Bond',
@@ -148,10 +148,16 @@ export const calculateTWRMultipliers = (
             
             // If today is live, retroactively calibrate the previous day's closing price
             // to precisely match the official change provided by the market API.
+            // We skip this on weekends because the API's 'change' would duplicate Friday's return.
             if (today.isLive && ch && ch.currentPrice !== undefined) {
-                const activeChange = (ch.isOverMarket && ch.overMarketChange !== undefined) ? ch.overMarketChange : ch.change;
-                if (activeChange !== undefined) {
-                    pPrice = ch.currentPrice - activeChange;
+                const dObj = new Date(today.date + 'T00:00:00');
+                const isWeekend = dObj.getDay() === 0 || dObj.getDay() === 6;
+                
+                if (!isWeekend) {
+                    const activeChange = (ch.isOverMarket && ch.overMarketChange !== undefined) ? ch.overMarketChange : ch.change;
+                    if (activeChange !== undefined) {
+                        pPrice = ch.currentPrice - activeChange;
+                    }
                 }
             }
 
@@ -206,7 +212,7 @@ export const syncOverseasFriday = (date: string, multipliers: Record<string, num
     if (dObj.getDay() === 5) { // Friday
         const sat = new Date(dObj);
         sat.setDate(sat.getDate() + 1);
-        const satStr = sat.toISOString().substring(0, 10);
+        const satStr = toLocalDateStr(sat);
         if (multipliers[satStr] !== undefined) {
             val = multipliers[satStr];
         }

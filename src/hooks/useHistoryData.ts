@@ -7,7 +7,7 @@ import {
     MonthlySettlement,
     FullSettlementMetrics,
 } from '@/lib/types';
-import { getCategoryValue, calculateTWRMultipliers, getSummaryMetrics } from '@/lib/settlement';
+import { getCategoryValue, calculateTWRMultipliers, getSummaryMetrics, syncOverseasFriday } from '@/lib/settlement';
 import { convertToKRW } from '@/lib/utils';
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
@@ -178,22 +178,92 @@ export function useHistoryData() {
         const filtered = history.filter(entry => entry.holdings && entry.holdings.length > 0);
 
         return filtered.map((entry, index, arr) => {
-            const prevEntry = index > 0 ? arr[index - 1] : null;
             const r = entry.exchangeRate || rate;
-            const currM = getSummaryMetrics(entry, r);
-            const prevM = prevEntry ? getSummaryMetrics(prevEntry, prevEntry.exchangeRate || rate) : null;
+            let currM = getSummaryMetrics(entry, r);
+            let dsTotalValue = entry.totalValue;
 
-            // TWR: 당일 수익률 = 누적 배수 비율 - 1
+            const dObj = new Date(entry.date + 'T00:00:00');
+            const isFri = dObj.getDay() === 5;
+            const isSat = dObj.getDay() === 6;
+            const isSun = dObj.getDay() === 0;
+
+            let fridayOsPercentOverride: number | null = null;
+
+            // Lookahead: If Friday, borrow Saturday's overseas value if it exists
+            if (isFri && index > 0) {
+                const lookaheadEntry = index < arr.length - 1 ? arr[index + 1] : null;
+                if (lookaheadEntry && new Date(lookaheadEntry.date + 'T00:00:00').getDay() === 6) {
+                    const satM = getSummaryMetrics(lookaheadEntry, lookaheadEntry.exchangeRate || rate);
+                    const diff = satM.overseas - currM.overseas;
+                    currM.overseas = satM.overseas;
+                    dsTotalValue += diff;
+
+                    // Attempt to calculate pure api-based market variation (-7%) from live entry or lookahead
+                    let osMarketLoss = 0; let osMarketCurrent = 0;
+                    
+                    // If we are looking at the most recent Friday (index is within 3 days of the end)
+                    // and there is a live entry, its API 'change' fields hold the exact Friday close data!
+                    const liveEntry = arr.find(e => e.isLive);
+                    const sourceEntry = (liveEntry && index >= arr.length - 3) ? liveEntry : lookaheadEntry;
+
+                    if (sourceEntry && sourceEntry.holdings) {
+                        let parsedH = Array.isArray(sourceEntry.holdings) ? sourceEntry.holdings : [];
+                        if (typeof sourceEntry.holdings === 'string') {
+                            try { parsedH = JSON.parse(sourceEntry.holdings); } catch(e) {}
+                        }
+                        parsedH.forEach((h: any) => {
+                            if (h.marketType === 'Overseas' || (h.category && h.category.startsWith('Overseas')) || (!h.marketType && h.symbol && !h.symbol.match(/^[0-9]+$/))) {
+                                const activeChange = (h.isOverMarket && h.overMarketChange !== undefined) ? h.overMarketChange : (h.change || 0);
+                                const activePrice = (h.isOverMarket && h.overMarketPrice !== undefined) ? h.overMarketPrice : (h.currentPrice || h.avgPrice);
+                                osMarketLoss += convertToKRW(activeChange * h.shares, h.currency || 'USD', sourceEntry.exchangeRate || rate);
+                                osMarketCurrent += convertToKRW(activePrice * h.shares, h.currency || 'USD', sourceEntry.exchangeRate || rate);
+                            }
+                        });
+                    }
+                    if (osMarketLoss !== 0) {
+                        fridayOsPercentOverride = (osMarketCurrent - osMarketLoss) > 0 ? (osMarketLoss / (osMarketCurrent - osMarketLoss)) * 100 : 0;
+                    }
+                }
+            }
+
+            const prevEntry = index > 0 ? arr[index - 1] : null;
+            let prevM = prevEntry ? getSummaryMetrics(prevEntry, prevEntry.exchangeRate || rate) : null;
+            let prevTotalValue = prevEntry ? prevEntry.totalValue : 0;
+
+            if (prevEntry) {
+                const pObj = new Date(prevEntry.date + 'T00:00:00');
+                if (pObj.getDay() === 5) {
+                    const satLookahead = index <= arr.length - 1 ? arr[index] : null;
+                    if (satLookahead && new Date(satLookahead.date + 'T00:00:00').getDay() === 6) {
+                        const satM = getSummaryMetrics(satLookahead, satLookahead.exchangeRate || rate);
+                        if (prevM) {
+                            const diff = satM.overseas - prevM.overseas;
+                            prevM.overseas = satM.overseas;
+                            prevTotalValue += diff;
+                        }
+                    }
+                }
+            }
+
             const prevTwrDomMult = prevEntry ? (twrDom[prevEntry.date] ?? 1) : 1;
             const currTwrDomMult = twrDom[entry.date] ?? 1;
             const domDayReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
 
-            const prevTwrOsMult = prevEntry ? (twrOs[prevEntry.date] ?? 1) : 1;
-            const currTwrOsMult = twrOs[entry.date] ?? 1;
+            const prevTwrOsMult = prevEntry ? syncOverseasFriday(prevEntry.date, twrOs) : 1;
+            const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
             const osDayReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
 
-            const domChange = (prevM?.domestic || 0) * domDayReturn;
-            const osChange = (prevM?.overseas || 0) * osDayReturn;
+            const domChange = prevM ? currM.domestic - prevM.domestic : 0;
+            const osChange = prevM ? currM.overseas - prevM.overseas : 0;
+
+            const isWeekend = isSat || isSun;
+
+            let finalOsPercent = isWeekend ? 0 : (prevM && prevM.overseas > 0 ? (osChange / prevM.overseas) * 100 : 0);
+            let finalDomPercent = isWeekend ? 0 : (prevM && prevM.domestic > 0 ? (domChange / prevM.domestic) * 100 : 0);
+
+            if (isFri && fridayOsPercentOverride !== null) {
+                finalOsPercent = fridayOsPercentOverride;
+            }
 
             const ds: DailySettlement = {
                 ...entry,
@@ -205,19 +275,20 @@ export function useHistoryData() {
                         change: prevM ? currM.cash - prevM.cash : 0,
                         percent: (prevM && prevM.cash > 0) ? ((currM.cash - prevM.cash) / prevM.cash) * 100 : 0
                     },
-                    domStock: { current: currM.domStock, change: 0, percent: 0 }, // Individual market changes are now simplified
+                    domStock: { current: currM.domStock, change: 0, percent: 0 },
                     domIndex: { current: currM.domIndex, change: 0, percent: 0 },
                     domBond: { current: currM.domBond, change: 0, percent: 0 },
                     osStock: { current: currM.osStock, change: 0, percent: 0 },
                     osIndex: { current: currM.osIndex, change: 0, percent: 0 },
                     osBond: { current: currM.osBond, change: 0, percent: 0 },
-                    domestic: { current: currM.domestic, change: domChange, percent: domDayReturn * 100 },
-                    overseas: { current: currM.overseas, change: osChange, percent: osDayReturn * 100 }
+                    domestic: { current: currM.domestic, change: domChange, percent: finalDomPercent },
+                    overseas: { current: currM.overseas, change: osChange, percent: finalOsPercent }
                 }
             };
 
-            ds.change = prevEntry ? (entry.totalValue - prevEntry.totalValue) : 0;
-            ds.changePercent = (prevEntry && prevEntry.totalValue > 0) ? (ds.change / prevEntry.totalValue) * 100 : 0;
+            ds.change = prevEntry ? (dsTotalValue - prevTotalValue) : 0;
+            ds.changePercent = (prevEntry && prevTotalValue > 0) ? (ds.change / prevTotalValue) * 100 : 0;
+            ds.totalValue = dsTotalValue;
 
             return ds;
         }).reverse();
@@ -280,8 +351,8 @@ export function useHistoryData() {
                 const currTwrDomMult = twrDom[entry.date] ?? 1;
                 const weekDomReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
 
-                const prevTwrOsMult = prev ? (twrOs[prev.date] ?? 1) : 1;
-                const currTwrOsMult = twrOs[entry.date] ?? 1;
+                const prevTwrOsMult = prev ? syncOverseasFriday(prev.date, twrOs) : 1;
+                const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
                 const weekOsReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
 
                 const domChange = (prevM?.domestic || 0) * weekDomReturn;
@@ -340,8 +411,8 @@ export function useHistoryData() {
             const currTwrDomMult = twrDom[entry.date] ?? 1;
             const monDomReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
 
-            const prevTwrOsMult = prev ? (twrOs[prev.date] ?? 1) : 1;
-            const currTwrOsMult = twrOs[entry.date] ?? 1;
+            const prevTwrOsMult = prev ? syncOverseasFriday(prev.date, twrOs) : 1;
+            const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
             const monOsReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
 
             const domChange = (prevM?.domestic || 0) * monDomReturn;

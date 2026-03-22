@@ -3,6 +3,7 @@ import { repo } from '@/lib/db';
 import { Assets, HistoryEntry, SettlementMeta } from '@/lib/types';
 import { fetchQuote, fetchExchangeRate } from '@/lib/stock';
 import { toLocalDateStr } from '@/lib/utils';
+import { fetchHistoricalClosePrice } from '@/lib/stock/history';
 
 const getSettlementStatus = (targetDateStr: string, now: Date) => {
     const [y, m, d] = targetDateStr.split('-').map(Number);
@@ -113,6 +114,16 @@ export async function POST(request: Request) {
             const refDate = new Date(referenceDateStr + 'T12:00:00Z');
             const minus1 = new Date(refDate); minus1.setDate(refDate.getDate() - 1);
             daysToProcess = [toLocalDateStr(minus1), referenceDateStr];
+
+            const allHist = repo.history.getAll(false) as HistoryEntry[];
+            for (const h of allHist) {
+                if (h.meta && (!h.meta.domesticSettled || !h.meta.overseasSettled)) {
+                    if (!daysToProcess.includes(h.date)) {
+                        daysToProcess.push(h.date);
+                    }
+                }
+            }
+            daysToProcess.sort((a, b) => a.localeCompare(b));
         } else {
             daysToProcess = [todayStr];
             referenceDateStr = todayStr;
@@ -143,7 +154,7 @@ export async function POST(request: Request) {
 
             const oldHoldings = dbRow && dbRow.holdings ? dbRow.holdings : [];
 
-            const mergedInvEntries = liveInvEntries.map(liveInv => {
+            const mergedInvEntries = await Promise.all(liveInvEntries.map(async liveInv => {
                 const isDomestic = liveInv.marketType === 'Domestic' || ['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(liveInv.category);
                 if (isDomestic && meta.domesticSettled) {
                     const oldInv = oldHoldings.find((o: any) => o.symbol === liveInv.symbol);
@@ -153,8 +164,24 @@ export async function POST(request: Request) {
                     const oldInv = oldHoldings.find((o: any) => o.symbol === liveInv.symbol);
                     if (oldInv) return oldInv;
                 }
+
+                // Fetch historical true closing price if the targetDate market has fully closed
+                const isMarketSettledForTargetDate = isDomestic ? status.domesticSettled : status.overseasSettled;
+                if (isMarketSettledForTargetDate && targetDate !== todayStr) {
+                    const historicalPrice = await fetchHistoricalClosePrice(liveInv.symbol, targetDate, isDomestic);
+                    if (historicalPrice !== null) {
+                        return { 
+                            ...liveInv, 
+                            currentPrice: historicalPrice, 
+                            isOverMarket: false, 
+                            overMarketChange: undefined, 
+                            overMarketPrice: undefined, 
+                            overMarketChangePercent: undefined 
+                        };
+                    }
+                }
                 return liveInv;
-            });
+            }));
 
             const totalInvValue = mergedInvEntries.reduce((acc, inv) => {
                 const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
