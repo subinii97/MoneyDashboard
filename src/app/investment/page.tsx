@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Layers, List, Eye, EyeOff, PlusCircle, Tag, PieChart, StickyNote } from 'lucide-react';
 import { Investment, MarketType, Transaction, AssetCategory } from '@/lib/types';
 import { useAssets } from '@/hooks/useAssets';
+import { toLocalDateStr } from '@/lib/utils';
 import { useInvestmentActions } from '@/hooks/useInvestmentActions';
 
 // Components
@@ -229,7 +230,7 @@ export default function InvestmentManager() {
                     <div className="spotlight" style={{ left: mousePos.x, top: mousePos.y }} />
                     <InvestmentTable
                         investments={filtered('Overseas')} transactions={todayTransactions} title="해외 시장" rate={rate}
-                        yesterdayRate={history && history.length > 1 ? (([...history].reverse().find(h => h.date !== new Date().toISOString().split('T')[0]))?.exchangeRate || rate) : rate}
+                        yesterdayRate={history && history.length > 0 ? (([...history].reverse().find(h => h.date !== toLocalDateStr(new Date())))?.exchangeRate || rate) : rate}
                         isPrivate={isPrivate} onEdit={startEditing} onDelete={deleteInvestment}
                         onTransaction={openTxModal}
                     />

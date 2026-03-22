@@ -101,7 +101,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
     let dailyChangeDispValue = dailyChangePureValue;
     let dailyPercentDisp: number | { krw: number; usd: number } = pureUSDPercent;
 
-    if (!isDomestic && yesterdayRate && yesterdayRate !== rate && investments.length > 0) {
+    if (!isDomestic && yesterdayRate && investments.length > 0) {
         // Compute True KRW daily difference
         const prevSubTotalTrueKRW = investments.reduce((acc, s) => {
             const activePrice = getActivePrice(s);
