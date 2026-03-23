@@ -81,10 +81,10 @@ function squarifyLayout(
             if (l.aspect < bestAspect) { bestAspect = l.aspect; bestSplit = l.split; }
         }
 
-        const leftIndices  = indices.slice(0, bestSplit);
+        const leftIndices = indices.slice(0, bestSplit);
         const rightIndices = indices.slice(bestSplit);
-        const leftArea     = leftIndices.reduce((s, i) => s + areas[i], 0);
-        const rightArea    = rightIndices.reduce((s, i) => s + areas[i], 0);
+        const leftArea = leftIndices.reduce((s, i) => s + areas[i], 0);
+        const rightArea = rightIndices.reduce((s, i) => s + areas[i], 0);
 
         if (iw >= ih) {
             // Horizontal split
@@ -128,17 +128,17 @@ function squarifyLayout(
 // ── Color helpers (Korean convention: red=up, blue=down) ────────────────────
 // ── Color helpers (Korean convention: red=up, blue=down) ────────────────────
 function getColor(pct: number) {
-    if (pct === 0)   return { bg: '#1a1a1a', text: '#ccc', border: '#444' };
+    if (pct === 0) return { bg: '#1a1a1a', text: '#ccc', border: '#444' };
     if (pct > 0) {
-        if (pct >= 4)    return { bg: '#3b0a0a', text: '#f87171', border: '#dc2626' };
-        if (pct >= 2)    return { bg: '#5c1111', text: '#fca5a5', border: '#c41e1e' };
+        if (pct >= 4) return { bg: '#3b0a0a', text: '#f87171', border: '#dc2626' };
+        if (pct >= 2) return { bg: '#5c1111', text: '#fca5a5', border: '#c41e1e' };
         if (pct >= 0.75) return { bg: '#7f1d1d', text: '#fecaca', border: '#b91c1c' };
-        return                { bg: '#4a1919', text: '#fda4a4', border: '#7f1d1d' };
+        return { bg: '#4a1919', text: '#fda4a4', border: '#7f1d1d' };
     } else {
-        if (pct <= -4)   return { bg: '#0a1d4a', text: '#93c5fd', border: '#1d4ed8' };
-        if (pct <= -2)   return { bg: '#0c2e6b', text: '#bfdbfe', border: '#2563eb' };
-        if (pct <= -0.75)return { bg: '#0f3a8f', text: '#dbeafe', border: '#3b82f6' };
-        return                { bg: '#0f172a', text: '#93c5fd', border: '#1e3a5f' };
+        if (pct <= -4) return { bg: '#0a1d4a', text: '#93c5fd', border: '#1d4ed8' };
+        if (pct <= -2) return { bg: '#0c2e6b', text: '#bfdbfe', border: '#2563eb' };
+        if (pct <= -0.75) return { bg: '#0f3a8f', text: '#dbeafe', border: '#3b82f6' };
+        return { bg: '#0f172a', text: '#93c5fd', border: '#1e3a5f' };
     }
 }
 
@@ -156,11 +156,11 @@ function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover
 
     // Dynamically calculate font size based on tile size - balanced contrast
     const baseSize = Math.min(w / 5.5, h / 2.2);
-    const nameFontSize = Math.max(8, Math.min(baseSize, 42));
-    const pctFontSize = Math.max(7.5, Math.min(baseSize * 0.85, 28));
+    const nameFontSize = Math.max(12, Math.min(baseSize, 34));
+    const pctFontSize = Math.max(10, Math.min(baseSize * 0.85, 26));
 
     const showSymbol = h > 18 && w > 30;
-    const showPct    = h > 28 && w > 34;
+    const showPct = h > 28 && w > 34;
 
     return (
         <div
@@ -271,11 +271,11 @@ function SectorTile({ sector, rect, onHover }: { sector: Sector; rect: Rect; onH
 // ── Legend ────────────────────────────────────────────────────────────────────
 const LEGEND = [
     { label: '-4%+', ...getColor(-5) },
-    { label: '-2%',  ...getColor(-3) },
-    { label: '-1%',  ...getColor(-1.5) },
-    { label: '0%',   bg: '#1a1a1a', text: '#ccc', border: '#444' },
-    { label: '+1%',  ...getColor(1.5) },
-    { label: '+2%',  ...getColor(3) },
+    { label: '-2%', ...getColor(-3) },
+    { label: '-1%', ...getColor(-1.5) },
+    { label: '0%', bg: '#1a1a1a', text: '#ccc', border: '#444' },
+    { label: '+1%', ...getColor(1.5) },
+    { label: '+2%', ...getColor(3) },
     { label: '+4%+', ...getColor(5) },
 ];
 
@@ -325,7 +325,7 @@ export default function AnalysisPage() {
             const raw: Sector[] = (json.sectors || []).filter((s: Sector) => s.weight > 0);
             setSectors(raw);
             setLastFetched(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
-            
+
             if (corrRes.ok) {
                 setCorrelation(await corrRes.json());
             }
@@ -336,8 +336,8 @@ export default function AnalysisPage() {
         }
     }, []);
 
-    useEffect(() => { 
-        fetchSectors(market); 
+    useEffect(() => {
+        fetchSectors(market);
         const interval = setInterval(() => fetchSectors(market), 10000);
         return () => clearInterval(interval);
     }, [market, fetchSectors]);
@@ -350,10 +350,10 @@ export default function AnalysisPage() {
     return (
         <main style={{ padding: '1.5rem 2rem', maxWidth: '1600px', margin: '0 auto', color: 'var(--foreground)' }}>
             {/* Header Redesign */}
-            <header style={{ 
-                marginBottom: '1.5rem', 
-                display: 'flex', 
-                alignItems: 'flex-end', 
+            <header style={{
+                marginBottom: '1.5rem',
+                display: 'flex',
+                alignItems: 'flex-end',
                 justifyContent: 'space-between',
                 gap: '1.5rem',
                 flexWrap: 'wrap'
@@ -365,6 +365,9 @@ export default function AnalysisPage() {
                     <h1 style={{ fontSize: '2rem', fontWeight: '900', letterSpacing: '-0.04em', lineHeight: 1.1, marginTop: '2px' }}>
                         Sector Heatmap
                     </h1>
+                    <div style={{ fontSize: '0.72rem', color: '#555', fontWeight: 600, marginTop: '4px' }}>
+                        Last updated: {lastFetched}
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -383,11 +386,11 @@ export default function AnalysisPage() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                         {correlation && (
-                            <div 
+                            <div
                                 onMouseEnter={() => setShowCorrTooltip(true)}
                                 onMouseLeave={() => setShowCorrTooltip(false)}
-                                style={{ 
-                                    padding: '0.4rem 0.9rem', background: '#f5f5f5', color: '#111', borderRadius: '9px', 
+                                style={{
+                                    padding: '0.4rem 0.9rem', background: '#f5f5f5', color: '#111', borderRadius: '9px',
                                     fontWeight: 700, fontSize: '0.82rem', border: '1px solid #ddd',
                                     display: 'flex', gap: '0.6rem', alignItems: 'center', cursor: 'help',
                                     position: 'relative', height: '34px', boxSizing: 'border-box'
@@ -406,8 +409,8 @@ export default function AnalysisPage() {
                                         color: '#ccc', fontSize: '0.8rem', lineHeight: 1.6, pointerEvents: 'none'
                                     }}>
                                         <div style={{ color: 'white', fontWeight: 800, marginBottom: '6px', fontSize: '0.85rem' }}>커플링 지수 (Pearson)</div>
-                                        미국 증시(S&P 500)와 한국 증시(KOSPI)가 얼마나 비슷하게 움직이는지 나타냅니다. 
-                                        <br/><br/>
+                                        미국 증시(S&P 500)와 한국 증시(KOSPI)가 얼마나 비슷하게 움직이는지 나타냅니다.
+                                        <br /><br />
                                         • <span style={{ color: 'white' }}>1.0</span>에 가까울수록 동조화가 강하며, <span style={{ color: '#f87171' }}>0.6 이상</span>이면 미국 시장의 영향력이 매우 크다는 의미입니다.
                                     </div>
                                 )}
@@ -415,17 +418,14 @@ export default function AnalysisPage() {
                         )}
 
                         {!loading && sectors.length > 0 && (
-                            <div style={{ 
-                                padding: '0.4rem 0.9rem', background: mc.bg, color: mc.text, borderRadius: '9px', 
+                            <div style={{
+                                padding: '0.4rem 0.9rem', background: mc.bg, color: mc.text, borderRadius: '9px',
                                 fontWeight: 800, fontSize: '0.85rem', border: `1px solid ${mc.border}`,
                                 height: '34px', boxSizing: 'border-box', display: 'flex', alignItems: 'center'
                             }}>
                                 {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
                             </div>
                         )}
-                        <div style={{ fontSize: '0.72rem', color: '#555', fontWeight: 600, marginLeft: '4px' }}>
-                            Last updated: {lastFetched}
-                        </div>
                     </div>
                 </div>
             </header>
@@ -527,9 +527,9 @@ export default function AnalysisPage() {
                     <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '1.25rem' }}>
                         Sector Performance Summary
                     </div>
-                    <div style={{ 
-                        display: 'grid', 
-                        gridTemplateRows: 'repeat(3, auto)', 
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateRows: 'repeat(3, auto)',
                         gridAutoFlow: 'column',
                         gap: '0.6rem 0.8rem',
                         justifyContent: 'center',
@@ -543,7 +543,7 @@ export default function AnalysisPage() {
                                 <div key={sec.id} style={{
                                     padding: '0.45rem 1rem', background: c.bg, color: c.text,
                                     borderRadius: '9px', fontSize: '0.8rem', fontWeight: 800,
-                                    border: `1px solid ${c.border}`, display: 'flex', 
+                                    border: `1px solid ${c.border}`, display: 'flex',
                                     justifyContent: 'space-between', alignItems: 'center',
                                     width: '160px', boxSizing: 'border-box',
                                     transition: 'all 0.2s', cursor: 'default'
