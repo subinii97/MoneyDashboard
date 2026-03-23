@@ -363,13 +363,13 @@ export default function AnalysisPage() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {/* Market Toggle */}
-                    <div style={{ display: 'flex', background: 'var(--card)', padding: '3px', borderRadius: '10px', border: '1px solid #333', marginRight: '0.5rem' }}>
+                    {/* Market Toggle - Light style */}
+                    <div style={{ display: 'flex', background: '#f5f5f5', padding: '3px', borderRadius: '10px', border: '1px solid #ddd', marginRight: '0.5rem' }}>
                         {(['US', 'KR'] as const).map(m => (
                             <button key={m} onClick={() => setMarket(m)} style={{
                                 padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px',
-                                border: 'none', background: market === m ? 'var(--primary)' : 'transparent',
-                                color: market === m ? 'white' : '#777', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s',
+                                border: 'none', background: market === m ? 'black' : 'transparent',
+                                color: market === m ? 'white' : '#666', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s',
                             }}>
                                 {m === 'US' ? '🇺🇸 S&P 500' : '🇰🇷 KOSPI'}
                             </button>
@@ -382,14 +382,14 @@ export default function AnalysisPage() {
                                 onMouseEnter={() => setShowCorrTooltip(true)}
                                 onMouseLeave={() => setShowCorrTooltip(false)}
                                 style={{ 
-                                    padding: '0.4rem 0.9rem', background: 'var(--card)', color: '#eee', borderRadius: '9px', 
-                                    fontWeight: 700, fontSize: '0.82rem', border: '1px solid #333',
+                                    padding: '0.4rem 0.9rem', background: '#f5f5f5', color: '#111', borderRadius: '9px', 
+                                    fontWeight: 700, fontSize: '0.82rem', border: '1px solid #ddd',
                                     display: 'flex', gap: '0.6rem', alignItems: 'center', cursor: 'help',
                                     position: 'relative', height: '34px', boxSizing: 'border-box'
                                 }}
                             >
-                                <span style={{ color: '#888', fontWeight: 600 }}>커플링:</span>
-                                <span style={{ color: correlation.correlationLag > 0.6 ? '#f87171' : '#fff' }}>
+                                <span style={{ color: '#666', fontWeight: 600 }}>커플링:</span>
+                                <span style={{ color: correlation.correlationLag > 0.6 ? '#dc2626' : '#111' }}>
                                     {correlation.correlationLag.toFixed(3)}
                                 </span>
                                 {showCorrTooltip && (
@@ -421,8 +421,8 @@ export default function AnalysisPage() {
 
                         <button onClick={() => fetchSectors(market)} disabled={loading} style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px',
-                            background: 'var(--card)', border: '1px solid #333', borderRadius: '9px',
-                            color: '#888', cursor: 'pointer', transition: 'all 0.2s',
+                            background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '9px',
+                            color: '#444', cursor: 'pointer', transition: 'all 0.2s',
                         }} title={`새로고침 (마지막: ${lastFetched})`}>
                             <RefreshCw size={15} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
                         </button>
@@ -534,13 +534,13 @@ export default function AnalysisPage() {
                             const c = getColor(sec.changePercent);
                             return (
                                 <div key={sec.id} style={{
-                                    padding: '0.4rem 0.9rem', background: 'var(--card)', color: c.text,
+                                    padding: '0.4rem 0.9rem', background: '#f5f5f5', color: '#111',
                                     borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
-                                    border: `1px solid ${c.border}`, display: 'flex', gap: '0.75rem',
+                                    border: `1px solid #ddd`, display: 'flex', gap: '0.75rem',
                                     alignItems: 'center', transition: 'all 0.2s', cursor: 'default'
                                 }}>
-                                    <span style={{ color: '#aaa', fontWeight: 600, fontSize: '0.75rem' }}>{sec.name}</span>
-                                    <span style={{ letterSpacing: '-0.02em' }}>
+                                    <span style={{ color: '#666', fontWeight: 600, fontSize: '0.75rem' }}>{sec.name}</span>
+                                    <span style={{ letterSpacing: '-0.02em', color: c.text }}>
                                         {sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%
                                     </span>
                                 </div>
