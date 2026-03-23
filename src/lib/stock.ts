@@ -87,8 +87,8 @@ export async function fetchMarketIndexHistory(code: string, days: number = 30) {
             console.error(`Error fetching historical index ${code}:`, e);
             return [];
         }
-    } else if (code === 'NASDAQ' || code === 'DOW') {
-        const symbol = code === 'NASDAQ' ? 'NAS@IXIC' : 'DJI@DJI';
+    } else if (code === 'NASDAQ' || code === 'DOW' || code === 'S&P500') {
+        const symbol = code === 'NASDAQ' ? 'NAS@IXIC' : (code === 'DOW' ? 'DJI@DJI' : 'SPI@SPX');
         try {
             // Calculate required pages (1 page = 10 items)
             const pagesCount = Math.ceil(days / 10) + 1;

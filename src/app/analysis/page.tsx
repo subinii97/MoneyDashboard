@@ -285,6 +285,7 @@ export default function AnalysisPage() {
     const [sectors, setSectors] = useState<Sector[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastFetched, setLastFetched] = useState('');
+    const [correlation, setCorrelation] = useState<{ correlation: number; correlationLag: number; sampleSize: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerSize, setContainerSize] = useState({ w: 1100, h: 560 });
     const [hoveredStock, setHoveredStock] = useState<Stock | null>(null);
@@ -314,11 +315,18 @@ export default function AnalysisPage() {
     const fetchSectors = useCallback(async (m: 'US' | 'KR') => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/analysis/sectors?market=${m}&t=${Date.now()}`);
-            const json = await res.json();
+            const [secRes, corrRes] = await Promise.all([
+                fetch(`/api/analysis/sectors?market=${m}&t=${Date.now()}`),
+                fetch(`/api/analysis/correlation?t=${Date.now()}`)
+            ]);
+            const json = await secRes.json();
             const raw: Sector[] = (json.sectors || []).filter((s: Sector) => s.weight > 0);
             setSectors(raw);
             setLastFetched(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+            
+            if (corrRes.ok) {
+                setCorrelation(await corrRes.json());
+            }
         } catch (e) {
             console.error(e);
         } finally {
@@ -370,11 +378,24 @@ export default function AnalysisPage() {
 
                 {/* Market badge */}
                 {!loading && sectors.length > 0 && (
-                    <div style={{ padding: '0.3rem 0.8rem', background: mc.bg, color: mc.text, borderRadius: '7px', fontWeight: 800, fontSize: '0.88rem', border: `1px solid ${mc.border}` }}>
-                        {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <div style={{ padding: '0.3rem 0.8rem', background: mc.bg, color: mc.text, borderRadius: '7px', fontWeight: 800, fontSize: '0.88rem', border: `1px solid ${mc.border}` }}>
+                            {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
+                        </div>
+                        {correlation && (
+                            <div style={{ 
+                                padding: '0.3rem 0.8rem', background: '#111', color: '#ccc', borderRadius: '7px', 
+                                fontWeight: 700, fontSize: '0.82rem', border: '1px solid #222',
+                                display: 'flex', gap: '0.5rem', alignItems: 'center'
+                            }}>
+                                <span style={{ color: '#666' }}>상관계수(KR-US):</span>
+                                <span style={{ color: correlation.correlationLag > 0.6 ? '#f87171' : '#ccc' }}>
+                                    {correlation.correlationLag.toFixed(3)}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
-
             </header>
 
             {/* Treemap container */}
