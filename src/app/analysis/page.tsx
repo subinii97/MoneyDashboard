@@ -531,7 +531,16 @@ export default function AnalysisPage() {
                     <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '1.25rem' }}>
                         Sector Performance Summary
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+                    <div style={{ 
+                        display: 'grid', 
+                        gridTemplateRows: 'repeat(3, auto)', 
+                        gridAutoFlow: 'column',
+                        gap: '0.6rem 0.8rem',
+                        justifyContent: 'center',
+                        maxWidth: '100%',
+                        overflowX: 'auto',
+                        padding: '0 1rem'
+                    }}>
                         {[...sectors].sort((a, b) => b.changePercent - a.changePercent).map(sec => {
                             const c = getColor(sec.changePercent);
                             return (
