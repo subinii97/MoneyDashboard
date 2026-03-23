@@ -415,30 +415,31 @@ export default function AnalysisPage() {
                     top: mousePos.y + 15,
                     zIndex: 1000,
                     pointerEvents: 'none',
-                    background: 'rgba(20, 20, 20, 0.9)',
+                    background: 'rgba(15, 15, 15, 0.95)',
                     border: `1px solid ${getColor(hoveredStock.changePercent).border}`,
-                    borderRadius: '8px',
-                    padding: '0.6rem 0.9rem',
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-                    backdropFilter: 'blur(6px)',
-                    minWidth: '160px',
+                    borderRadius: '10px',
+                    padding: '0.75rem 1rem',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+                    backdropFilter: 'blur(10px)',
+                    minWidth: '180px',
                 }}>
-                    <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.15rem', display: 'flex', gap: '6px' }}>
-                        <span>{hoveredStock.symbol}</span>
+                    <div style={{ fontSize: '0.8rem', color: '#aaa', fontWeight: 800, marginBottom: '0.3rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span style={{ color: 'white' }}>{hoveredStock.symbol}</span>
                         {hoveredStock.name !== hoveredStock.symbol && (
-                            <span style={{ color: '#666' }}>• {hoveredStock.name}</span>
+                            <span style={{ color: '#888', fontWeight: 600, fontSize: '0.75rem' }}>{hoveredStock.name}</span>
                         )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem' }}>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 900, color: getColor(hoveredStock.changePercent).text, letterSpacing: '-0.02em' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.8rem' }}>
+                        <div style={{ fontSize: '1.45rem', fontWeight: 900, color: getColor(hoveredStock.changePercent).text, letterSpacing: '-0.02em' }}>
                             {hoveredStock.changePercent >= 0 ? '+' : ''}{hoveredStock.changePercent.toFixed(2)}%
                         </div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#999' }}>
+                        <div style={{ fontSize: '1rem', fontWeight: 700, color: '#bbb' }}>
                             {market === 'US' ? '$' : '₩'}{hoveredStock.price?.toLocaleString()}
                         </div>
                     </div>
                 </div>
             )}
+
 
 
             {/* Legend - moved below treemap */}
