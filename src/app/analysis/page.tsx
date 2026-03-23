@@ -171,27 +171,32 @@ function StockTile({ stock, rect }: { stock: Stock; rect: Rect }) {
                 borderRadius: 3,
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', cursor: 'pointer',
+                overflow: hovered ? 'visible' : 'hidden',
+                cursor: 'pointer',
                 transition: 'background 0.15s',
                 boxSizing: 'border-box',
+                zIndex: hovered ? 50 : 1,
             }}
         >
-            {showSymbol && (
+            {(showSymbol || hovered) && (
                 <div style={{
                     color: c.text, fontWeight: 800,
-                    fontSize: bigFont ? 13 : h > 35 ? 11 : 9,
+                    fontSize: bigFont ? 13 : (h > 35 || hovered) ? 11 : 9,
                     lineHeight: 1.1, textAlign: 'center',
                     padding: '0 3px', whiteSpace: 'nowrap',
-                    overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
+                    overflow: hovered ? 'visible' : 'hidden',
+                    textOverflow: 'ellipsis', maxWidth: (hovered && !showSymbol) ? 'none' : '100%',
+                    textShadow: hovered ? '0 0 4px rgba(0,0,0,0.8)' : 'none',
                 }}>
                     {stock.name}
                 </div>
             )}
-            {showPct && (
+            {(showPct || hovered) && (
                 <div style={{
                     color: c.text, fontWeight: 700,
-                    fontSize: bigFont ? 12 : h > 35 ? 10 : 8.5,
-                    lineHeight: 1.1, marginTop: showSymbol ? 2 : 0,
+                    fontSize: bigFont ? 12 : (h > 35 || hovered) ? 10 : 8.5,
+                    lineHeight: 1.1, marginTop: (showSymbol || hovered) ? 2 : 0,
+                    textShadow: hovered ? '0 0 4px rgba(0,0,0,0.8)' : 'none',
                 }}>
                     {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
                 </div>
@@ -199,6 +204,7 @@ function StockTile({ stock, rect }: { stock: Stock; rect: Rect }) {
         </div>
     );
 }
+
 
 // ── Sector Tile ────────────────────────────────────────────────────────────────
 function SectorTile({ sector, rect }: { sector: Sector; rect: Rect }) {
