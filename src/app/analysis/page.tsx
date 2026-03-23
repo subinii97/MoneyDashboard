@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -265,7 +265,6 @@ export default function AnalysisPage() {
     const [lastFetched, setLastFetched] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerSize, setContainerSize] = useState({ w: 1100, h: 560 });
-    const [sectorRects, setSectorRects] = useState<Rect[]>([]);
 
     // Measure container
     useLayoutEffect(() => {
@@ -282,11 +281,10 @@ export default function AnalysisPage() {
     }, []);
 
     // Recompute sector layout when sectors or container size changes
-    useEffect(() => {
-        if (!sectors.length) return;
+    const sectorRects = useMemo(() => {
+        if (!sectors.length) return [];
         const weights = sectors.map(s => s.weight);
-        const rects = squarifyLayout(weights, 0, 0, containerSize.w, containerSize.h);
-        setSectorRects(rects);
+        return squarifyLayout(weights, 0, 0, containerSize.w, containerSize.h);
     }, [sectors, containerSize]);
 
     const fetchSectors = useCallback(async (m: 'US' | 'KR') => {
@@ -386,9 +384,11 @@ export default function AnalysisPage() {
                         <span style={{ fontSize: '0.9rem' }}>시장 데이터 로딩 중... (10~20초 소요)</span>
                     </div>
                 )}
-                {!loading && sectorRects.map((rect, i) => (
-                    <SectorTile key={sectors[i]?.id} sector={sectors[i]} rect={rect} />
-                ))}
+                {!loading && sectorRects.map((rect, i) => {
+                    const sec = sectors[i];
+                    if (!sec) return null;
+                    return <SectorTile key={sec.id} sector={sec} rect={rect} />;
+                })}
             </div>
 
             {/* Sector summary pill row */}
