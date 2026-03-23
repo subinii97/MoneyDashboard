@@ -3,6 +3,7 @@
 import { SpotlightCard } from '@/components/common/SpotlightCard';
 import { Sparkline } from '@/components/common/Sparkline';
 import { TrendingUp, TrendingDown, Globe, Landmark } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface MarketSectionProps {
     data: {
@@ -17,6 +18,7 @@ interface MarketSectionProps {
 }
 
 export function MarketSection({ data, sparklines, loading, lastFetched }: MarketSectionProps) {
+    const router = useRouter();
     const renderStatusTime = (item: any, isAlwaysLive = false) => {
         let isLive = isAlwaysLive;
         let displayTime = '';
@@ -116,7 +118,11 @@ export function MarketSection({ data, sparklines, loading, lastFetched }: Market
     );
 
     const renderRow = (item: any, sparkKey: string, isAlwaysLive = false, prefix = '', suffix = '') => (
-        <div key={item.id} style={rowStyle}>
+        <div key={item.id} style={{ ...rowStyle, cursor: 'pointer' }}
+            onClick={() => router.push(`/analysis/market/${item.id}`)}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--card-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
             <div style={{ flex: '1 1 0', minWidth: 0 }}>
                 <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{item.name || item.id}</div>
                 {renderStatusTime(item, isAlwaysLive)}

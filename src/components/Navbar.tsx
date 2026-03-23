@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart2, Briefcase, LayoutDashboard, Activity, Newspaper, Sun, Moon } from 'lucide-react';
+import { BarChart2, Briefcase, LayoutDashboard, Activity, Newspaper, Sun, Moon, TrendingUp } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
@@ -21,6 +21,7 @@ export default function Navbar() {
         { name: 'History', href: '/history', icon: Activity },
         { name: 'Portfolio', href: '/portfolio', icon: BarChart2 },
         { name: 'Investment', href: '/investment', icon: Briefcase },
+        { name: 'Analysis', href: '/analysis', icon: TrendingUp },
     ];
 
     return (
