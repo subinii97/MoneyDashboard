@@ -233,7 +233,7 @@ function SectorTile({ sector, rect, onHover }: { sector: Sector; rect: Rect; onH
             position: 'absolute',
             left: rect.x + SECTOR_GAP / 2, top: rect.y + SECTOR_GAP / 2,
             width: innerW, height: innerH,
-            background: '#0d0d0d',
+            background: 'rgba(255, 255, 255, 0.02)',
             border: `1px solid ${c.border}`,
             borderRadius: 4,
             overflow: 'hidden',
@@ -364,12 +364,12 @@ export default function AnalysisPage() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     {/* Market Toggle */}
-                    <div style={{ display: 'flex', background: '#0a0a0a', padding: '3px', borderRadius: '10px', border: '1px solid #222', marginRight: '0.5rem' }}>
+                    <div style={{ display: 'flex', background: 'var(--card)', padding: '3px', borderRadius: '10px', border: '1px solid #333', marginRight: '0.5rem' }}>
                         {(['US', 'KR'] as const).map(m => (
                             <button key={m} onClick={() => setMarket(m)} style={{
                                 padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px',
                                 border: 'none', background: market === m ? 'var(--primary)' : 'transparent',
-                                color: market === m ? 'white' : '#666', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s',
+                                color: market === m ? 'white' : '#777', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s',
                             }}>
                                 {m === 'US' ? '🇺🇸 S&P 500' : '🇰🇷 KOSPI'}
                             </button>
@@ -382,8 +382,8 @@ export default function AnalysisPage() {
                                 onMouseEnter={() => setShowCorrTooltip(true)}
                                 onMouseLeave={() => setShowCorrTooltip(false)}
                                 style={{ 
-                                    padding: '0.4rem 0.9rem', background: '#0a0a0a', color: '#eee', borderRadius: '9px', 
-                                    fontWeight: 700, fontSize: '0.82rem', border: '1px solid #222',
+                                    padding: '0.4rem 0.9rem', background: 'var(--card)', color: '#eee', borderRadius: '9px', 
+                                    fontWeight: 700, fontSize: '0.82rem', border: '1px solid #333',
                                     display: 'flex', gap: '0.6rem', alignItems: 'center', cursor: 'help',
                                     position: 'relative', height: '34px', boxSizing: 'border-box'
                                 }}
@@ -421,7 +421,7 @@ export default function AnalysisPage() {
 
                         <button onClick={() => fetchSectors(market)} disabled={loading} style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px',
-                            background: '#0a0a0a', border: '1px solid #222', borderRadius: '9px',
+                            background: 'var(--card)', border: '1px solid #333', borderRadius: '9px',
                             color: '#888', cursor: 'pointer', transition: 'all 0.2s',
                         }} title={`새로고침 (마지막: ${lastFetched})`}>
                             <RefreshCw size={15} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
@@ -438,10 +438,10 @@ export default function AnalysisPage() {
                     width: '100%',
                     height: containerSize.h,
                     position: 'relative',
-                    background: '#0a0a0a',
+                    background: 'var(--card)',
                     borderRadius: 8,
                     overflow: 'hidden',
-                    border: '1px solid #1a1a1a',
+                    border: '1px solid var(--border)',
                     minHeight: 400,
                 }}
             >
@@ -534,7 +534,7 @@ export default function AnalysisPage() {
                             const c = getColor(sec.changePercent);
                             return (
                                 <div key={sec.id} style={{
-                                    padding: '0.4rem 0.9rem', background: '#0a0a0a', color: c.text,
+                                    padding: '0.4rem 0.9rem', background: 'var(--card)', color: c.text,
                                     borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
                                     border: `1px solid ${c.border}`, display: 'flex', gap: '0.75rem',
                                     alignItems: 'center', transition: 'all 0.2s', cursor: 'default'
