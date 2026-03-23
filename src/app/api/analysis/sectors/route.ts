@@ -2,121 +2,281 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// ── In-memory cache (10 min TTL) ──────────────────────────────────────────────
-const cache: { data: any; ts: number } | null = null;
-let _cache: { data: any; ts: number } | null = null;
-const TTL = 10 * 60 * 1000;
+const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+let _cache: Record<string, { data: any; ts: number }> = {};
+const TTL = 8 * 60 * 1000;
 
-// ── US S&P500 sector ETFs + top constituents ───────────────────────────────────
-const US_SECTORS = [
+// ── US S&P500 Sectors (market cap weights + top constituents with relative caps) ──
+const US_SECTORS: Array<{
+    id: string; name: string; weight: number;
+    etf: string;
+    stocks: Array<{ symbol: string; name: string; cap: number }>;
+}> = [
     {
-        id: 'XLK', name: 'Technology', weight: 31.5,
-        stocks: ['NVDA', 'AAPL', 'MSFT', 'AVGO', 'ORCL', 'AMD', 'QCOM', 'INTC', 'TXN', 'MU']
+        id: 'tech', name: 'Technology', weight: 31.5, etf: 'XLK',
+        stocks: [
+            { symbol: 'NVDA', name: 'NVDA', cap: 2900 }, { symbol: 'AAPL', name: 'AAPL', cap: 3100 },
+            { symbol: 'MSFT', name: 'MSFT', cap: 2800 }, { symbol: 'AVGO', name: 'AVGO', cap: 750 },
+            { symbol: 'ORCL', name: 'ORCL', cap: 420 }, { symbol: 'AMD', name: 'AMD', cap: 200 },
+            { symbol: 'QCOM', name: 'QCOM', cap: 190 }, { symbol: 'TXN', name: 'TXN', cap: 180 },
+            { symbol: 'INTC', name: 'INTC', cap: 100 }, { symbol: 'MU', name: 'MU', cap: 110 },
+        ],
     },
     {
-        id: 'XLF', name: 'Financial', weight: 13.4,
-        stocks: ['BRK-B', 'JPM', 'V', 'MA', 'BAC', 'WFC', 'GS', 'MS', 'AXP', 'C']
+        id: 'fin', name: 'Financial', weight: 13.4, etf: 'XLF',
+        stocks: [
+            { symbol: 'BRK-B', name: 'BRK-B', cap: 900 }, { symbol: 'JPM', name: 'JPM', cap: 700 },
+            { symbol: 'V', name: 'V', cap: 550 },          { symbol: 'MA', name: 'MA', cap: 450 },
+            { symbol: 'BAC', name: 'BAC', cap: 320 },      { symbol: 'WFC', name: 'WFC', cap: 230 },
+            { symbol: 'GS', name: 'GS', cap: 200 },        { symbol: 'MS', name: 'MS', cap: 190 },
+            { symbol: 'AXP', name: 'AXP', cap: 180 },      { symbol: 'C', name: 'C', cap: 150 },
+        ],
     },
     {
-        id: 'XLV', name: 'Healthcare', weight: 11.5,
-        stocks: ['LLY', 'JNJ', 'ABBV', 'MRK', 'UNH', 'AMGN', 'TMO', 'PFE', 'GILD', 'ABT']
+        id: 'health', name: 'Healthcare', weight: 11.5, etf: 'XLV',
+        stocks: [
+            { symbol: 'LLY', name: 'LLY', cap: 700 },   { symbol: 'JNJ', name: 'JNJ', cap: 380 },
+            { symbol: 'ABBV', name: 'ABBV', cap: 310 },  { symbol: 'MRK', name: 'MRK', cap: 280 },
+            { symbol: 'UNH', name: 'UNH', cap: 500 },    { symbol: 'TMO', name: 'TMO', cap: 200 },
+            { symbol: 'AMGN', name: 'AMGN', cap: 160 },  { symbol: 'PFE', name: 'PFE', cap: 150 },
+            { symbol: 'GILD', name: 'GILD', cap: 110 },  { symbol: 'ABT', name: 'ABT', cap: 220 },
+        ],
     },
     {
-        id: 'XLY', name: 'Consumer Cyclical', weight: 10.2,
-        stocks: ['AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'LOW', 'BKNG', 'TJX', 'SBUX', 'CMG']
+        id: 'cons_cyc', name: 'Consumer Cycl.', weight: 10.2, etf: 'XLY',
+        stocks: [
+            { symbol: 'AMZN', name: 'AMZN', cap: 2100 }, { symbol: 'TSLA', name: 'TSLA', cap: 800 },
+            { symbol: 'HD', name: 'HD', cap: 380 },       { symbol: 'MCD', name: 'MCD', cap: 220 },
+            { symbol: 'LOW', name: 'LOW', cap: 160 },     { symbol: 'BKNG', name: 'BKNG', cap: 160 },
+            { symbol: 'TJX', name: 'TJX', cap: 140 },    { symbol: 'NKE', name: 'NKE', cap: 120 },
+            { symbol: 'SBUX', name: 'SBUX', cap: 95 },   { symbol: 'CMG', name: 'CMG', cap: 80 },
+        ],
     },
     {
-        id: 'XLC', name: 'Communication', weight: 8.9,
-        stocks: ['META', 'GOOG', 'GOOGL', 'NFLX', 'DIS', 'T', 'VZ', 'TMUS', 'EA', 'PARA']
+        id: 'comm', name: 'Communication', weight: 8.9, etf: 'XLC',
+        stocks: [
+            { symbol: 'META', name: 'META', cap: 1500 }, { symbol: 'GOOGL', name: 'GOOGL', cap: 2000 },
+            { symbol: 'NFLX', name: 'NFLX', cap: 380 },  { symbol: 'DIS', name: 'DIS', cap: 200 },
+            { symbol: 'T', name: 'T', cap: 180 },         { symbol: 'VZ', name: 'VZ', cap: 160 },
+            { symbol: 'TMUS', name: 'TMUS', cap: 240 },   { symbol: 'EA', name: 'EA', cap: 45 },
+        ],
     },
     {
-        id: 'XLI', name: 'Industrials', weight: 8.3,
-        stocks: ['GE', 'CAT', 'RTX', 'HON', 'UNP', 'LMT', 'BA', 'DE', 'UPS', 'WM']
+        id: 'indust', name: 'Industrials', weight: 8.3, etf: 'XLI',
+        stocks: [
+            { symbol: 'GE', name: 'GE', cap: 230 },   { symbol: 'CAT', name: 'CAT', cap: 190 },
+            { symbol: 'RTX', name: 'RTX', cap: 180 },  { symbol: 'HON', name: 'HON', cap: 130 },
+            { symbol: 'UNP', name: 'UNP', cap: 140 },  { symbol: 'LMT', name: 'LMT', cap: 105 },
+            { symbol: 'BA', name: 'BA', cap: 130 },    { symbol: 'DE', name: 'DE', cap: 130 },
+            { symbol: 'UPS', name: 'UPS', cap: 95 },   { symbol: 'WM', name: 'WM', cap: 85 },
+        ],
     },
     {
-        id: 'XLP', name: 'Consumer Defensive', weight: 5.8,
-        stocks: ['WMT', 'PG', 'COST', 'KO', 'PM', 'PEP', 'MO', 'CL', 'MDLZ', 'KMB']
+        id: 'cons_def', name: 'Consumer Def.', weight: 5.8, etf: 'XLP',
+        stocks: [
+            { symbol: 'WMT', name: 'WMT', cap: 700 }, { symbol: 'PG', name: 'PG', cap: 370 },
+            { symbol: 'COST', name: 'COST', cap: 400 }, { symbol: 'KO', name: 'KO', cap: 280 },
+            { symbol: 'PEP', name: 'PEP', cap: 220 },   { symbol: 'PM', name: 'PM', cap: 200 },
+            { symbol: 'MO', name: 'MO', cap: 90 },
+        ],
     },
     {
-        id: 'XLE', name: 'Energy', weight: 4.2,
-        stocks: ['XOM', 'CVX', 'COP', 'EOG', 'SLB', 'MPC', 'PSX', 'OXY', 'VLO', 'HES']
+        id: 'energy', name: 'Energy', weight: 4.2, etf: 'XLE',
+        stocks: [
+            { symbol: 'XOM', name: 'XOM', cap: 480 }, { symbol: 'CVX', name: 'CVX', cap: 280 },
+            { symbol: 'COP', name: 'COP', cap: 120 },   { symbol: 'EOG', name: 'EOG', cap: 75 },
+            { symbol: 'SLB', name: 'SLB', cap: 55 },    { symbol: 'OXY', name: 'OXY', cap: 50 },
+        ],
     },
     {
-        id: 'XLB', name: 'Basic Materials', weight: 2.4,
-        stocks: ['LIN', 'SHW', 'APD', 'ECL', 'NEM', 'FCX', 'NUE', 'ALB', 'VMC', 'MLM']
+        id: 'util', name: 'Utilities', weight: 2.6, etf: 'XLU',
+        stocks: [
+            { symbol: 'NEE', name: 'NEE', cap: 106 }, { symbol: 'SO', name: 'SO', cap: 77 },
+            { symbol: 'DUK', name: 'DUK', cap: 66 },  { symbol: 'AEP', name: 'AEP', cap: 53 },
+            { symbol: 'D', name: 'D', cap: 47 },
+        ],
     },
     {
-        id: 'XLRE', name: 'Real Estate', weight: 2.2,
-        stocks: ['PLD', 'AMT', 'EQIX', 'WELL', 'SPG', 'DLR', 'O', 'CSGP', 'WY', 'EQR']
+        id: 'materials', name: 'Basic Materials', weight: 2.4, etf: 'XLB',
+        stocks: [
+            { symbol: 'LIN', name: 'LIN', cap: 220 }, { symbol: 'SHW', name: 'SHW', cap: 88 },
+            { symbol: 'APD', name: 'APD', cap: 63 },  { symbol: 'ECL', name: 'ECL', cap: 57 },
+            { symbol: 'FCX', name: 'FCX', cap: 55 },  { symbol: 'NEM', name: 'NEM', cap: 54 },
+        ],
     },
     {
-        id: 'XLU', name: 'Utilities', weight: 2.6,
-        stocks: ['NEE', 'SO', 'DUK', 'AEP', 'D', 'SRE', 'EXC', 'XEL', 'PEG', 'ED']
+        id: 'realestate', name: 'Real Estate', weight: 2.2, etf: 'XLRE',
+        stocks: [
+            { symbol: 'PLD', name: 'PLD', cap: 100 }, { symbol: 'AMT', name: 'AMT', cap: 87 },
+            { symbol: 'EQIX', name: 'EQIX', cap: 80 }, { symbol: 'WELL', name: 'WELL', cap: 55 },
+            { symbol: 'SPG', name: 'SPG', cap: 57 },
+        ],
     },
 ];
 
-// ── Korean KOSPI sector ETFs ───────────────────────────────────────────────────
-const KR_SECTORS = [
+// ── Korean KOSPI Sectors ───────────────────────────────────────────────────────
+const KR_SECTORS: Array<{
+    id: string; name: string; weight: number;
+    stocks: Array<{ symbol: string; name: string; cap: number }>;
+}> = [
     {
-        id: '091160', name: 'IT/반도체', weight: 32.0,
-        stocks: ['005930', '000660', '035420', '036570', '034220']
+        id: 'kr-semi', name: '반도체', weight: 25.0,
+        stocks: [
+            { symbol: '005930', name: '삼성전자', cap: 3500 },
+            { symbol: '000660', name: 'SK하이닉스', cap: 1300 },
+            { symbol: '042700', name: '한미반도체', cap: 100 },
+            { symbol: '403870', name: 'HPSP', cap: 45 },
+            { symbol: '336670', name: '에스피씨', cap: 30 },
+        ],
     },
     {
-        id: '091170', name: '금융', weight: 11.0,
-        stocks: ['105560', '055550', '086790', '316140', '138930']
+        id: 'kr-auto', name: '자동차', weight: 10.5,
+        stocks: [
+            { symbol: '005380', name: '현대차', cap: 500 },
+            { symbol: '000270', name: '기아', cap: 460 },
+            { symbol: '012330', name: '현대모비스', cap: 120 },
+            { symbol: '011210', name: '현대위아', cap: 40 },
+            { symbol: '204320', name: '만도', cap: 35 },
+        ],
     },
     {
-        id: '091180', name: '자동차', weight: 10.5,
-        stocks: ['005380', '000270', '012330', '011210', '204320']
+        id: 'kr-battery', name: '2차전지', weight: 9.5,
+        stocks: [
+            { symbol: '373220', name: 'LG에너지솔루션', cap: 700 },
+            { symbol: '002790', name: '아모텍', cap: 20 },
+            { symbol: '006400', name: '삼성SDI', cap: 280 },
+            { symbol: '051910', name: 'LG화학', cap: 220 },
+            { symbol: '247540', name: '에코프로비엠', cap: 80 },
+        ],
     },
     {
-        id: '091190', name: '화학/소재', weight: 9.0,
-        stocks: ['051910', '010950', '011000', '006400', '097950']
+        id: 'kr-finance', name: '금융', weight: 10.0,
+        stocks: [
+            { symbol: '105560', name: 'KB금융', cap: 300 },
+            { symbol: '055550', name: '신한지주', cap: 270 },
+            { symbol: '086790', name: '하나금융지주', cap: 180 },
+            { symbol: '316140', name: '우리금융지주', cap: 130 },
+            { symbol: '138930', name: 'BNK금융지주', cap: 50 },
+        ],
     },
     {
-        id: '091220', name: '바이오/헬스', weight: 8.5,
-        stocks: ['207940', '068270', '326030', '009830', '145020']
+        id: 'kr-bio', name: '바이오/헬스', weight: 8.5,
+        stocks: [
+            { symbol: '207940', name: '삼성바이오로직스', cap: 600 },
+            { symbol: '068270', name: '셀트리온', cap: 200 },
+            { symbol: '326030', name: 'SK바이오팜', cap: 45 },
+            { symbol: '091990', name: '셀트리온헬스케어', cap: 55 },
+            { symbol: '145020', name: '휴젤', cap: 40 },
+        ],
     },
     {
-        id: '091230', name: '통신', weight: 4.5,
-        stocks: ['017670', '030200', '032640']
+        id: 'kr-chem', name: '화학/소재', weight: 7.0,
+        stocks: [
+            { symbol: '010950', name: 'S-Oil', cap: 100 },
+            { symbol: '096770', name: 'SK이노베이션', cap: 130 },
+            { symbol: '051910', name: 'LG화학', cap: 220 },
+            { symbol: '011000', name: '케이씨씨', cap: 30 },
+        ],
     },
     {
-        id: '091210', name: '에너지/산업재', weight: 7.5,
-        stocks: ['096770', '010140', '000080', '009540', '047050']
+        id: 'kr-consumer', name: '소비재/유통', weight: 7.5,
+        stocks: [
+            { symbol: '139480', name: '이마트', cap: 50 },
+            { symbol: '004170', name: '신세계', cap: 40 },
+            { symbol: '069960', name: '현대백화점', cap: 25 },
+            { symbol: '271560', name: '오리온', cap: 60 },
+            { symbol: '097950', name: 'CJ제일제당', cap: 55 },
+        ],
     },
     {
-        id: '091200', name: '필수소비재/유통', weight: 8.0,
-        stocks: ['139480', '004170', '069960', '026960', '000810']
+        id: 'kr-telecom', name: '통신/IT서비스', weight: 6.0,
+        stocks: [
+            { symbol: '035420', name: 'NAVER', cap: 350 },
+            { symbol: '035720', name: '카카오', cap: 180 },
+            { symbol: '017670', name: 'SK텔레콤', cap: 130 },
+            { symbol: '030200', name: 'KT', cap: 80 },
+            { symbol: '032640', name: 'LG유플러스', cap: 50 },
+        ],
+    },
+    {
+        id: 'kr-steel', name: '철강/중공업', weight: 5.0,
+        stocks: [
+            { symbol: '005490', name: 'POSCO홀딩스', cap: 250 },
+            { symbol: '009540', name: 'HD한국조선해양', cap: 180 },
+            { symbol: '010140', name: '삼성중공업', cap: 80 },
+            { symbol: '047050', name: '포스코인터내셔널', cap: 60 },
+        ],
+    },
+    {
+        id: 'kr-elec', name: '전기/전자', weight: 5.5,
+        stocks: [
+            { symbol: '066570', name: 'LG전자', cap: 160 },
+            { symbol: '009150', name: '삼성전기', cap: 70 },
+            { symbol: '028260', name: '삼성물산', cap: 150 },
+            { symbol: '011070', name: 'LG이노텍', cap: 60 },
+        ],
+    },
+    {
+        id: 'kr-insurance', name: '보험/증권', weight: 4.5,
+        stocks: [
+            { symbol: '032830', name: '삼성생명', cap: 150 },
+            { symbol: '088350', name: '한화생명', cap: 50 },
+            { symbol: '006800', name: '미래에셋증권', cap: 60 },
+            { symbol: '071050', name: '한국금융지주', cap: 45 },
+        ],
+    },
+    {
+        id: 'kr-construction', name: '건설/부동산', weight: 3.5,
+        stocks: [
+            { symbol: '000720', name: '현대건설', cap: 50 },
+            { symbol: '006360', name: 'GS건설', cap: 20 },
+            { symbol: '047040', name: '대우건설', cap: 15 },
+        ],
     },
 ];
 
-// ── Fetch Yahoo Finance quote ──────────────────────────────────────────────────
-async function fetchYahooQuote(symbol: string): Promise<{ price: number; change: number; changePercent: number; name: string; marketCap: number } | null> {
+// ── Yahoo Finance quote ─────────────────────────────────────────────────────────
+async function fetchYahooQuote(symbol: string): Promise<{ changePercent: number; price: number } | null> {
     try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+        const encoded = encodeURIComponent(symbol);
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=2d`;
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            cache: 'no-store'
+            headers: { 'User-Agent': DEFAULT_UA, 'Accept': 'application/json' },
+            cache: 'no-store',
         });
         if (!res.ok) return null;
-        const json = await res.json();
-        const result = json.chart?.result?.[0];
-        if (!result) return null;
-
-        const meta = result.meta;
+        const j = await res.json();
+        const meta = j.chart?.result?.[0]?.meta;
+        if (!meta) return null;
         const price = meta.regularMarketPrice ?? 0;
-        const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
-        const change = price - prevClose;
-        const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+        const prev = meta.chartPreviousClose ?? meta.previousClose ?? price;
+        const changePercent = prev > 0 ? ((price - prev) / prev) * 100 : 0;
+        return { changePercent, price };
+    } catch {
+        return null;
+    }
+}
 
-        return {
-            price,
-            change,
-            changePercent,
-            name: meta.shortName || symbol,
-            marketCap: meta.marketCap || 0,
+// ── Naver Finance quote (Korean stocks) ────────────────────────────────────────
+async function fetchNaverStockChange(symbol: string): Promise<{ changePercent: number; price: number } | null> {
+    try {
+        const code = symbol.split('.')[0];
+        const url = `https://m.stock.naver.com/api/stock/${code}/basic`;
+        const res = await fetch(url, {
+            headers: { 'User-Agent': DEFAULT_UA },
+            cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const extractNumber = (v: any) => {
+            if (!v) return 0;
+            return parseFloat(String(v).replace(/,/g, '')) || 0;
         };
+        const price = extractNumber(data.closePrice);
+        const changeMag = extractNumber(data.fluctuationsRatio);
+        const dirName: string = data.compareToPreviousPrice?.name || '';
+        const sign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1 : 1;
+        return { changePercent: changeMag * sign, price };
     } catch {
         return null;
     }
@@ -124,76 +284,71 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; change:
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const market = searchParams.get('market') || 'US'; // 'US' | 'KR'
-
-    // Cache check
+    const market = (searchParams.get('market') || 'US') as 'US' | 'KR';
     const cacheKey = market;
-    if (_cache && Date.now() - _cache.ts < TTL) {
-        return NextResponse.json(_cache.data);
+
+    if (_cache[cacheKey] && Date.now() - _cache[cacheKey].ts < TTL) {
+        return NextResponse.json(_cache[cacheKey].data);
     }
 
     try {
         if (market === 'US') {
-            // Fetch ETF data for each sector + top constituent prices
             const sectorResults = await Promise.all(
                 US_SECTORS.map(async (sec) => {
-                    // Fetch ETF quote (for sector-level change)
-                    const etfQuote = await fetchYahooQuote(sec.id);
-
-                    // Fetch top 5 constituent quotes in parallel
-                    const stockQuotes = await Promise.all(
-                        sec.stocks.slice(0, 6).map(s => fetchYahooQuote(s))
+                    const etfData = await fetchYahooQuote(sec.etf);
+                    const stockResults = await Promise.all(
+                        sec.stocks.map(s => fetchYahooQuote(s.symbol))
                     );
-
-                    const stocks = sec.stocks.slice(0, 6).map((sym, i) => ({
-                        symbol: sym,
-                        name: stockQuotes[i]?.name || sym,
-                        changePercent: stockQuotes[i]?.changePercent || 0,
-                        price: stockQuotes[i]?.price || 0,
-                        marketCap: stockQuotes[i]?.marketCap || 0,
-                    })).filter(s => s.price > 0);
-
-                    // Sort stocks by market cap descending to mirror real treemap weight
-                    stocks.sort((a, b) => b.marketCap - a.marketCap);
-
                     return {
                         id: sec.id,
                         name: sec.name,
                         weight: sec.weight,
-                        changePercent: etfQuote?.changePercent || 0,
-                        change: etfQuote?.change || 0,
-                        price: etfQuote?.price || 0,
-                        stocks,
+                        changePercent: etfData?.changePercent ?? 0,
+                        stocks: sec.stocks.map((s, i) => ({
+                            symbol: s.symbol,
+                            name: s.name,
+                            cap: s.cap,
+                            changePercent: stockResults[i]?.changePercent ?? 0,
+                            price: stockResults[i]?.price ?? 0,
+                        })).filter(s => s.price > 0),
                     };
                 })
             );
-
             const data = { market: 'US', sectors: sectorResults };
-            _cache = { data, ts: Date.now() };
+            _cache[cacheKey] = { data, ts: Date.now() };
             return NextResponse.json(data);
-
         } else {
-            // Korean market — use ETF quotes from Yahoo (KRX ETFs with .KS suffix)
+            // Korean market
             const sectorResults = await Promise.all(
                 KR_SECTORS.map(async (sec) => {
+                    const stockResults = await Promise.all(
+                        sec.stocks.map(s => fetchNaverStockChange(s.symbol))
+                    );
+                    const stocks = sec.stocks.map((s, i) => ({
+                        symbol: s.symbol,
+                        name: s.name,
+                        cap: s.cap,
+                        changePercent: stockResults[i]?.changePercent ?? 0,
+                        price: stockResults[i]?.price ?? 0,
+                    }));
+                    // Weighted avg sector change
+                    const totalCap = stocks.reduce((a, s) => a + s.cap, 0) || 1;
+                    const sectorChange = stocks.reduce((a, s) => a + s.changePercent * (s.cap / totalCap), 0);
                     return {
                         id: sec.id,
                         name: sec.name,
                         weight: sec.weight,
-                        changePercent: (Math.random() - 0.5) * 4, // placeholder
-                        change: 0,
-                        price: 0,
-                        stocks: [],
+                        changePercent: sectorChange,
+                        stocks: stocks.filter(s => s.price > 0),
                     };
                 })
             );
-
             const data = { market: 'KR', sectors: sectorResults };
-            _cache = { data, ts: Date.now() };
+            _cache[cacheKey] = { data, ts: Date.now() };
             return NextResponse.json(data);
         }
-    } catch (error) {
-        console.error('Sector API error:', error);
-        return NextResponse.json({ error: 'Failed to fetch sector data' }, { status: 500 });
+    } catch (err) {
+        console.error('Sector heatmap API error:', err);
+        return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
     }
 }

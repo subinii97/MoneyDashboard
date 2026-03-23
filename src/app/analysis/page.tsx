@@ -1,225 +1,301 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface StockBlock {
+interface Stock {
     symbol: string;
     name: string;
+    cap: number;
     changePercent: number;
     price: number;
-    marketCap: number;
 }
 
-interface SectorData {
+interface Sector {
     id: string;
     name: string;
     weight: number;
     changePercent: number;
-    change: number;
-    price: number;
-    stocks: StockBlock[];
+    stocks: Stock[];
 }
 
-// ── Color scale (US-style: green = up, red = down) ────────────────────────────
-function getPct(pct: number): { bg: string; text: string } {
-    if (pct >= 5)    return { bg: '#1a4731', text: '#4ade80' };
-    if (pct >= 3)    return { bg: '#14532d', text: '#86efac' };
-    if (pct >= 1.5)  return { bg: '#166534', text: '#bbf7d0' };
-    if (pct >= 0.5)  return { bg: '#1e6b3c', text: '#d1fae5' };
-    if (pct >= 0)    return { bg: '#1f4b35', text: '#a7f3d0' };
-    if (pct >= -0.5) return { bg: '#4c1d24', text: '#fca5a5' };
-    if (pct >= -1.5) return { bg: '#7f1d1d', text: '#fca5a5' };
-    if (pct >= -3)   return { bg: '#991b1b', text: '#fed7d7' };
-    if (pct >= -5)   return { bg: '#b91c1c', text: '#fef2f2' };
-    return               { bg: '#c41e1e', text: '#fff5f5' };
+interface Rect { x: number; y: number; w: number; h: number; }
+
+// ── Squarified treemap algorithm ───────────────────────────────────────────────
+interface LayoutItem extends Rect { idx: number; }
+
+function squarifyLayout(
+    values: number[],          // size of each item (e.g. market cap or sector weight)
+    x: number, y: number, w: number, h: number
+): Rect[] {
+    if (!values.length) return [];
+    const total = values.reduce((s, v) => s + v, 0);
+    const areas = values.map(v => (v / total) * w * h);
+
+    const result: Rect[] = new Array(values.length);
+
+    function worstAspect(row: number[], rowW: number): number {
+        const rowSum = row.reduce((s, a) => s + a, 0);
+        const rowH = rowSum / rowW;
+        let worst = 0;
+        for (const a of row) {
+            const cellW = rowW > 0 ? a / rowH : 0;
+            const ratio = Math.max(rowH / cellW, cellW / rowH);
+            if (ratio > worst) worst = ratio;
+        }
+        return worst;
+    }
+
+    function layout(
+        indices: number[], ix: number, iy: number, iw: number, ih: number
+    ) {
+        if (!indices.length) return;
+        if (indices.length === 1) {
+            result[indices[0]] = { x: ix, y: iy, w: iw, h: ih };
+            return;
+        }
+
+        const iAreas = indices.map(i => areas[i]);
+        const iTotal = iAreas.reduce((s, a) => s + a, 0);
+
+        // Try horizontal strip
+        const lays: Array<{ split: number; aspect: number }> = [];
+        let cumArea = 0;
+        for (let k = 0; k < indices.length - 1; k++) {
+            cumArea += iAreas[k];
+            const stripW = iw >= ih ? cumArea / ih : iw;
+            const stripH = iw >= ih ? ih : cumArea / iw;
+            const stripArea = iw >= ih ? cumArea : cumArea;
+            const rowDir = iw >= ih;
+            const bandW = rowDir ? (iTotal > 0 ? (cumArea / iTotal) * iw : 0) : iw;
+            const bandH = rowDir ? ih : (iTotal > 0 ? (cumArea / iTotal) * ih : 0);
+            const row = iAreas.slice(0, k + 1);
+            const aspect = worstAspect(row, rowDir ? bandH : bandW);
+            lays.push({ split: k + 1, aspect });
+        }
+
+        let bestSplit = 1;
+        let bestAspect = Infinity;
+        for (const l of lays) {
+            if (l.aspect < bestAspect) { bestAspect = l.aspect; bestSplit = l.split; }
+        }
+
+        const leftIndices  = indices.slice(0, bestSplit);
+        const rightIndices = indices.slice(bestSplit);
+        const leftArea     = leftIndices.reduce((s, i) => s + areas[i], 0);
+        const rightArea    = rightIndices.reduce((s, i) => s + areas[i], 0);
+
+        if (iw >= ih) {
+            // Horizontal split
+            const leftW = iTotal > 0 ? (leftArea / iTotal) * iw : 0;
+            // Place left column (vertical strip)
+            let cy = iy;
+            for (const i of leftIndices) {
+                const cellH = leftArea > 0 ? (areas[i] / leftArea) * ih : 0;
+                result[i] = { x: ix, y: cy, w: leftW, h: cellH };
+                cy += cellH;
+            }
+            layout(rightIndices, ix + leftW, iy, iw - leftW, ih);
+        } else {
+            // Vertical split
+            const topH = iTotal > 0 ? (leftArea / iTotal) * ih : 0;
+            let cx = ix;
+            for (const i of leftIndices) {
+                const cellW = leftArea > 0 ? (areas[i] / leftArea) * iw : 0;
+                result[i] = { x: cx, y: iy, w: cellW, h: topH };
+                cx += cellW;
+            }
+            layout(rightIndices, ix, iy + topH, iw, ih - topH);
+        }
+    }
+
+    // Sort descending by area, keep track of original indices
+    const sorted = values.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+    // Override areas with sorted values for layout computation
+    const origAreas = [...areas];
+    sorted.forEach((s, k) => { areas[k] = origAreas[s.i]; });
+    const remapped = sorted.map((_, k) => k);
+    layout(remapped, x, y, w, h);
+    // Map back to original indices
+    const finalResult: Rect[] = new Array(values.length);
+    sorted.forEach((s, k) => { finalResult[s.i] = result[k]; });
+    // Restore areas
+    sorted.forEach((s, k) => { areas[s.i] = origAreas[s.i]; });
+    return finalResult;
 }
 
-// ── Stock Block ───────────────────────────────────────────────────────────────
-function StockTile({ stock, height }: { stock: StockBlock; height: number }) {
-    const c = getPct(stock.changePercent);
-    const large = height > 60;
-    const small = height < 35;
+// ── Color helpers (US conventions: green=up, red=down) ────────────────────────
+function getColor(pct: number) {
+    if (pct >= 4)    return { bg: '#0d3320', text: '#4ade80', border: '#16a34a' };
+    if (pct >= 2)    return { bg: '#14532d', text: '#86efac', border: '#15803d' };
+    if (pct >= 0.75) return { bg: '#166534', text: '#bbf7d0', border: '#166534' };
+    if (pct >= 0)    return { bg: '#1e3a2a', text: '#6ee7b7', border: '#1e3a2a' };
+    if (pct >= -0.75)return { bg: '#3a1e1e', text: '#fca5a5', border: '#3a1e1e' };
+    if (pct >= -2)   return { bg: '#7f1d1d', text: '#fca5a5', border: '#991b1b' };
+    if (pct >= -4)   return { bg: '#991b1b', text: '#fecaca', border: '#b91c1c' };
+    return                { bg: '#b91c1c', text: '#fff1f2', border: '#dc2626' };
+}
+
+const GAP = 1.5;    // px gap between tiles
+const SECTOR_GAP = 2; // px gap between sectors
+const HEADER_H = 24; // sector header height
+
+// ── Stock Tile ─────────────────────────────────────────────────────────────────
+function StockTile({ stock, rect }: { stock: Stock; rect: Rect }) {
+    const [hovered, setHovered] = useState(false);
+    const c = getColor(stock.changePercent);
+    const w = rect.w - GAP;
+    const h = rect.h - GAP;
+    const showSymbol = h > 22 && w > 36;
+    const showPct    = h > 14 && w > 28;
+    const bigFont    = h > 55 && w > 70;
+
     return (
         <div
-            title={`${stock.symbol}\n${stock.name}\n${stock.changePercent >= 0 ? '+' : ''}${stock.changePercent.toFixed(2)}%`}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            title={`${stock.name} (${stock.symbol})\n${stock.changePercent >= 0 ? '+' : ''}${stock.changePercent.toFixed(2)}%\n$${stock.price?.toLocaleString()}`}
             style={{
-                background: c.bg,
-                color: c.text,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                borderRadius: '3px',
-                border: '1px solid rgba(0,0,0,0.35)',
-                cursor: 'pointer',
-                transition: 'filter 0.15s',
-                userSelect: 'none',
+                position: 'absolute',
+                left: rect.x + GAP / 2, top: rect.y + GAP / 2,
+                width: w, height: h,
+                background: hovered ? c.border : c.bg,
+                border: `1px solid ${c.border}`,
+                borderRadius: 3,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                overflow: 'hidden', cursor: 'pointer',
+                transition: 'background 0.15s',
+                boxSizing: 'border-box',
             }}
-            onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.25)')}
-            onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
         >
-            {!small && (
-                <div style={{ fontWeight: '800', fontSize: large ? '0.85rem' : '0.7rem', lineHeight: 1.1, textAlign: 'center', padding: '0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+            {showSymbol && (
+                <div style={{
+                    color: c.text, fontWeight: 800,
+                    fontSize: bigFont ? 13 : h > 35 ? 11 : 9,
+                    lineHeight: 1.1, textAlign: 'center',
+                    padding: '0 3px', whiteSpace: 'nowrap',
+                    overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
+                }}>
                     {stock.symbol}
                 </div>
             )}
-            <div style={{ fontWeight: '700', fontSize: large ? '0.78rem' : small ? '0.55rem' : '0.65rem', lineHeight: 1.1, marginTop: '2px' }}>
-                {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
-            </div>
+            {showPct && (
+                <div style={{
+                    color: c.text, fontWeight: 700,
+                    fontSize: bigFont ? 12 : h > 35 ? 10 : 8.5,
+                    lineHeight: 1.1, marginTop: showSymbol ? 2 : 0,
+                }}>
+                    {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
+                </div>
+            )}
         </div>
     );
 }
 
-// ── Sector Block ──────────────────────────────────────────────────────────────
-function SectorBlock({ sector, totalWidth }: { sector: SectorData; totalWidth: number }) {
-    const c = getPct(sector.changePercent);
-    // Compute how wide this sector is (proportion of total visible area)
-    // Each stock gets area proportional to marketCap, then we fill a grid
-    const stocks = sector.stocks.filter(s => s.price > 0);
+// ── Sector Tile ────────────────────────────────────────────────────────────────
+function SectorTile({ sector, rect }: { sector: Sector; rect: Rect }) {
+    const c = getColor(sector.changePercent);
+    const innerW = rect.w - SECTOR_GAP;
+    const innerH = rect.h - SECTOR_GAP;
+    const contentH = innerH - HEADER_H;
 
-    // Simple proportional tiling: lay out stocks in rows, heights scale with relative size
-    // Row height = constant, column widths = proportional
-    const blockHeight = 140;
-    const headerH = 28;
-    const contentH = blockHeight - headerH;
-
-    // Compute per-stock relative widths within sector block
-    const totalCap = stocks.reduce((s, t) => s + (t.marketCap || 1), 0) || 1;
+    // Layout stocks within this sector's content area
+    const stocks = [...sector.stocks].filter(s => s.price > 0).sort((a, b) => b.cap - a.cap);
+    const caps = stocks.map(s => s.cap);
+    const stockRects = squarifyLayout(caps, 0, 0, innerW, contentH);
 
     return (
         <div style={{
-            flex: `${sector.weight} 0 0`,
-            minWidth: '80px',
-            height: `${blockHeight}px`,
-            background: '#151515',
-            border: '1px solid #2a2a2a',
-            borderRadius: '4px',
+            position: 'absolute',
+            left: rect.x + SECTOR_GAP / 2, top: rect.y + SECTOR_GAP / 2,
+            width: innerW, height: innerH,
+            background: '#0d0d0d',
+            border: `1px solid ${c.border}`,
+            borderRadius: 4,
             overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
+            boxSizing: 'border-box',
         }}>
-            {/* Sector header */}
+            {/* Header */}
             <div style={{
-                height: `${headerH}px`,
+                height: HEADER_H,
                 background: c.bg,
-                color: c.text,
-                display: 'flex',
-                alignItems: 'center',
+                display: 'flex', alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '0 8px',
-                fontWeight: '700',
-                fontSize: '0.72rem',
-                flexShrink: 0,
-                gap: '6px',
+                flexShrink: 0, borderBottom: `1px solid ${c.border}`,
             }}>
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sector.name}</span>
-                <span style={{ whiteSpace: 'nowrap', fontWeight: '800', flexShrink: 0 }}>
+                <span style={{ color: c.text, fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {sector.name}
+                </span>
+                <span style={{ color: c.text, fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap', marginLeft: 6 }}>
                     {sector.changePercent >= 0 ? '+' : ''}{sector.changePercent.toFixed(2)}%
                 </span>
             </div>
 
             {/* Stock tiles */}
-            <div style={{
-                flex: 1,
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '1px',
-                padding: '1px',
-                alignContent: 'flex-start',
-                overflow: 'hidden',
-            }}>
-                {stocks.length === 0 && (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '0.7rem' }}>
-                        로딩 중...
-                    </div>
-                )}
-                {stocks.map(stock => {
-                    const capRatio = (stock.marketCap || 1) / totalCap;
-                    // Each stock gets a width proportional to its cap ratio
-                    // We give minimum 40px, maximum is capped naturally
-                    const minW = 40;
-                    const maxW = Math.max(minW, capRatio * 100); // in %
-
-                    return (
-                        <div
-                            key={stock.symbol}
-                            style={{
-                                flex: `${capRatio * 100} 0 ${minW}px`,
-                                maxWidth: `${Math.min(capRatio * 500, 99)}%`,
-                                height: `${contentH - 3}px`,
-                            }}
-                        >
-                            <StockTile stock={stock} height={contentH - 3} />
-                        </div>
-                    );
-                })}
+            <div style={{ position: 'relative', width: innerW, height: contentH, overflow: 'hidden' }}>
+                {stocks.map((stock, i) => (
+                    stockRects[i] && (
+                        <StockTile key={stock.symbol} stock={stock} rect={stockRects[i]} />
+                    )
+                ))}
             </div>
         </div>
     );
 }
 
-// ── S&P500 / KOSPI split layout like Finviz ────────────────────────────────────
-// We split into ~3 rows by grouping sectors with similar weights
-function buildRows(sectors: SectorData[]): SectorData[][] {
-    // Sort by weight desc, then split into rows
-    // Row 1: Tech + 2-3 others up to ~55% total
-    // Row 2: mid-weight sectors
-    // Row 3: smaller sectors
-    let remaining = [...sectors];
-    const rows: SectorData[][] = [];
-
-    // Greedy: fill rows until weight ~= 35%
-    const TARGET_ROW = 35;
-    while (remaining.length > 0) {
-        const row: SectorData[] = [];
-        let rowW = 0;
-        let i = 0;
-        while (i < remaining.length && (rowW < TARGET_ROW || row.length === 0)) {
-            row.push(remaining[i]);
-            rowW += remaining[i].weight;
-            i++;
-        }
-        remaining = remaining.slice(row.length);
-        if (rows.length >= 2 && remaining.length > 0) {
-            // Push all remainders into last row
-            row.push(...remaining);
-            remaining = [];
-        }
-        rows.push(row);
-    }
-    return rows;
-}
-
 // ── Legend ────────────────────────────────────────────────────────────────────
-const LEGEND_STEPS = [
-    { label: '-5%+', bg: '#c41e1e', text: '#fff5f5' },
-    { label: '-3%', bg: '#991b1b', text: '#fed7d7' },
-    { label: '-1%', bg: '#7f1d1d', text: '#fca5a5' },
-    { label: '0%', bg: '#2d2d2d', text: '#888' },
-    { label: '+1%', bg: '#1e6b3c', text: '#d1fae5' },
-    { label: '+3%', bg: '#166534', text: '#bbf7d0' },
-    { label: '+5%+', bg: '#14532d', text: '#86efac' },
+const LEGEND = [
+    { label: '-4%+', ...getColor(-5) },
+    { label: '-2%', ...getColor(-3) },
+    { label: '-1%', ...getColor(-1.5) },
+    { label: '0%', bg: '#1a1a1a', text: '#666', border: '#333' },
+    { label: '+1%', ...getColor(1.5) },
+    { label: '+2%', ...getColor(3) },
+    { label: '+4%+', ...getColor(5) },
 ];
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AnalysisPage() {
     const [market, setMarket] = useState<'US' | 'KR'>('US');
-    const [sectors, setSectors] = useState<SectorData[]>([]);
+    const [sectors, setSectors] = useState<Sector[]>([]);
     const [loading, setLoading] = useState(true);
-    const [lastFetched, setLastFetched] = useState<string>('');
-    const [rows, setRows] = useState<SectorData[][]>([]);
+    const [lastFetched, setLastFetched] = useState('');
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [containerSize, setContainerSize] = useState({ w: 1100, h: 560 });
+    const [sectorRects, setSectorRects] = useState<Rect[]>([]);
+
+    // Measure container
+    useLayoutEffect(() => {
+        const measure = () => {
+            if (containerRef.current) {
+                const { width } = containerRef.current.getBoundingClientRect();
+                const h = Math.min(Math.round(width * 0.52), 620);
+                setContainerSize({ w: Math.round(width), h });
+            }
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, []);
+
+    // Recompute sector layout when sectors or container size changes
+    useEffect(() => {
+        if (!sectors.length) return;
+        const weights = sectors.map(s => s.weight);
+        const rects = squarifyLayout(weights, 0, 0, containerSize.w, containerSize.h);
+        setSectorRects(rects);
+    }, [sectors, containerSize]);
 
     const fetchSectors = useCallback(async (m: 'US' | 'KR') => {
         setLoading(true);
         try {
             const res = await fetch(`/api/analysis/sectors?market=${m}&t=${Date.now()}`);
             const json = await res.json();
-            const s: SectorData[] = json.sectors || [];
-            setSectors(s);
-            setRows(buildRows([...s].sort((a, b) => b.weight - a.weight)));
+            const raw: Sector[] = (json.sectors || []).filter((s: Sector) => s.weight > 0);
+            setSectors(raw);
             setLastFetched(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
         } catch (e) {
             console.error(e);
@@ -228,40 +304,31 @@ export default function AnalysisPage() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchSectors(market);
-    }, [market, fetchSectors]);
+    useEffect(() => { fetchSectors(market); }, [market, fetchSectors]);
 
-    // Overall market performance (weighted avg)
     const marketChange = sectors.length > 0
         ? sectors.reduce((s, sec) => s + sec.changePercent * (sec.weight / 100), 0)
         : 0;
-    const mc = getPct(marketChange);
+    const mc = getColor(marketChange);
 
     return (
-        <main style={{ padding: '1.5rem 2rem', maxWidth: '1600px', margin: '0 auto', color: 'var(--foreground)', background: 'var(--background)' }}>
+        <main style={{ padding: '1.5rem 2rem', maxWidth: '1600px', margin: '0 auto', color: 'var(--foreground)' }}>
             {/* Header */}
-            <header style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <header style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                 <div>
                     <span className="section-label">Market Analysis</span>
-                    <h1 style={{ fontSize: '1.8rem', fontWeight: '900', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                    <h1 style={{ fontSize: '1.7rem', fontWeight: '900', letterSpacing: '-0.03em', lineHeight: 1 }}>
                         Sector Heatmap
                     </h1>
                 </div>
 
-                {/* Market toggle */}
-                <div style={{ display: 'flex', gap: '0.4rem', background: '#1a1a1a', padding: '4px', borderRadius: '10px', border: '1px solid #2a2a2a' }}>
+                {/* Market tabs */}
+                <div style={{ display: 'flex', gap: '0.3rem', background: '#111', padding: '3px', borderRadius: '10px', border: '1px solid #222' }}>
                     {(['US', 'KR'] as const).map(m => (
                         <button key={m} onClick={() => setMarket(m)} style={{
-                            padding: '0.4rem 1.2rem',
-                            fontSize: '0.85rem',
-                            borderRadius: '7px',
-                            border: 'none',
-                            background: market === m ? 'var(--primary)' : 'transparent',
-                            color: market === m ? 'white' : '#888',
-                            cursor: 'pointer',
-                            fontWeight: '700',
-                            transition: 'all 0.2s',
+                            padding: '0.35rem 1rem', fontSize: '0.82rem', borderRadius: '7px',
+                            border: 'none', background: market === m ? 'var(--primary)' : 'transparent',
+                            color: market === m ? 'white' : '#666', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s',
                         }}>
                             {m === 'US' ? '🇺🇸 S&P 500' : '🇰🇷 KOSPI'}
                         </button>
@@ -269,75 +336,71 @@ export default function AnalysisPage() {
                 </div>
 
                 {/* Refresh */}
-                <button onClick={() => fetchSectors(market)} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'none', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.4rem 0.85rem', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}>
-                    <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-                    {lastFetched || '갱신'}
-                    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                <button onClick={() => fetchSectors(market)} disabled={loading} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    background: 'none', border: '1px solid var(--border)', borderRadius: '8px',
+                    padding: '0.35rem 0.75rem', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
+                }}>
+                    <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    {loading ? '로딩 중...' : lastFetched}
                 </button>
 
-                {/* Market summary badge */}
+                {/* Market badge */}
                 {!loading && sectors.length > 0 && (
-                    <div style={{
-                        padding: '0.35rem 0.85rem',
-                        background: mc.bg,
-                        color: mc.text,
-                        borderRadius: '8px',
-                        fontWeight: '800',
-                        fontSize: '0.9rem',
-                    }}>
-                        {market === 'US' ? 'S&P 500' : 'KOSPI'}&nbsp;
-                        {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
+                    <div style={{ padding: '0.3rem 0.8rem', background: mc.bg, color: mc.text, borderRadius: '7px', fontWeight: 800, fontSize: '0.88rem', border: `1px solid ${mc.border}` }}>
+                        {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
                     </div>
                 )}
 
                 {/* Legend */}
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                    {LEGEND_STEPS.map(s => (
-                        <div key={s.label} style={{
-                            width: '38px', height: '22px',
-                            background: s.bg,
+                    {LEGEND.map(l => (
+                        <div key={l.label} style={{
+                            width: 36, height: 20, background: l.bg, borderRadius: 3,
+                            border: `1px solid ${l.border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.6rem', fontWeight: '700', color: s.text,
-                            borderRadius: '3px',
-                        }}>
-                            {s.label}
-                        </div>
+                            fontSize: '0.6rem', fontWeight: 700, color: l.text,
+                        }}>{l.label}</div>
                     ))}
                 </div>
             </header>
 
-            {/* Heatmap */}
-            {loading ? (
-                <div style={{ height: '420px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '1rem' }}>
-                    시장 데이터 로딩 중... (10~20초 소요)
-                </div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', userSelect: 'none' }}>
-                    {rows.map((row, ri) => (
-                        <div key={ri} style={{ display: 'flex', gap: '2px', width: '100%' }}>
-                            {row.map(sec => (
-                                <SectorBlock key={sec.id} sector={sec} totalWidth={100} />
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            )}
+            {/* Treemap container */}
+            <div
+                ref={containerRef}
+                style={{
+                    width: '100%',
+                    height: containerSize.h,
+                    position: 'relative',
+                    background: '#0a0a0a',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    border: '1px solid #1a1a1a',
+                    minHeight: 400,
+                }}
+            >
+                {loading && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', color: '#555' }}>
+                        <RefreshCw size={28} style={{ animation: 'spin 1s linear infinite' }} />
+                        <span style={{ fontSize: '0.9rem' }}>시장 데이터 로딩 중... (10~20초 소요)</span>
+                    </div>
+                )}
+                {!loading && sectorRects.map((rect, i) => (
+                    <SectorTile key={sectors[i]?.id} sector={sectors[i]} rect={rect} />
+                ))}
+            </div>
 
-            {/* Sector summary bar */}
+            {/* Sector summary pill row */}
             {!loading && sectors.length > 0 && (
-                <div style={{ marginTop: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {[...sectors].sort((a, b) => b.changePercent - a.changePercent).map(sec => {
-                        const c = getPct(sec.changePercent);
+                        const c = getColor(sec.changePercent);
                         return (
                             <div key={sec.id} style={{
-                                padding: '0.3rem 0.8rem',
-                                background: c.bg,
-                                color: c.text,
-                                borderRadius: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: '700',
-                                display: 'flex',
-                                gap: '0.5rem',
+                                padding: '0.25rem 0.7rem', background: c.bg, color: c.text,
+                                borderRadius: 6, fontSize: '0.75rem', fontWeight: 700,
+                                border: `1px solid ${c.border}`, display: 'flex', gap: '0.5rem',
                             }}>
                                 <span>{sec.name}</span>
                                 <span>{sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%</span>
@@ -345,12 +408,6 @@ export default function AnalysisPage() {
                         );
                     })}
                 </div>
-            )}
-
-            {market === 'KR' && (
-                <p style={{ marginTop: '1rem', fontSize: '0.78rem', color: '#555', textAlign: 'center' }}>
-                    * 한국 시장 데이터는 준비 중입니다. 현재는 US S&P 500 섹터를 확인해주세요.
-                </p>
             )}
         </main>
     );
