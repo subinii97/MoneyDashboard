@@ -1,35 +1,32 @@
 import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
+const TTL = 10 * 1000; // 10 seconds cache
+const _cache: Record<string, { data: any; ts: number }> = {};
+const DEFAULT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
-let _cache: Record<string, { data: any; ts: number }> = {};
-const TTL = 8 * 60 * 1000;
-
-// ── US S&P500 Sectors (market cap weights + top constituents with relative caps) ──
+// ── US S&P 500 Sectors ────────────────────────────────────────────────────────
 const US_SECTORS: Array<{
-    id: string; name: string; weight: number;
-    etf: string;
+    id: string; name: string; weight: number; etf: string;
     stocks: Array<{ symbol: string; name: string; cap: number }>;
 }> = [
     {
-        id: 'tech', name: 'Technology', weight: 31.5, etf: 'XLK',
+        id: 'tech', name: 'Technology', weight: 29.8, etf: 'XLK',
         stocks: [
-            { symbol: 'NVDA', name: 'NVDA', cap: 2900 }, { symbol: 'AAPL', name: 'AAPL', cap: 3100 },
-            { symbol: 'MSFT', name: 'MSFT', cap: 2800 }, { symbol: 'AVGO', name: 'AVGO', cap: 750 },
-            { symbol: 'ORCL', name: 'ORCL', cap: 420 }, { symbol: 'AMD', name: 'AMD', cap: 200 },
-            { symbol: 'QCOM', name: 'QCOM', cap: 190 }, { symbol: 'TXN', name: 'TXN', cap: 180 },
-            { symbol: 'INTC', name: 'INTC', cap: 100 }, { symbol: 'MU', name: 'MU', cap: 110 },
+            { symbol: 'AAPL', name: 'AAPL', cap: 3000 }, { symbol: 'MSFT', name: 'MSFT', cap: 3200 },
+            { symbol: 'NVDA', name: 'NVDA', cap: 3000 }, { symbol: 'AVGO', name: 'AVGO', cap: 640 },
+            { symbol: 'ADBE', name: 'ADBE', cap: 240 },   { symbol: 'CRM', name: 'CRM', cap: 230 },
+            { symbol: 'CSCO', name: 'CSCO', cap: 190 },   { symbol: 'ACN', name: 'ACN', cap: 210 },
+            { symbol: 'INTC', name: 'INTC', cap: 140 },   { symbol: 'QCOM', name: 'QCOM', cap: 180 },
         ],
     },
     {
-        id: 'fin', name: 'Financial', weight: 13.4, etf: 'XLF',
+        id: 'fin', name: 'Financials', weight: 13.1, etf: 'XLF',
         stocks: [
-            { symbol: 'BRK-B', name: 'BRK-B', cap: 900 }, { symbol: 'JPM', name: 'JPM', cap: 700 },
-            { symbol: 'V', name: 'V', cap: 550 },          { symbol: 'MA', name: 'MA', cap: 450 },
-            { symbol: 'BAC', name: 'BAC', cap: 320 },      { symbol: 'WFC', name: 'WFC', cap: 230 },
-            { symbol: 'GS', name: 'GS', cap: 200 },        { symbol: 'MS', name: 'MS', cap: 190 },
-            { symbol: 'AXP', name: 'AXP', cap: 180 },      { symbol: 'C', name: 'C', cap: 150 },
+            { symbol: 'JPM', name: 'JPM', cap: 550 },     { symbol: 'V', name: 'V', cap: 550 },
+            { symbol: 'MA', name: 'MA', cap: 450 },       { symbol: 'BAC', name: 'BAC', cap: 320 },
+            { symbol: 'WFC', name: 'WFC', cap: 230 },      { symbol: 'GS', name: 'GS', cap: 200 },
+            { symbol: 'MS', name: 'MS', cap: 190 },        { symbol: 'AXP', name: 'AXP', cap: 180 },
+            { symbol: 'C', name: 'C', cap: 150 },
         ],
     },
     {
@@ -120,106 +117,105 @@ const KR_SECTORS: Array<{
     stocks: Array<{ symbol: string; name: string; cap: number }>;
 }> = [
     {
-        id: 'kr-semi', name: 'IT/반도체', weight: 28.0,
+        id: 'kr-elec', name: '전기전자', weight: 32.0,
         stocks: [
             { symbol: '005930', name: '삼성전자', cap: 3500 },
             { symbol: '000660', name: 'SK하이닉스', cap: 1300 },
-            { symbol: '402340', name: 'SK스퀘어', cap: 110 },
-            { symbol: '042700', name: '한미반도체', cap: 100 },
-            { symbol: '403870', name: 'HPSP', cap: 45 },
+            { symbol: '373220', name: 'LG에너지솔루션', cap: 700 },
+            { symbol: '006400', name: '삼성SDI', cap: 280 },
+            { symbol: '066570', name: 'LG전자', cap: 160 },
+            { symbol: '042700', name: '한미반도체', cap: 110 },
+            { symbol: '009150', name: '삼성전기', cap: 90 },
         ],
     },
     {
-        id: 'kr-auto', name: '자동차/운송', weight: 11.5,
+        id: 'kr-heavy', name: '운송장비/방산', weight: 14.0,
         stocks: [
             { symbol: '005380', name: '현대차', cap: 500 },
             { symbol: '000270', name: '기아', cap: 460 },
+            { symbol: '012450', name: '한화에어로스페이스', cap: 180 },
             { symbol: '012330', name: '현대모비스', cap: 120 },
-            { symbol: '086280', name: '현대글로비스', cap: 70 },
-            { symbol: '011210', name: '현대위아', cap: 40 },
+            { symbol: '009540', name: 'HD한국조선해양', cap: 150 },
+            { symbol: '034020', name: '두산에너빌리티', cap: 110 },
+            { symbol: '047810', name: '한국항공우주', cap: 60 },
         ],
     },
     {
-        id: 'kr-battery', name: '2차전지/소재', weight: 10.5,
-        stocks: [
-            { symbol: '373220', name: 'LG에너지솔루션', cap: 700 },
-            { symbol: '006400', name: '삼성SDI', cap: 280 },
-            { symbol: '051910', name: 'LG화학', cap: 220 },
-            { symbol: '003670', name: '포스코퓨처엠', cap: 120 },
-            { symbol: '247540', name: '에코프로비엠', cap: 80 },
-        ],
-    },
-    {
-        id: 'kr-finance', name: '금융/지주', weight: 11.0,
+        id: 'kr-finance', name: '금융/지주', weight: 12.0,
         stocks: [
             { symbol: '105560', name: 'KB금융', cap: 300 },
-            { symbol: '055550', name: '신한지주', cap: 270 },
+            { symbol: '055550', name: '신한지주', cap: 280 },
             { symbol: '086790', name: '하나금융지주', cap: 180 },
             { symbol: '316140', name: '우리금융지주', cap: 145 },
-
-            { symbol: '003550', name: 'LG', cap: 120 },
+            { symbol: '402340', name: 'SK스퀘어', cap: 120 },
             { symbol: '028260', name: '삼성물산', cap: 150 },
         ],
     },
     {
-        id: 'kr-bio', name: '바이오/헬스', weight: 9.0,
+        id: 'kr-it', name: '서비스/IT', weight: 10.0,
         stocks: [
-            { symbol: '207940', name: '삼성바이오로직스', cap: 600 },
-            { symbol: '068270', name: '셀트리온', cap: 220 },
-            { symbol: '326030', name: 'SK바이오팜', cap: 45 },
-            { symbol: '001040', name: 'CJ', cap: 25 },
-        ],
-    },
-    {
-        id: 'kr-steel', name: '중공업/방산/에너지', weight: 10.0,
-        stocks: [
-            { symbol: '005490', name: 'POSCO홀딩스', cap: 300 },
-            { symbol: '012450', name: '한화에어로스페이스', cap: 160 },
-            { symbol: '034020', name: '두산에너빌리티', cap: 110 },
-            { symbol: '009540', name: 'HD한국조선해양', cap: 180 },
-            { symbol: '011200', name: 'HMM', cap: 90 },
-            { symbol: '047810', name: '한국항공우주', cap: 60 },
-            { symbol: '010140', name: '삼성중공업', cap: 80 },
-        ],
-    },
-    {
-        id: 'kr-it', name: '서비스/게임/통신', weight: 9.0,
-        stocks: [
-            { symbol: '035420', name: 'NAVER', cap: 350 },
+            { symbol: '035420', name: 'NAVER', cap: 320 },
             { symbol: '035720', name: '카카오', cap: 180 },
-            { symbol: '259960', name: '크래프톤', cap: 150 },
-            { symbol: '017670', name: 'SK텔레콤', cap: 130 },
-            { symbol: '030200', name: 'KT', cap: 85 },
-            { symbol: '036570', name: '엔씨소프트', cap: 45 },
+            { symbol: '259960', name: '크래프톤', cap: 140 },
+            { symbol: '018260', name: '삼성SDS', cap: 110 },
+            { symbol: '251270', name: '넷마블', cap: 45 },
         ],
     },
     {
-        id: 'kr-consumer', name: '소비재/유통', weight: 6.0,
+        id: 'kr-bio', name: '바이오/의약', weight: 9.0,
         stocks: [
-            { symbol: '097950', name: 'CJ제일제당', cap: 55 },
-            { symbol: '090430', name: '아모레퍼시픽', cap: 90 },
-            { symbol: '139480', name: '이마트', cap: 50 },
-            { symbol: '051900', name: 'LG생활건강', cap: 70 },
-            { symbol: '004170', name: '신세계', cap: 40 },
+            { symbol: '207940', name: '삼성바이오로직스', cap: 620 },
+            { symbol: '068270', name: '셀트리온', cap: 240 },
+            { symbol: '000100', name: '유한양행', cap: 80 },
+            { symbol: '326030', name: 'SK바이오팜', cap: 50 },
         ],
     },
     {
-        id: 'kr-insurance', name: '보험/증권', weight: 5.0,
+        id: 'kr-chem', name: '화학/소재', weight: 8.0,
+        stocks: [
+            { symbol: '051910', name: 'LG화학', cap: 220 },
+            { symbol: '003670', name: '포스코퓨처엠', cap: 130 },
+            { symbol: '096770', name: 'SK이노베이션', cap: 110 },
+            { symbol: '010950', name: 'S-Oil', cap: 85 },
+            { symbol: '453340', name: '에코프로머티', cap: 60 },
+        ],
+    },
+    {
+        id: 'kr-steel', name: '철강/기계', weight: 6.0,
+        stocks: [
+            { symbol: '005490', name: 'POSCO홀딩스', cap: 320 },
+            { symbol: '010130', name: '고려아연', cap: 140 },
+            { symbol: '004020', name: '현대제철', cap: 45 },
+        ],
+    },
+    {
+        id: 'kr-consumer', name: '유통/소비재', weight: 5.0,
+        stocks: [
+            { symbol: '033780', name: 'KT&G', cap: 120 },
+            { symbol: '097950', name: 'CJ제일제당', cap: 60 },
+            { symbol: '090430', name: '아모레퍼시픽', cap: 90 },
+            { symbol: '051900', name: 'LG생활건강', cap: 70 },
+            { symbol: '271560', name: '오리온', cap: 40 },
+        ],
+    },
+    {
+        id: 'kr-util', name: '통신/전력/운수', weight: 4.5,
+        stocks: [
+            { symbol: '017670', name: 'SK텔레콤', cap: 130 },
+            { symbol: '030200', name: 'KT', cap: 90 },
+            { symbol: '015760', name: '한국전력', cap: 140 },
+            { symbol: '011200', name: 'HMM', cap: 100 },
+            { symbol: '003490', name: '대한항공', cap: 80 },
+            { symbol: '086280', name: '현대글로비스', cap: 75 },
+        ],
+    },
+    {
+        id: 'kr-const', name: '보험/증권/건설', weight: 4.0,
         stocks: [
             { symbol: '032830', name: '삼성생명', cap: 150 },
-            { symbol: '000810', name: '삼성화재', cap: 140 },
-            { symbol: '006800', name: '미래에셋증권', cap: 60 },
-            { symbol: '088350', name: '한화생명', cap: 50 },
-            { symbol: '071050', name: '한국금융지주', cap: 45 },
-        ],
-    },
-    {
-        id: 'kr-materials', name: '화학/소재/기타', weight: 3.0,
-        stocks: [
-            { symbol: '010130', name: '고려아연', cap: 120 },
-            { symbol: '010950', name: 'S-Oil', cap: 100 },
-            { symbol: '096770', name: 'SK이노베이션', cap: 110 },
-            { symbol: '000720', name: '현대건설', cap: 50 },
+            { symbol: '000810', name: '삼성화재', cap: 145 },
+            { symbol: '006800', name: '미래에셋증권', cap: 65 },
+            { symbol: '000720', name: '현대건설', cap: 45 },
         ],
     },
 ];
@@ -265,9 +261,7 @@ async function fetchNaverStockChange(symbol: string): Promise<{ changePercent: n
         const price = extractNumber(data.closePrice);
         if (price === 0) return null;
 
-        // fluctuationsRatio comes as absolute magnitude — apply direction sign
         const ratioMag = Math.abs(extractNumber(data.fluctuationsRatio));
-        // compareToPreviousPrice.name indicates direction (same field domestic.ts uses)
         const dirName: string = data.compareToPreviousPrice?.name || '';
         const sign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1
             : (dirName === 'RISING'  || dirName === 'UPPER_LIMIT')  ?  1
@@ -278,7 +272,6 @@ async function fetchNaverStockChange(symbol: string): Promise<{ changePercent: n
         return null;
     }
 }
-
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -329,7 +322,6 @@ export async function GET(request: Request) {
                         changePercent: stockResults[i]?.changePercent ?? 0,
                         price: stockResults[i]?.price ?? 0,
                     }));
-                    // Weighted avg sector change
                     const totalCap = stocks.reduce((a, s) => a + s.cap, 0) || 1;
                     const sectorChange = stocks.reduce((a, s) => a + s.changePercent * (s.cap / totalCap), 0);
                     return {
