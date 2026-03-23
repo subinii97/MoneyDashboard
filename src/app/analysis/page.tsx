@@ -154,11 +154,11 @@ function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover
     const h = rect.h - GAP;
     const area = w * h;
 
-    // Dynamically calculate font size based on tile area for consistency
-    const sizeFromArea = Math.sqrt(area) / 3.4;
+    // Dynamically calculate font size - reduced scale for better density
+    const sizeFromArea = Math.sqrt(area) / 4.8;
     const baseSize = Math.min(sizeFromArea, w / 1.1, h / 1.1);
-    const nameFontSize = Math.max(12, Math.min(baseSize, 34));
-    const pctFontSize = Math.max(10, Math.min(baseSize * 0.85, 26));
+    const nameFontSize = Math.max(9, Math.min(baseSize, 32));
+    const pctFontSize = Math.max(8, Math.min(baseSize * 0.85, 24));
 
     const showSymbol = h > 18 && w > 30;
     const showPct = h > 28 && w > 34;
