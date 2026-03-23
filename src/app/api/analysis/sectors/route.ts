@@ -199,14 +199,17 @@ const KR_SECTORS: Array<{
         ],
     },
     {
-        id: 'kr-steel', name: '철강/중공업', weight: 5.0,
+        id: 'kr-steel', name: '철강/중공업/방산', weight: 6.5,
         stocks: [
             { symbol: '005490', name: 'POSCO홀딩스', cap: 250 },
             { symbol: '009540', name: 'HD한국조선해양', cap: 180 },
+            { symbol: '012450', name: '한화에어로스페이스', cap: 120 },
+            { symbol: '047810', name: '한국항공우주', cap: 60 },
             { symbol: '010140', name: '삼성중공업', cap: 80 },
             { symbol: '047050', name: '포스코인터내셔널', cap: 60 },
         ],
     },
+
     {
         id: 'kr-elec', name: '전기/전자', weight: 5.5,
         stocks: [
