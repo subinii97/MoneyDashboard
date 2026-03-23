@@ -335,7 +335,11 @@ export default function AnalysisPage() {
         }
     }, []);
 
-    useEffect(() => { fetchSectors(market); }, [market, fetchSectors]);
+    useEffect(() => { 
+        fetchSectors(market); 
+        const interval = setInterval(() => fetchSectors(market), 10000);
+        return () => clearInterval(interval);
+    }, [market, fetchSectors]);
 
     const marketChange = sectors.length > 0
         ? sectors.reduce((s, sec) => s + sec.changePercent * (sec.weight / 100), 0)
@@ -418,14 +422,9 @@ export default function AnalysisPage() {
                                 {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
                             </div>
                         )}
-
-                        <button onClick={() => fetchSectors(market)} disabled={loading} style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px',
-                            background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '9px',
-                            color: '#444', cursor: 'pointer', transition: 'all 0.2s',
-                        }} title={`새로고침 (마지막: ${lastFetched})`}>
-                            <RefreshCw size={15} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-                        </button>
+                        <div style={{ fontSize: '0.72rem', color: '#555', fontWeight: 600, marginLeft: '4px' }}>
+                            Last updated: {lastFetched}
+                        </div>
                     </div>
                 </div>
             </header>
