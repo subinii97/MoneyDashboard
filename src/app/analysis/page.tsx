@@ -459,26 +459,22 @@ export default function AnalysisPage() {
                         if (e) setMousePos({ x: e.clientX, y: e.clientY });
                     }} />;
                 })}
-
-                {/* Legend Overlay - Bottom Right */}
-                {!loading && sectors.length > 0 && (
-                    <div style={{
-                        position: 'absolute', bottom: '12px', right: '12px',
-                        display: 'flex', gap: '3px', background: 'rgba(0,0,0,0.4)',
-                        padding: '4px', borderRadius: '7px', backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(255,255,255,0.05)', zIndex: 50
-                    }}>
-                        {LEGEND.map(l => (
-                            <div key={l.label} style={{
-                                width: 38, height: 18, background: l.bg, borderRadius: 3,
-                                border: `1px solid ${l.border}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '0.65rem', fontWeight: 800, color: l.text,
-                            }}>{l.label}</div>
-                        ))}
-                    </div>
-                )}
             </div>
+
+            {/* Legend - Bottom Right */}
+            {!loading && sectors.length > 0 && (
+                <div style={{ marginTop: '0.6rem', display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
+                    {LEGEND.map(l => (
+                        <div key={l.label} style={{
+                            width: 50, height: 26, background: l.bg, borderRadius: 5,
+                            border: `1px solid ${l.border}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.78rem', fontWeight: 800, color: l.text,
+                        }}>{l.label}</div>
+                    ))}
+                </div>
+            )}
+
 
             {/* Floating Global Tooltip */}
             {hoveredStock && (
@@ -545,16 +541,19 @@ export default function AnalysisPage() {
                             const c = getColor(sec.changePercent);
                             return (
                                 <div key={sec.id} style={{
-                                    padding: '0.4rem 0.9rem', background: c.bg, color: c.text,
-                                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
-                                    border: `1px solid ${c.border}`, display: 'flex', gap: '0.75rem',
-                                    alignItems: 'center', transition: 'all 0.2s', cursor: 'default'
+                                    padding: '0.45rem 1rem', background: c.bg, color: c.text,
+                                    borderRadius: '9px', fontSize: '0.8rem', fontWeight: 800,
+                                    border: `1px solid ${c.border}`, display: 'flex', 
+                                    justifyContent: 'space-between', alignItems: 'center',
+                                    width: '160px', boxSizing: 'border-box',
+                                    transition: 'all 0.2s', cursor: 'default'
                                 }}>
-                                    <span style={{ fontWeight: 700, fontSize: '0.75rem', opacity: 0.9 }}>{sec.name}</span>
-                                    <span style={{ letterSpacing: '-0.02em' }}>
+                                    <span style={{ fontWeight: 700, fontSize: '0.75rem', opacity: 0.9, textAlign: 'left' }}>{sec.name}</span>
+                                    <span style={{ letterSpacing: '-0.02em', textAlign: 'right' }}>
                                         {sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%
                                     </span>
                                 </div>
+
 
                             );
                         })}
