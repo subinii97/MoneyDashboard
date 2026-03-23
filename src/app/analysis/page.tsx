@@ -530,8 +530,9 @@ export default function AnalysisPage() {
                     </div>
                     <div style={{
                         display: 'grid',
-                        gridTemplateRows: 'repeat(3, auto)',
+                        gridTemplateRows: 'repeat(2, auto)',
                         gridAutoFlow: 'column',
+
                         gap: '0.6rem 0.8rem',
                         justifyContent: 'center',
                         maxWidth: '100%',
