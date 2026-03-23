@@ -533,16 +533,17 @@ export default function AnalysisPage() {
                             const c = getColor(sec.changePercent);
                             return (
                                 <div key={sec.id} style={{
-                                    padding: '0.4rem 0.9rem', background: '#f5f5f5', color: '#111',
+                                    padding: '0.4rem 0.9rem', background: c.bg, color: c.text,
                                     borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
-                                    border: `1px solid #ddd`, display: 'flex', gap: '0.75rem',
+                                    border: `1px solid ${c.border}`, display: 'flex', gap: '0.75rem',
                                     alignItems: 'center', transition: 'all 0.2s', cursor: 'default'
                                 }}>
-                                    <span style={{ color: '#666', fontWeight: 600, fontSize: '0.75rem' }}>{sec.name}</span>
-                                    <span style={{ letterSpacing: '-0.02em', color: c.text }}>
+                                    <span style={{ fontWeight: 700, fontSize: '0.75rem', opacity: 0.9 }}>{sec.name}</span>
+                                    <span style={{ letterSpacing: '-0.02em' }}>
                                         {sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%
                                     </span>
                                 </div>
+
                             );
                         })}
                     </div>
