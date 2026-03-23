@@ -155,7 +155,8 @@ const KR_SECTORS: Array<{
             { symbol: '105560', name: 'KB금융', cap: 300 },
             { symbol: '055550', name: '신한지주', cap: 270 },
             { symbol: '086790', name: '하나금융지주', cap: 180 },
-            { symbol: '316140', name: '우리금융지주', cap: 130 },
+            { symbol: '316140', name: '우리금융지주', cap: 145 },
+
             { symbol: '003550', name: 'LG', cap: 120 },
             { symbol: '028260', name: '삼성물산', cap: 150 },
         ],
