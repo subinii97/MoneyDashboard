@@ -128,7 +128,7 @@ function squarifyLayout(
 // ── Color helpers (Korean convention: red=up, blue=down) ────────────────────
 // ── Color helpers (Korean convention: red=up, blue=down) ────────────────────
 function getColor(pct: number) {
-    if (pct === 0)   return { bg: '#1a1a1a', text: '#888', border: '#333' };
+    if (pct === 0)   return { bg: '#1a1a1a', text: '#ccc', border: '#444' };
     if (pct > 0) {
         if (pct >= 4)    return { bg: '#3b0a0a', text: '#f87171', border: '#dc2626' };
         if (pct >= 2)    return { bg: '#5c1111', text: '#fca5a5', border: '#c41e1e' };
@@ -273,7 +273,7 @@ const LEGEND = [
     { label: '-4%+', ...getColor(-5) },
     { label: '-2%',  ...getColor(-3) },
     { label: '-1%',  ...getColor(-1.5) },
-    { label: '0%',   bg: '#1a1a1a', text: '#666', border: '#333' },
+    { label: '0%',   bg: '#1a1a1a', text: '#ccc', border: '#444' },
     { label: '+1%',  ...getColor(1.5) },
     { label: '+2%',  ...getColor(3) },
     { label: '+4%+', ...getColor(5) },
@@ -383,13 +383,16 @@ export default function AnalysisPage() {
                             {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
                         </div>
                         {correlation && (
-                            <div style={{ 
-                                padding: '0.3rem 0.8rem', background: '#111', color: '#ccc', borderRadius: '7px', 
-                                fontWeight: 700, fontSize: '0.82rem', border: '1px solid #222',
-                                display: 'flex', gap: '0.5rem', alignItems: 'center'
-                            }}>
-                                <span style={{ color: '#666' }}>상관계수(KR-US):</span>
-                                <span style={{ color: correlation.correlationLag > 0.6 ? '#f87171' : '#ccc' }}>
+                            <div 
+                                title="커플링 지수 (Pearson Coefficient): 미국 증시(S&P 500)와 한국 증시(KOSPI)가 얼마나 비슷하게 움직이는지 나타냅니다. 1.0에 가까울수록 동일하게 움직이며, 0.6 이상은 강한 동조화를 의미합니다."
+                                style={{ 
+                                    padding: '0.35rem 0.9rem', background: '#111', color: '#eee', borderRadius: '8px', 
+                                    fontWeight: 700, fontSize: '0.82rem', border: '1px solid #333',
+                                    display: 'flex', gap: '0.5rem', alignItems: 'center', cursor: 'help'
+                                }}
+                            >
+                                <span style={{ color: '#aaa', fontWeight: 600 }}>커플링 지수:</span>
+                                <span style={{ color: correlation.correlationLag > 0.6 ? '#f87171' : '#fff' }}>
                                     {correlation.correlationLag.toFixed(3)}
                                 </span>
                             </div>
@@ -471,17 +474,25 @@ export default function AnalysisPage() {
 
             {/* Legend - moved below treemap */}
             {!loading && sectors.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', marginTop: '1rem' }}>
-                    {LEGEND.map(l => (
-                        <div key={l.label} style={{
-                            width: 54, height: 28, background: l.bg, borderRadius: 4,
-                            border: `1px solid ${l.border}`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.78rem', fontWeight: 800, color: l.text,
-                        }}>{l.label}</div>
-                    ))}
+                <div style={{ marginTop: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                        {LEGEND.map(l => (
+                            <div key={l.label} style={{
+                                width: 54, height: 28, background: l.bg, borderRadius: 4,
+                                border: `1px solid ${l.border}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '0.78rem', fontWeight: 800, color: l.text,
+                            }}>{l.label}</div>
+                        ))}
+                    </div>
+                    {correlation && (
+                        <div style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.78rem', color: '#999', fontWeight: 500 }}>
+                            * 커플링 지수가 <span style={{ color: '#ccc' }}>1.0</span>에 가까울수록 미국 증시(S&P 500)와 한국 증시(KOSPI)가 강하게 동조화되어 있음을 의미합니다 (Pearson).
+                        </div>
+                    )}
                 </div>
             )}
+
 
             {/* Sector summary pill row */}
             {!loading && sectors.length > 0 && (
