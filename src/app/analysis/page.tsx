@@ -196,9 +196,10 @@ function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover
                     padding: '0 2px', whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
                 }}>
-                    {stock.name}
+                    {/^\d+$/.test(stock.symbol) ? stock.name : stock.symbol}
                 </div>
             )}
+
             {showPct && (
                 <div style={{
                     color: c.text, fontWeight: 700,
