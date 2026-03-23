@@ -459,6 +459,25 @@ export default function AnalysisPage() {
                         if (e) setMousePos({ x: e.clientX, y: e.clientY });
                     }} />;
                 })}
+
+                {/* Legend Overlay - Bottom Right */}
+                {!loading && sectors.length > 0 && (
+                    <div style={{
+                        position: 'absolute', bottom: '12px', right: '12px',
+                        display: 'flex', gap: '3px', background: 'rgba(0,0,0,0.4)',
+                        padding: '4px', borderRadius: '7px', backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.05)', zIndex: 50
+                    }}>
+                        {LEGEND.map(l => (
+                            <div key={l.label} style={{
+                                width: 38, height: 18, background: l.bg, borderRadius: 3,
+                                border: `1px solid ${l.border}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '0.65rem', fontWeight: 800, color: l.text,
+                            }}>{l.label}</div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Floating Global Tooltip */}
@@ -502,24 +521,7 @@ export default function AnalysisPage() {
 
 
 
-            {/* Legend Section */}
-            {!loading && sectors.length > 0 && (
-                <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.75rem' }}>
-                        Performance Range (%)
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {LEGEND.map(l => (
-                            <div key={l.label} style={{
-                                width: 56, height: 30, background: l.bg, borderRadius: 5,
-                                border: `1px solid ${l.border}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '0.8rem', fontWeight: 800, color: l.text,
-                            }}>{l.label}</div>
-                        ))}
-                    </div>
-                </div>
-            )}
+
 
 
 
