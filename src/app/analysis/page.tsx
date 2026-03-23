@@ -126,16 +126,22 @@ function squarifyLayout(
 }
 
 // ── Color helpers (Korean convention: red=up, blue=down) ────────────────────
+// ── Color helpers (Korean convention: red=up, blue=down) ────────────────────
 function getColor(pct: number) {
-    if (pct >= 4)    return { bg: '#3b0a0a', text: '#f87171', border: '#dc2626' };
-    if (pct >= 2)    return { bg: '#5c1111', text: '#fca5a5', border: '#c41e1e' };
-    if (pct >= 0.75) return { bg: '#7f1d1d', text: '#fecaca', border: '#b91c1c' };
-    if (pct >= 0)    return { bg: '#4a1919', text: '#fda4a4', border: '#7f1d1d' };
-    if (pct >= -0.75)return { bg: '#0f172a', text: '#93c5fd', border: '#1e3a5f' };
-    if (pct >= -2)   return { bg: '#1e3a5f', text: '#93c5fd', border: '#1d4ed8' };
-    if (pct >= -4)   return { bg: '#1e40af', text: '#bfdbfe', border: '#2563eb' };
-    return                { bg: '#1d4ed8', text: '#dbeafe', border: '#3b82f6' };
+    if (pct === 0)   return { bg: '#1a1a1a', text: '#888', border: '#333' };
+    if (pct > 0) {
+        if (pct >= 4)    return { bg: '#3b0a0a', text: '#f87171', border: '#dc2626' };
+        if (pct >= 2)    return { bg: '#5c1111', text: '#fca5a5', border: '#c41e1e' };
+        if (pct >= 0.75) return { bg: '#7f1d1d', text: '#fecaca', border: '#b91c1c' };
+        return                { bg: '#4a1919', text: '#fda4a4', border: '#7f1d1d' };
+    } else {
+        if (pct <= -4)   return { bg: '#0a1d4a', text: '#93c5fd', border: '#1d4ed8' };
+        if (pct <= -2)   return { bg: '#0c2e6b', text: '#bfdbfe', border: '#2563eb' };
+        if (pct <= -0.75)return { bg: '#0f3a8f', text: '#dbeafe', border: '#3b82f6' };
+        return                { bg: '#0f172a', text: '#93c5fd', border: '#1e3a5f' };
+    }
 }
+
 
 const GAP = 1.5;    // px gap between tiles
 const SECTOR_GAP = 2; // px gap between sectors
