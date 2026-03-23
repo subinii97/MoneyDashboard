@@ -236,7 +236,7 @@ const KR_SECTORS: Array<{
 ];
 
 // ── Yahoo Finance quote ─────────────────────────────────────────────────────────
-async function fetchYahooQuote(symbol: string): Promise<{ changePercent: number; price: number } | null> {
+async function fetchYahooQuote(symbol: string): Promise<{ changePercent: number; price: number; name: string } | null> {
     try {
         const encoded = encodeURIComponent(symbol);
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=2d`;
@@ -251,7 +251,8 @@ async function fetchYahooQuote(symbol: string): Promise<{ changePercent: number;
         const price = meta.regularMarketPrice ?? 0;
         const prev = meta.chartPreviousClose ?? meta.previousClose ?? price;
         const changePercent = prev > 0 ? ((price - prev) / prev) * 100 : 0;
-        return { changePercent, price };
+        const name = meta.shortName || symbol;
+        return { changePercent, price, name };
     } catch {
         return null;
     }
@@ -314,7 +315,7 @@ export async function GET(request: Request) {
                         changePercent: etfData?.changePercent ?? 0,
                         stocks: sec.stocks.map((s, i) => ({
                             symbol: s.symbol,
-                            name: s.name,
+                            name: stockResults[i]?.name || s.name,
                             cap: s.cap,
                             changePercent: stockResults[i]?.changePercent ?? 0,
                             price: stockResults[i]?.price ?? 0,

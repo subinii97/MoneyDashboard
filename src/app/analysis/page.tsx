@@ -410,31 +410,35 @@ export default function AnalysisPage() {
             {hoveredStock && (
                 <div style={{
                     position: 'fixed',
-                    left: mousePos.x + 20,
-                    top: mousePos.y + 20,
+                    left: mousePos.x + 15,
+                    top: mousePos.y + 15,
                     zIndex: 1000,
                     pointerEvents: 'none',
-                    background: '#1a1a1a',
-                    border: `2px solid ${getColor(hoveredStock.changePercent).border}`,
-                    borderRadius: '12px',
-                    padding: '1rem 1.5rem',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)',
-                    backdropFilter: 'blur(8px)',
-                    minWidth: '220px',
-                    transform: 'translate(0, 0)', // ensure no subpixel blur
+                    background: 'rgba(20, 20, 20, 0.9)',
+                    border: `1px solid ${getColor(hoveredStock.changePercent).border}`,
+                    borderRadius: '8px',
+                    padding: '0.6rem 0.9rem',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                    backdropFilter: 'blur(6px)',
+                    minWidth: '160px',
                 }}>
-                    <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '0.25rem' }}>{hoveredStock.symbol}</div>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 900, marginBottom: '0.5rem', color: 'white', letterSpacing: '-0.02em' }}>{hoveredStock.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 900, color: getColor(hoveredStock.changePercent).text }}>
+                    <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.15rem', display: 'flex', gap: '6px' }}>
+                        <span>{hoveredStock.symbol}</span>
+                        {hoveredStock.name !== hoveredStock.symbol && (
+                            <span style={{ color: '#666' }}>• {hoveredStock.name}</span>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 900, color: getColor(hoveredStock.changePercent).text, letterSpacing: '-0.02em' }}>
                             {hoveredStock.changePercent >= 0 ? '+' : ''}{hoveredStock.changePercent.toFixed(2)}%
                         </div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ccc' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#999' }}>
                             {market === 'US' ? '$' : '₩'}{hoveredStock.price?.toLocaleString()}
                         </div>
                     </div>
                 </div>
             )}
+
 
             {/* Legend - moved below treemap */}
             {!loading && sectors.length > 0 && (
