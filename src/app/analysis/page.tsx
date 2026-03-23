@@ -423,12 +423,17 @@ export default function AnalysisPage() {
                     backdropFilter: 'blur(10px)',
                     minWidth: '180px',
                 }}>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 800, marginBottom: '0.35rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span style={{ color: 'white' }}>{hoveredStock.name}</span>
+                    <div style={{ marginBottom: '0.45rem', display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ color: 'white', fontSize: '1.25rem', fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                            {hoveredStock.name}
+                        </span>
                         {hoveredStock.name !== hoveredStock.symbol && (
-                            <span style={{ color: '#777', fontWeight: 700, fontSize: '0.72rem' }}>{hoveredStock.symbol}</span>
+                            <span style={{ color: '#888', fontWeight: 700, fontSize: '0.8rem', marginTop: '1px' }}>
+                                {hoveredStock.symbol}
+                            </span>
                         )}
                     </div>
+
 
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.8rem' }}>
                         <div style={{ fontSize: '1.45rem', fontWeight: 900, color: getColor(hoveredStock.changePercent).text, letterSpacing: '-0.02em' }}>
