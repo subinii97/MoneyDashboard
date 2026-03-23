@@ -525,24 +525,33 @@ export default function AnalysisPage() {
 
 
 
-            {/* Sector summary pill row */}
+            {/* Sector Summary Section */}
             {!loading && sectors.length > 0 && (
-                <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    {[...sectors].sort((a, b) => b.changePercent - a.changePercent).map(sec => {
-                        const c = getColor(sec.changePercent);
-                        return (
-                            <div key={sec.id} style={{
-                                padding: '0.25rem 0.7rem', background: c.bg, color: c.text,
-                                borderRadius: 6, fontSize: '0.75rem', fontWeight: 700,
-                                border: `1px solid ${c.border}`, display: 'flex', gap: '0.5rem',
-                            }}>
-                                <span>{sec.name}</span>
-                                <span>{sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%</span>
-                            </div>
-                        );
-                    })}
+                <div style={{ marginTop: '2.5rem', borderTop: '1px solid #1a1a1a', paddingTop: '2rem' }}>
+                    <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '1.25rem' }}>
+                        Sector Performance Summary
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+                        {[...sectors].sort((a, b) => b.changePercent - a.changePercent).map(sec => {
+                            const c = getColor(sec.changePercent);
+                            return (
+                                <div key={sec.id} style={{
+                                    padding: '0.4rem 0.9rem', background: '#0a0a0a', color: c.text,
+                                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
+                                    border: `1px solid ${c.border}`, display: 'flex', gap: '0.75rem',
+                                    alignItems: 'center', transition: 'all 0.2s', cursor: 'default'
+                                }}>
+                                    <span style={{ color: '#aaa', fontWeight: 600, fontSize: '0.75rem' }}>{sec.name}</span>
+                                    <span style={{ letterSpacing: '-0.02em' }}>
+                                        {sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
         </main>
     );
 }
+
