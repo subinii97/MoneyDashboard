@@ -357,17 +357,6 @@ export default function AnalysisPage() {
                     </div>
                 )}
 
-                {/* Legend */}
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                    {LEGEND.map(l => (
-                        <div key={l.label} style={{
-                            width: 36, height: 20, background: l.bg, borderRadius: 3,
-                            border: `1px solid ${l.border}`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.6rem', fontWeight: 700, color: l.text,
-                        }}>{l.label}</div>
-                    ))}
-                </div>
             </header>
 
             {/* Treemap container */}
@@ -396,6 +385,20 @@ export default function AnalysisPage() {
                     return <SectorTile key={sec.id} sector={sec} rect={rect} />;
                 })}
             </div>
+
+            {/* Legend - moved below treemap */}
+            {!loading && sectors.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', marginTop: '1rem' }}>
+                    {LEGEND.map(l => (
+                        <div key={l.label} style={{
+                            width: 54, height: 28, background: l.bg, borderRadius: 4,
+                            border: `1px solid ${l.border}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.78rem', fontWeight: 800, color: l.text,
+                        }}>{l.label}</div>
+                    ))}
+                </div>
+            )}
 
             {/* Sector summary pill row */}
             {!loading && sectors.length > 0 && (
