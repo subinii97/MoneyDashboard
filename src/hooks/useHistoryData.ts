@@ -225,13 +225,12 @@ export function useHistoryData() {
             const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
             const osDayReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
 
-            const domChange = prevM ? currM.domestic - prevM.domestic : 0;
-            const osChange = prevM ? currM.overseas - prevM.overseas : 0;
-
             const isWeekend = isSat || isSun;
+            const domChange = (prevM && !isWeekend) ? prevM.domestic * domDayReturn : 0;
+            const osChange = (prevM && !isWeekend) ? prevM.overseas * osDayReturn : 0;
 
-            let finalOsPercent = isWeekend ? 0 : (prevM && prevM.overseas > 0 ? (osChange / prevM.overseas) * 100 : 0);
-            let finalDomPercent = isWeekend ? 0 : (prevM && prevM.domestic > 0 ? (domChange / prevM.domestic) * 100 : 0);
+            let finalOsPercent = isWeekend ? 0 : osDayReturn * 100;
+            let finalDomPercent = isWeekend ? 0 : domDayReturn * 100;
 
             // If we are looking at the most recent Friday (index is within 3 days of the end)
             // and there is a live entry, its API 'change' fields hold the exact Friday close data!
