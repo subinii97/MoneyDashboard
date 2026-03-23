@@ -350,8 +350,6 @@ export default function AnalysisPage() {
                 display: 'flex', 
                 alignItems: 'flex-end', 
                 justifyContent: 'space-between',
-                borderBottom: '1px solid #1a1a1a',
-                paddingBottom: '1rem',
                 gap: '1.5rem',
                 flexWrap: 'wrap'
             }}>
@@ -527,7 +525,7 @@ export default function AnalysisPage() {
 
             {/* Sector Summary Section */}
             {!loading && sectors.length > 0 && (
-                <div style={{ marginTop: '2.5rem', borderTop: '1px solid #1a1a1a', paddingTop: '2rem' }}>
+                <div style={{ marginTop: '2.5rem' }}>
                     <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '1.25rem' }}>
                         Sector Performance Summary
                     </div>
