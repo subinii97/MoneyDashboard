@@ -152,9 +152,15 @@ function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover
     const c = getColor(stock.changePercent);
     const w = rect.w - GAP;
     const h = rect.h - GAP;
-    const showSymbol = h > 22 && w > 36;
-    const showPct    = h > 14 && w > 28;
-    const bigFont    = h > 55 && w > 70;
+    const area = w * h;
+
+    // Dynamically calculate font size based on tile size
+    const baseSize = Math.min(w / 4.2, h / 2.2);
+    const nameFontSize = Math.max(9, Math.min(baseSize, 24));
+    const pctFontSize = Math.max(8, Math.min(baseSize * 0.88, 20));
+
+    const showSymbol = h > 18 && w > 30;
+    const showPct    = h > 28 && w > 34;
 
     return (
         <div
@@ -185,7 +191,7 @@ function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover
             {showSymbol && (
                 <div style={{
                     color: c.text, fontWeight: 800,
-                    fontSize: bigFont ? 13 : h > 35 ? 11 : 9,
+                    fontSize: nameFontSize,
                     lineHeight: 1.1, textAlign: 'center',
                     padding: '0 2px', whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
@@ -196,8 +202,8 @@ function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover
             {showPct && (
                 <div style={{
                     color: c.text, fontWeight: 700,
-                    fontSize: bigFont ? 12 : h > 35 ? 10 : 8.5,
-                    lineHeight: 1.1, marginTop: showSymbol ? 2 : 0,
+                    fontSize: pctFontSize,
+                    lineHeight: 1.1, marginTop: 1,
                 }}>
                     {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
                 </div>
@@ -205,6 +211,7 @@ function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover
         </div>
     );
 }
+
 
 
 
