@@ -314,7 +314,8 @@ export default function AnalysisPage() {
     }, [sectors, containerSize]);
 
     const fetchSectors = useCallback(async (m: 'US' | 'KR') => {
-        setLoading(true);
+        const isInitial = sectors.length === 0;
+        if (isInitial) setLoading(true);
         try {
             const [secRes, corrRes] = await Promise.all([
                 fetch(`/api/analysis/sectors?market=${m}&t=${Date.now()}`),
