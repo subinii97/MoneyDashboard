@@ -286,6 +286,7 @@ export default function AnalysisPage() {
     const [loading, setLoading] = useState(true);
     const [lastFetched, setLastFetched] = useState('');
     const [correlation, setCorrelation] = useState<{ correlation: number; correlationLag: number; sampleSize: number } | null>(null);
+    const [showCorrTooltip, setShowCorrTooltip] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerSize, setContainerSize] = useState({ w: 1100, h: 560 });
     const [hoveredStock, setHoveredStock] = useState<Stock | null>(null);
@@ -384,17 +385,35 @@ export default function AnalysisPage() {
                         </div>
                         {correlation && (
                             <div 
-                                title="커플링 지수 (Pearson Coefficient): 미국 증시(S&P 500)와 한국 증시(KOSPI)가 얼마나 비슷하게 움직이는지 나타냅니다. 1.0에 가까울수록 동일하게 움직이며, 0.6 이상은 강한 동조화를 의미합니다."
+                                onMouseEnter={() => setShowCorrTooltip(true)}
+                                onMouseLeave={() => setShowCorrTooltip(false)}
                                 style={{ 
                                     padding: '0.35rem 0.9rem', background: '#111', color: '#eee', borderRadius: '8px', 
                                     fontWeight: 700, fontSize: '0.82rem', border: '1px solid #333',
-                                    display: 'flex', gap: '0.5rem', alignItems: 'center', cursor: 'help'
+                                    display: 'flex', gap: '0.5rem', alignItems: 'center', cursor: 'help',
+                                    position: 'relative'
                                 }}
                             >
                                 <span style={{ color: '#aaa', fontWeight: 600 }}>커플링 지수:</span>
                                 <span style={{ color: correlation.correlationLag > 0.6 ? '#f87171' : '#fff' }}>
                                     {correlation.correlationLag.toFixed(3)}
                                 </span>
+
+                                {/* Custom Tooltip */}
+                                {showCorrTooltip && (
+                                    <div style={{
+                                        position: 'absolute', top: '100%', right: 0, marginTop: '8px',
+                                        background: '#1a1a1a', border: '1px solid #333', borderRadius: '10px',
+                                        padding: '0.8rem 1rem', width: '280px', zIndex: 1100,
+                                        boxShadow: '0 10px 30px rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)',
+                                        color: '#ccc', fontSize: '0.78rem', lineHeight: 1.5, pointerEvents: 'none'
+                                    }}>
+                                        <div style={{ color: 'white', fontWeight: 800, marginBottom: '4px', fontSize: '0.82rem' }}>커플링 지수 (Pearson Coefficient)</div>
+                                        미국 증시(S&P 500)와 한국 증시(KOSPI)가 얼마나 비슷하게 움직이는지 나타냅니다. 
+                                        <br/><br/>
+                                        • <span style={{ color: 'white' }}>1.0</span>에 가까울수록 동조화가 강하며, <span style={{ color: '#f87171' }}>0.6 이상</span>이면 미국 시장의 영향력이 매우 크다는 의미입니다.
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -485,11 +504,6 @@ export default function AnalysisPage() {
                             }}>{l.label}</div>
                         ))}
                     </div>
-                    {correlation && (
-                        <div style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.78rem', color: '#999', fontWeight: 500 }}>
-                            * 커플링 지수가 <span style={{ color: '#ccc' }}>1.0</span>에 가까울수록 미국 증시(S&P 500)와 한국 증시(KOSPI)가 강하게 동조화되어 있음을 의미합니다 (Pearson).
-                        </div>
-                    )}
                 </div>
             )}
 
