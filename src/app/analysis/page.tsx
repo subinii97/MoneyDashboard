@@ -148,8 +148,7 @@ const SECTOR_GAP = 2; // px gap between sectors
 const HEADER_H = 24; // sector header height
 
 // ── Stock Tile ─────────────────────────────────────────────────────────────────
-function StockTile({ stock, rect }: { stock: Stock; rect: Rect }) {
-    const [hovered, setHovered] = useState(false);
+function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; onHover: (s: Stock | null, e: React.MouseEvent) => void }) {
     const c = getColor(stock.changePercent);
     const w = rect.w - GAP;
     const h = rect.h - GAP;
@@ -159,44 +158,46 @@ function StockTile({ stock, rect }: { stock: Stock; rect: Rect }) {
 
     return (
         <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            title={`${stock.name} (${stock.symbol})\n${stock.changePercent >= 0 ? '+' : ''}${stock.changePercent.toFixed(2)}%\n$${stock.price?.toLocaleString()}`}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'brightness(1.4)';
+                onHover(stock, e);
+            }}
+            onMouseMove={(e) => onHover(stock, e)}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.filter = 'brightness(1)';
+                onHover(null, null as any);
+            }}
             style={{
                 position: 'absolute',
                 left: rect.x + GAP / 2, top: rect.y + GAP / 2,
                 width: w, height: h,
-                background: hovered ? c.border : c.bg,
+                background: c.bg,
                 border: `1px solid ${c.border}`,
-                borderRadius: 3,
+                borderRadius: 2,
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
-                overflow: hovered ? 'visible' : 'hidden',
+                overflow: 'hidden',
                 cursor: 'pointer',
-                transition: 'background 0.15s',
+                transition: 'filter 0.1s',
                 boxSizing: 'border-box',
-                zIndex: hovered ? 50 : 1,
             }}
         >
-            {(showSymbol || hovered) && (
+            {showSymbol && (
                 <div style={{
                     color: c.text, fontWeight: 800,
-                    fontSize: bigFont ? 13 : (h > 35 || hovered) ? 11 : 9,
+                    fontSize: bigFont ? 13 : h > 35 ? 11 : 9,
                     lineHeight: 1.1, textAlign: 'center',
-                    padding: '0 3px', whiteSpace: 'nowrap',
-                    overflow: hovered ? 'visible' : 'hidden',
-                    textOverflow: 'ellipsis', maxWidth: (hovered && !showSymbol) ? 'none' : '100%',
-                    textShadow: hovered ? '0 0 4px rgba(0,0,0,0.8)' : 'none',
+                    padding: '0 2px', whiteSpace: 'nowrap',
+                    overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
                 }}>
                     {stock.name}
                 </div>
             )}
-            {(showPct || hovered) && (
+            {showPct && (
                 <div style={{
                     color: c.text, fontWeight: 700,
-                    fontSize: bigFont ? 12 : (h > 35 || hovered) ? 10 : 8.5,
-                    lineHeight: 1.1, marginTop: (showSymbol || hovered) ? 2 : 0,
-                    textShadow: hovered ? '0 0 4px rgba(0,0,0,0.8)' : 'none',
+                    fontSize: bigFont ? 12 : h > 35 ? 10 : 8.5,
+                    lineHeight: 1.1, marginTop: showSymbol ? 2 : 0,
                 }}>
                     {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
                 </div>
@@ -206,8 +207,9 @@ function StockTile({ stock, rect }: { stock: Stock; rect: Rect }) {
 }
 
 
+
 // ── Sector Tile ────────────────────────────────────────────────────────────────
-function SectorTile({ sector, rect }: { sector: Sector; rect: Rect }) {
+function SectorTile({ sector, rect, onHover }: { sector: Sector; rect: Rect; onHover: (s: Stock | null, e: React.MouseEvent) => void }) {
     const c = getColor(sector.changePercent);
     const innerW = rect.w - SECTOR_GAP;
     const innerH = rect.h - SECTOR_GAP;
@@ -250,7 +252,7 @@ function SectorTile({ sector, rect }: { sector: Sector; rect: Rect }) {
             <div style={{ position: 'relative', width: innerW, height: contentH, overflow: 'hidden' }}>
                 {stocks.map((stock, i) => (
                     stockRects[i] && (
-                        <StockTile key={stock.symbol} stock={stock} rect={stockRects[i]} />
+                        <StockTile key={stock.symbol} stock={stock} rect={stockRects[i]} onHover={onHover} />
                     )
                 ))}
             </div>
@@ -277,6 +279,8 @@ export default function AnalysisPage() {
     const [lastFetched, setLastFetched] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerSize, setContainerSize] = useState({ w: 1100, h: 560 });
+    const [hoveredStock, setHoveredStock] = useState<Stock | null>(null);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
     // Measure container
     useLayoutEffect(() => {
@@ -388,9 +392,42 @@ export default function AnalysisPage() {
                 {!loading && sectorRects.map((rect, i) => {
                     const sec = sectors[i];
                     if (!sec) return null;
-                    return <SectorTile key={sec.id} sector={sec} rect={rect} />;
+                    return <SectorTile key={sec.id} sector={sec} rect={rect} onHover={(s, e) => {
+                        setHoveredStock(s);
+                        if (e) setMousePos({ x: e.clientX, y: e.clientY });
+                    }} />;
                 })}
             </div>
+
+            {/* Floating Global Tooltip */}
+            {hoveredStock && (
+                <div style={{
+                    position: 'fixed',
+                    left: mousePos.x + 20,
+                    top: mousePos.y + 20,
+                    zIndex: 1000,
+                    pointerEvents: 'none',
+                    background: '#1a1a1a',
+                    border: `2px solid ${getColor(hoveredStock.changePercent).border}`,
+                    borderRadius: '12px',
+                    padding: '1rem 1.5rem',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)',
+                    backdropFilter: 'blur(8px)',
+                    minWidth: '220px',
+                    transform: 'translate(0, 0)', // ensure no subpixel blur
+                }}>
+                    <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '0.25rem' }}>{hoveredStock.symbol}</div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 900, marginBottom: '0.5rem', color: 'white', letterSpacing: '-0.02em' }}>{hoveredStock.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 900, color: getColor(hoveredStock.changePercent).text }}>
+                            {hoveredStock.changePercent >= 0 ? '+' : ''}{hoveredStock.changePercent.toFixed(2)}%
+                        </div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ccc' }}>
+                            {market === 'US' ? '$' : '₩'}{hoveredStock.price?.toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Legend - moved below treemap */}
             {!loading && sectors.length > 0 && (
