@@ -184,7 +184,7 @@ function StockTile({ stock, rect }: { stock: Stock; rect: Rect }) {
                     padding: '0 3px', whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
                 }}>
-                    {stock.symbol}
+                    {stock.name}
                 </div>
             )}
             {showPct && (
@@ -277,7 +277,7 @@ export default function AnalysisPage() {
         const measure = () => {
             if (containerRef.current) {
                 const { width } = containerRef.current.getBoundingClientRect();
-                const h = Math.min(Math.round(width * 0.52), 620);
+                const h = Math.min(Math.round(width * 0.75), 780);
                 setContainerSize({ w: Math.round(width), h });
             }
         };
