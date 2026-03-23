@@ -344,71 +344,65 @@ export default function AnalysisPage() {
 
     return (
         <main style={{ padding: '1.5rem 2rem', maxWidth: '1600px', margin: '0 auto', color: 'var(--foreground)' }}>
-            {/* Header */}
-            <header style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                <div>
-                    <span className="section-label">Market Analysis</span>
-                    <h1 style={{ fontSize: '1.7rem', fontWeight: '900', letterSpacing: '-0.03em', lineHeight: 1 }}>
+            {/* Header Redesign */}
+            <header style={{ 
+                marginBottom: '1.5rem', 
+                display: 'flex', 
+                alignItems: 'flex-end', 
+                justifyContent: 'space-between',
+                borderBottom: '1px solid #1a1a1a',
+                paddingBottom: '1rem',
+                gap: '1.5rem',
+                flexWrap: 'wrap'
+            }}>
+                <div style={{ flexShrink: 0 }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        Market Intelligence
+                    </span>
+                    <h1 style={{ fontSize: '2rem', fontWeight: '900', letterSpacing: '-0.04em', lineHeight: 1.1, marginTop: '2px' }}>
                         Sector Heatmap
                     </h1>
                 </div>
 
-                {/* Market tabs */}
-                <div style={{ display: 'flex', gap: '0.3rem', background: '#111', padding: '3px', borderRadius: '10px', border: '1px solid #222' }}>
-                    {(['US', 'KR'] as const).map(m => (
-                        <button key={m} onClick={() => setMarket(m)} style={{
-                            padding: '0.35rem 1rem', fontSize: '0.82rem', borderRadius: '7px',
-                            border: 'none', background: market === m ? 'var(--primary)' : 'transparent',
-                            color: market === m ? 'white' : '#666', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s',
-                        }}>
-                            {m === 'US' ? '🇺🇸 S&P 500' : '🇰🇷 KOSPI'}
-                        </button>
-                    ))}
-                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {/* Market Toggle */}
+                    <div style={{ display: 'flex', background: '#0a0a0a', padding: '3px', borderRadius: '10px', border: '1px solid #222', marginRight: '0.5rem' }}>
+                        {(['US', 'KR'] as const).map(m => (
+                            <button key={m} onClick={() => setMarket(m)} style={{
+                                padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px',
+                                border: 'none', background: market === m ? 'var(--primary)' : 'transparent',
+                                color: market === m ? 'white' : '#666', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s',
+                            }}>
+                                {m === 'US' ? '🇺🇸 S&P 500' : '🇰🇷 KOSPI'}
+                            </button>
+                        ))}
+                    </div>
 
-                {/* Refresh */}
-                <button onClick={() => fetchSectors(market)} disabled={loading} style={{
-                    display: 'flex', alignItems: 'center', gap: '0.35rem',
-                    background: 'none', border: '1px solid var(--border)', borderRadius: '8px',
-                    padding: '0.35rem 0.75rem', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
-                }}>
-                    <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                    {loading ? '로딩 중...' : lastFetched}
-                </button>
-
-                {/* Market badge */}
-                {!loading && sectors.length > 0 && (
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <div style={{ padding: '0.3rem 0.8rem', background: mc.bg, color: mc.text, borderRadius: '7px', fontWeight: 800, fontSize: '0.88rem', border: `1px solid ${mc.border}` }}>
-                            {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
-                        </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                         {correlation && (
                             <div 
                                 onMouseEnter={() => setShowCorrTooltip(true)}
                                 onMouseLeave={() => setShowCorrTooltip(false)}
                                 style={{ 
-                                    padding: '0.35rem 0.9rem', background: '#111', color: '#eee', borderRadius: '8px', 
-                                    fontWeight: 700, fontSize: '0.82rem', border: '1px solid #333',
-                                    display: 'flex', gap: '0.5rem', alignItems: 'center', cursor: 'help',
-                                    position: 'relative'
+                                    padding: '0.4rem 0.9rem', background: '#0a0a0a', color: '#eee', borderRadius: '9px', 
+                                    fontWeight: 700, fontSize: '0.82rem', border: '1px solid #222',
+                                    display: 'flex', gap: '0.6rem', alignItems: 'center', cursor: 'help',
+                                    position: 'relative', height: '34px', boxSizing: 'border-box'
                                 }}
                             >
-                                <span style={{ color: '#aaa', fontWeight: 600 }}>커플링 지수:</span>
+                                <span style={{ color: '#888', fontWeight: 600 }}>커플링:</span>
                                 <span style={{ color: correlation.correlationLag > 0.6 ? '#f87171' : '#fff' }}>
                                     {correlation.correlationLag.toFixed(3)}
                                 </span>
-
-                                {/* Custom Tooltip */}
                                 {showCorrTooltip && (
                                     <div style={{
-                                        position: 'absolute', top: '100%', right: 0, marginTop: '8px',
-                                        background: '#1a1a1a', border: '1px solid #333', borderRadius: '10px',
-                                        padding: '0.8rem 1rem', width: '280px', zIndex: 1100,
-                                        boxShadow: '0 10px 30px rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)',
-                                        color: '#ccc', fontSize: '0.78rem', lineHeight: 1.5, pointerEvents: 'none'
+                                        position: 'absolute', top: '100%', right: 0, marginTop: '10px',
+                                        background: '#1a1a1a', border: '1px solid #333', borderRadius: '12px',
+                                        padding: '1rem', width: '280px', zIndex: 1100,
+                                        boxShadow: '0 15px 40px rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
+                                        color: '#ccc', fontSize: '0.8rem', lineHeight: 1.6, pointerEvents: 'none'
                                     }}>
-                                        <div style={{ color: 'white', fontWeight: 800, marginBottom: '4px', fontSize: '0.82rem' }}>커플링 지수 (Pearson Coefficient)</div>
+                                        <div style={{ color: 'white', fontWeight: 800, marginBottom: '6px', fontSize: '0.85rem' }}>커플링 지수 (Pearson)</div>
                                         미국 증시(S&P 500)와 한국 증시(KOSPI)가 얼마나 비슷하게 움직이는지 나타냅니다. 
                                         <br/><br/>
                                         • <span style={{ color: 'white' }}>1.0</span>에 가까울수록 동조화가 강하며, <span style={{ color: '#f87171' }}>0.6 이상</span>이면 미국 시장의 영향력이 매우 크다는 의미입니다.
@@ -416,9 +410,28 @@ export default function AnalysisPage() {
                                 )}
                             </div>
                         )}
+
+                        {!loading && sectors.length > 0 && (
+                            <div style={{ 
+                                padding: '0.4rem 0.9rem', background: mc.bg, color: mc.text, borderRadius: '9px', 
+                                fontWeight: 800, fontSize: '0.85rem', border: `1px solid ${mc.border}`,
+                                height: '34px', boxSizing: 'border-box', display: 'flex', alignItems: 'center'
+                            }}>
+                                {market === 'US' ? 'S&P 500' : 'KOSPI'} {marketChange >= 0 ? '+' : ''}{marketChange.toFixed(2)}%
+                            </div>
+                        )}
+
+                        <button onClick={() => fetchSectors(market)} disabled={loading} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px',
+                            background: '#0a0a0a', border: '1px solid #222', borderRadius: '9px',
+                            color: '#888', cursor: 'pointer', transition: 'all 0.2s',
+                        }} title={`새로고침 (마지막: ${lastFetched})`}>
+                            <RefreshCw size={15} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                        </button>
                     </div>
-                )}
+                </div>
             </header>
+
 
             {/* Treemap container */}
             <div
@@ -491,21 +504,25 @@ export default function AnalysisPage() {
 
 
 
-            {/* Legend - moved below treemap */}
+            {/* Legend Section */}
             {!loading && sectors.length > 0 && (
-                <div style={{ marginTop: '1.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.75rem' }}>
+                        Performance Range (%)
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {LEGEND.map(l => (
                             <div key={l.label} style={{
-                                width: 54, height: 28, background: l.bg, borderRadius: 4,
+                                width: 56, height: 30, background: l.bg, borderRadius: 5,
                                 border: `1px solid ${l.border}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '0.78rem', fontWeight: 800, color: l.text,
+                                fontSize: '0.8rem', fontWeight: 800, color: l.text,
                             }}>{l.label}</div>
                         ))}
                     </div>
                 </div>
             )}
+
 
 
             {/* Sector summary pill row */}
