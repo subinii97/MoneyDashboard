@@ -273,14 +273,22 @@ async function fetchNaverStockChange(symbol: string): Promise<{ changePercent: n
             return parseFloat(String(v).replace(/,/g, '')) || 0;
         };
         const price = extractNumber(data.closePrice);
-        const changeMag = extractNumber(data.fluctuationsRatio);
+        if (price === 0) return null;
+
+        // fluctuationsRatio comes as absolute magnitude — apply direction sign
+        const ratioMag = Math.abs(extractNumber(data.fluctuationsRatio));
+        // compareToPreviousPrice.name indicates direction (same field domestic.ts uses)
         const dirName: string = data.compareToPreviousPrice?.name || '';
-        const sign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1 : 1;
-        return { changePercent: changeMag * sign, price };
+        const sign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1
+            : (dirName === 'RISING'  || dirName === 'UPPER_LIMIT')  ?  1
+            : 0;
+
+        return { changePercent: ratioMag * sign, price };
     } catch {
         return null;
     }
 }
+
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);

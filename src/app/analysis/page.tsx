@@ -125,16 +125,16 @@ function squarifyLayout(
     return finalResult;
 }
 
-// ── Color helpers (US conventions: green=up, red=down) ────────────────────────
+// ── Color helpers (Korean convention: red=up, blue=down) ────────────────────
 function getColor(pct: number) {
-    if (pct >= 4)    return { bg: '#0d3320', text: '#4ade80', border: '#16a34a' };
-    if (pct >= 2)    return { bg: '#14532d', text: '#86efac', border: '#15803d' };
-    if (pct >= 0.75) return { bg: '#166534', text: '#bbf7d0', border: '#166534' };
-    if (pct >= 0)    return { bg: '#1e3a2a', text: '#6ee7b7', border: '#1e3a2a' };
-    if (pct >= -0.75)return { bg: '#3a1e1e', text: '#fca5a5', border: '#3a1e1e' };
-    if (pct >= -2)   return { bg: '#7f1d1d', text: '#fca5a5', border: '#991b1b' };
-    if (pct >= -4)   return { bg: '#991b1b', text: '#fecaca', border: '#b91c1c' };
-    return                { bg: '#b91c1c', text: '#fff1f2', border: '#dc2626' };
+    if (pct >= 4)    return { bg: '#3b0a0a', text: '#f87171', border: '#dc2626' };
+    if (pct >= 2)    return { bg: '#5c1111', text: '#fca5a5', border: '#c41e1e' };
+    if (pct >= 0.75) return { bg: '#7f1d1d', text: '#fecaca', border: '#b91c1c' };
+    if (pct >= 0)    return { bg: '#4a1919', text: '#fda4a4', border: '#7f1d1d' };
+    if (pct >= -0.75)return { bg: '#0f172a', text: '#93c5fd', border: '#1e3a5f' };
+    if (pct >= -2)   return { bg: '#1e3a5f', text: '#93c5fd', border: '#1d4ed8' };
+    if (pct >= -4)   return { bg: '#1e40af', text: '#bfdbfe', border: '#2563eb' };
+    return                { bg: '#1d4ed8', text: '#dbeafe', border: '#3b82f6' };
 }
 
 const GAP = 1.5;    // px gap between tiles
@@ -249,11 +249,11 @@ function SectorTile({ sector, rect }: { sector: Sector; rect: Rect }) {
 // ── Legend ────────────────────────────────────────────────────────────────────
 const LEGEND = [
     { label: '-4%+', ...getColor(-5) },
-    { label: '-2%', ...getColor(-3) },
-    { label: '-1%', ...getColor(-1.5) },
-    { label: '0%', bg: '#1a1a1a', text: '#666', border: '#333' },
-    { label: '+1%', ...getColor(1.5) },
-    { label: '+2%', ...getColor(3) },
+    { label: '-2%',  ...getColor(-3) },
+    { label: '-1%',  ...getColor(-1.5) },
+    { label: '0%',   bg: '#1a1a1a', text: '#666', border: '#333' },
+    { label: '+1%',  ...getColor(1.5) },
+    { label: '+2%',  ...getColor(3) },
     { label: '+4%+', ...getColor(5) },
 ];
 
