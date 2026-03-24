@@ -220,27 +220,141 @@ const KR_SECTORS: Array<{
     },
 ];
 
+// ── Korean KOSDAQ Sectors ──────────────────────────────────────────────────────
+const KOSDAQ_SECTORS: Array<{
+    id: string; name: string; weight: number;
+    stocks: Array<{ symbol: string; name: string; cap: number }>;
+}> = [
+    {
+        id: 'kq-pharma', name: '제약/바이오', weight: 28.0,
+        stocks: [
+            { symbol: '196170', name: '알테오젠', cap: 180 },
+            { symbol: '000250', name: '삼천당제약', cap: 120 },
+            { symbol: '298380', name: '에이비엘바이오', cap: 60 },
+            { symbol: '083320', name: '펩트론', cap: 55 },
+            { symbol: '028300', name: 'HLB', cap: 110 },
+            { symbol: '214370', name: '케어젠', cap: 45 },
+            { symbol: '068760', name: '셀트리온제약', cap: 40 },
+            { symbol: '145020', name: '휴젤', cap: 35 },
+            { symbol: '237690', name: '에스티팜', cap: 30 },
+            { symbol: '141080', name: '리가켐바이오', cap: 80 },
+            { symbol: '304100', name: '보로노이', cap: 40 },
+        ],
+    },
+    {
+        id: 'kq-elec', name: '전기·전자', weight: 22.0,
+        stocks: [
+            { symbol: '247540', name: '에코프로비엠', cap: 220 },
+            { symbol: '058470', name: '리노공업', cap: 45 },
+            { symbol: '032820', name: '우리기술', cap: 15 },
+            { symbol: '078600', name: '대주전자재료', cap: 35 },
+            { symbol: '000660', name: 'SK하이닉스', cap: 0 }, // Wait, SK is KOSPI. 
+            { symbol: '290650', name: '엔켐', cap: 65 },
+        ],
+    },
+    {
+        id: 'kq-heavy', name: '기계·장비', weight: 18.0,
+        stocks: [
+            { symbol: '277810', name: '레인보우로보틱스', cap: 45 },
+            { symbol: '403870', name: 'HPSP', cap: 40 },
+            { symbol: '030530', name: '원익IPS', cap: 25 },
+            { symbol: '039030', name: '이오테크닉스', cap: 28 },
+            { symbol: '270870', name: '로보티즈', cap: 12 },
+            { symbol: '065680', name: '우진엔텍', cap: 10 },
+        ],
+    },
+    {
+        id: 'kq-chem', name: '화학/소재', weight: 12.0,
+        stocks: [
+            { symbol: '086520', name: '에코프로', cap: 180 },
+            { symbol: '003380', name: '하림지주', cap: 35 },
+            { symbol: '357780', name: '솔브레인', cap: 32 },
+            { symbol: '281740', name: '레이크머티리얼즈', cap: 20 },
+        ],
+    },
+    {
+        id: 'kq-it', name: 'IT 서비스/게임', weight: 10.0,
+        stocks: [
+            { symbol: '263750', name: '펄어비스', cap: 32 },
+            { symbol: '293490', name: '카카오게임즈', cap: 28 },
+            { symbol: '035900', name: 'JYP Ent.', cap: 26 },
+            { symbol: '041510', name: '에스엠', cap: 22 },
+        ],
+    },
+    {
+        id: 'kq-med', name: '의료·정밀기기', weight: 10.0,
+        stocks: [
+            { symbol: '214150', name: '클래시스', cap: 35 },
+            { symbol: '328130', name: '루닛', cap: 18 },
+            { symbol: '338220', name: '뷰노', cap: 10 },
+        ],
+    },
+];
+
 // ── Yahoo Finance quote ─────────────────────────────────────────────────────────
-async function fetchYahooQuote(symbol: string): Promise<{ changePercent: number; price: number; name: string } | null> {
-    try {
-        const encoded = encodeURIComponent(symbol);
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=2d`;
-        const res = await fetch(url, {
-            headers: { 'User-Agent': DEFAULT_UA, 'Accept': 'application/json' },
-            cache: 'no-store',
-        });
-        if (!res.ok) return null;
-        const j = await res.json();
-        const meta = j.chart?.result?.[0]?.meta;
-        if (!meta) return null;
-        const price = meta.regularMarketPrice ?? 0;
-        const prev = meta.chartPreviousClose ?? meta.previousClose ?? price;
-        const changePercent = prev > 0 ? ((price - prev) / prev) * 100 : 0;
-        const name = meta.shortName || symbol;
-        return { changePercent, price, name };
-    } catch {
-        return null;
+// ── Robust Quote Fetch (using Naver Overseas API) ──────────────────────────────
+async function fetchRobustQuote(symbol: string): Promise<{ changePercent: number; price: number; name: string; status?: string } | null> {
+    const tryFetch = async (sym: string) => {
+        const url = `https://api.stock.naver.com/stock/${sym}/basic`;
+        try {
+            const res = await fetch(url, {
+                headers: { 'User-Agent': DEFAULT_UA },
+                cache: 'no-store',
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (!data || !data.closePrice) return null;
+            return data;
+        } catch {
+            return null;
+        }
+    };
+
+    let data = null;
+    let finalSymbol = symbol;
+
+    if (!symbol.includes('.')) {
+        const suffixes = ['.O', '.N', '.A', '.K', ''];
+        for (const suffix of suffixes) {
+            data = await tryFetch(symbol + suffix);
+            if (data) {
+                finalSymbol = symbol + suffix;
+                break;
+            }
+        }
+    } else {
+        data = await tryFetch(symbol);
     }
+
+    if (!data) return null;
+
+    const extractNumber = (v: any) => {
+        if (v === undefined || v === null) return 0;
+        const s = String(v).replace(/,/g, '');
+        return parseFloat(s) || 0;
+    };
+
+    const price = extractNumber(data.closePrice);
+    let changePercent = extractNumber(data.fluctuationsRatio);
+    const name = data.stockName || symbol;
+    
+    // Check direction name as backup/override
+    const dirName = (data.compareToPreviousClosePrice?.name || '').toUpperCase();
+    if (dirName.includes('FALLING') || dirName.includes('LOWER')) {
+        changePercent = -Math.abs(changePercent);
+    } else if (dirName.includes('RISING') || dirName.includes('UPPER')) {
+        changePercent = Math.abs(changePercent);
+    }
+
+    // If market is CLOSED, the change for CURRENT day is technically 0 
+    // until the new session starts. (Prevents yesterday's move from sticking around)
+    const isLive = data.marketStatus === 'OPEN';
+    return { 
+        changePercent, 
+        price, 
+        name,
+        status: isLive ? 'OPEN' : 'CLOSED'
+    };
 }
 
 // ── Naver Finance quote (Korean stocks) ────────────────────────────────────────
@@ -261,13 +375,17 @@ async function fetchNaverStockChange(symbol: string): Promise<{ changePercent: n
         const price = extractNumber(data.closePrice);
         if (price === 0) return null;
 
-        const ratioMag = Math.abs(extractNumber(data.fluctuationsRatio));
-        const dirName: string = data.compareToPreviousPrice?.name || '';
-        const sign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1
-            : (dirName === 'RISING'  || dirName === 'UPPER_LIMIT')  ?  1
-            : 0;
+        const isLive = data.marketStatus === 'OPEN';
+        let finalChange = extractNumber(data.fluctuationsRatio);
+        
+        const dirName = (data.compareToPreviousPrice?.name || '').toUpperCase();
+        if (dirName.includes('FALLING') || dirName.includes('LOWER')) {
+            finalChange = -Math.abs(finalChange);
+        } else if (dirName.includes('RISING') || dirName.includes('UPPER')) {
+            finalChange = Math.abs(finalChange);
+        }
 
-        return { changePercent: ratioMag * sign, price };
+        return { changePercent: finalChange, price };
     } catch {
         return null;
     }
@@ -275,7 +393,7 @@ async function fetchNaverStockChange(symbol: string): Promise<{ changePercent: n
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const market = (searchParams.get('market') || 'US') as 'US' | 'KR';
+    const market = (searchParams.get('market') || 'US') as 'US' | 'KR' | 'KOSDAQ';
     const cacheKey = market;
 
     if (_cache[cacheKey] && Date.now() - _cache[cacheKey].ts < TTL) {
@@ -283,35 +401,68 @@ export async function GET(request: Request) {
     }
 
     try {
+        const now = new Date();
+        const kstOffset = 9 * 60 * 60 * 1000;
+        const kstDate = new Date(now.getTime() + kstOffset);
+        const day = kstDate.getUTCDay();
+        const hours = kstDate.getUTCHours();
+        const minutes = kstDate.getUTCMinutes();
+        const timeVal = hours + minutes / 60;
+
+        let marketStatus = 'CLOSED';
+
         if (market === 'US') {
             const sectorResults = await Promise.all(
                 US_SECTORS.map(async (sec) => {
-                    const etfData = await fetchYahooQuote(sec.etf);
+                    const etfData = await fetchRobustQuote(sec.etf);
                     const stockResults = await Promise.all(
-                        sec.stocks.map(s => fetchYahooQuote(s.symbol))
+                        sec.stocks.map(s => fetchRobustQuote(s.symbol))
                     );
+                    
+                    const stocks = sec.stocks.map((s, i) => ({
+                        symbol: s.symbol,
+                        name: stockResults[i]?.name || s.name,
+                        cap: s.cap,
+                        changePercent: stockResults[i]?.changePercent ?? 0,
+                        price: stockResults[i]?.price ?? 0,
+                    })).filter(s => s.price > 0);
+
+                    if (etfData?.status === 'OPEN') marketStatus = 'OPEN';
+
+                    // If ETF data failed, estimate sector change from stocks
+                    let sectorChange = etfData?.changePercent;
+                    if (sectorChange === undefined || isNaN(sectorChange)) {
+                         const totalCap = stocks.reduce((a, s) => a + s.cap, 0) || 1;
+                         sectorChange = stocks.reduce((a, s) => a + s.changePercent * (s.cap / totalCap), 0);
+                    }
+
                     return {
                         id: sec.id,
                         name: sec.name,
                         weight: sec.weight,
-                        changePercent: etfData?.changePercent ?? 0,
-                        stocks: sec.stocks.map((s, i) => ({
-                            symbol: s.symbol,
-                            name: stockResults[i]?.name || s.name,
-                            cap: s.cap,
-                            changePercent: stockResults[i]?.changePercent ?? 0,
-                            price: stockResults[i]?.price ?? 0,
-                        })).filter(s => s.price > 0),
+                        changePercent: sectorChange || 0,
+                        stocks: stocks,
                     };
                 })
             );
-            const data = { market: 'US', sectors: sectorResults };
+
+            // Manual fallback status check for US
+            const isWeekDay = day >= 2 && day <= 6; 
+            const isMarketHours = timeVal >= 22.5 || timeVal < 6;
+            if (isWeekDay && isMarketHours) marketStatus = 'OPEN';
+
+            const data = { market: 'US', status: marketStatus, sectors: sectorResults.filter(s => s.stocks.length > 0) };
             _cache[cacheKey] = { data, ts: Date.now() };
             return NextResponse.json(data);
         } else {
-            // Korean market
+            // Korean markets (KOSPI or KOSDAQ)
+            const isWeekDay = day >= 1 && day <= 5;
+            const isMarketHours = timeVal >= 9 && timeVal < 15.6;
+            if (isWeekDay && isMarketHours) marketStatus = 'OPEN';
+
+            const sourceSectors = market === 'KR' ? KR_SECTORS : KOSDAQ_SECTORS;
             const sectorResults = await Promise.all(
-                KR_SECTORS.map(async (sec) => {
+                sourceSectors.map(async (sec) => {
                     const stockResults = await Promise.all(
                         sec.stocks.map(s => fetchNaverStockChange(s.symbol))
                     );
@@ -333,7 +484,7 @@ export async function GET(request: Request) {
                     };
                 })
             );
-            const data = { market: 'KR', sectors: sectorResults };
+            const data = { market, status: marketStatus, sectors: sectorResults.filter(s => s.stocks.length > 0) };
             _cache[cacheKey] = { data, ts: Date.now() };
             return NextResponse.json(data);
         }
@@ -342,3 +493,4 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
     }
 }
+

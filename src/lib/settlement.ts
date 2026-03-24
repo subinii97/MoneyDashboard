@@ -203,19 +203,32 @@ export const calculateTWRMultipliers = (
 };
 
 /**
- * Sync Friday overseas returns with Saturday morning data point for US markets.
- * US markets close late on Friday KST, so their "day return" appears on Saturday.
+ * Sync overseas returns with their actual trading session dates.
+ * US markets close late KST (the following morning).
+ * For example, Monday US trading finishes on Tuesday morning KST.
+ * This function shifts the multiplier from the capture date back to the session date.
  */
-export const syncOverseasFriday = (date: string, multipliers: Record<string, number>): number => {
+export const syncOverseasReturn = (date: string, multipliers: Record<string, number>): number => {
     let val = multipliers[date] || 1;
     const dObj = new Date(date + 'T00:00:00');
-    if (dObj.getDay() === 5) { // Friday
-        const sat = new Date(dObj);
-        sat.setDate(sat.getDate() + 1);
-        const satStr = toLocalDateStr(sat);
-        if (multipliers[satStr] !== undefined) {
-            val = multipliers[satStr];
+    
+    // US trading days: Mon(23rd) close = Tue(24th) KST morning.
+    // If the next day's data point exists and it's a Tue-Sat morning KST,
+    // that data point contains the return for Mon-Fri US sessions.
+    const dates = Object.keys(multipliers).sort();
+    const idx = dates.indexOf(date);
+    if (idx !== -1 && idx < dates.length - 1) {
+        const nextDate = dates[idx + 1];
+        const nObj = new Date(nextDate + 'T00:00:00');
+        const nextDayKST = nObj.getDay(); // 0: Sun, 1: Mon... 2: Tue (Fri US close=Sat KST=6)
+
+        // Mon-Fri US Close => Tue-Sat KST mornings (days 2, 3, 4, 5, 6)
+        if (nextDayKST >= 2 && nextDayKST <= 6) {
+            val = multipliers[nextDate];
         }
     }
     return val;
 };
+
+// Compatibility Alias
+export const syncOverseasFriday = syncOverseasReturn;
