@@ -6,6 +6,7 @@ import {
     WeeklySettlement,
     MonthlySettlement,
     FullSettlementMetrics,
+    INVESTMENT_CATEGORIES,
 } from '@/lib/types';
 import { getCategoryValue, calculateTWRMultipliers, getSummaryMetrics, syncOverseasFriday } from '@/lib/settlement';
 import { convertToKRW } from '@/lib/utils';
@@ -18,13 +19,8 @@ function recalcAllocations(
     holdings: any[],
     exchangeRate: number
 ): any[] {
-    const INVESTMENT_CATS: AssetCategory[] = [
-        'Domestic Stock', 'Overseas Stock',
-        'Domestic Index', 'Overseas Index',
-        'Domestic Bond', 'Overseas Bond',
-    ];
     return allocations.map((alc: any) => {
-        if (!INVESTMENT_CATS.includes(alc.category)) return alc;
+        if (!INVESTMENT_CATEGORIES.includes(alc.category)) return alc;
         const categoryValue = holdings
             .filter((h: any) => h.category === alc.category)
             .reduce((sum: number, h: any) => {
@@ -128,11 +124,7 @@ export function useHistoryData() {
 
                                 // Add non-investment allocation values
                                 const nonInvValue = (entry.allocations || [])
-                                    .filter((a: any) => ![
-                                        'Domestic Stock', 'Overseas Stock',
-                                        'Domestic Index', 'Overseas Index',
-                                        'Domestic Bond', 'Overseas Bond',
-                                    ].includes(a.category))
+                                    .filter((a: any) => !INVESTMENT_CATEGORIES.includes(a.category))
                                     .reduce((acc: number, a: any) =>
                                         acc + (a.currency === 'USD' ? a.value * entry.exchangeRate : a.value), 0);
 

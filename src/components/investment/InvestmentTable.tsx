@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Investment, Transaction } from '@/lib/types';
 import { formatKRW, convertToKRW } from '@/lib/utils';
 import { InvestmentTableRow } from './InvestmentTableRow';
+import { getActivePrice, getActiveChange, getActiveChangePercent } from '@/lib/assets';
 
 interface InvestmentTableProps {
     investments: Investment[];
@@ -32,29 +33,16 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             setSortDir('desc');
         }
     };
-    const getActivePrice = (s: Investment) => (s.isOverMarket && s.overMarketPrice !== undefined) ? s.overMarketPrice : (s.currentPrice || s.avgPrice);
 
-    const todayBuySymbols = new Set(
+    const todayBuySymbols = new Set<string>(
         transactions
-            .filter(t => t.type === 'BUY')
-            .map(t => t.symbol?.toUpperCase().trim())
-            .filter(Boolean)
+            .filter(t => t.type === 'BUY' && t.symbol)
+            .map(t => t.symbol!.toUpperCase().trim())
     );
 
-    const getActiveChange = (s: Investment) => {
-        const activePrice = getActivePrice(s);
-        if (todayBuySymbols.has(s.symbol?.toUpperCase().trim())) {
-            return activePrice - s.avgPrice;
-        }
-        return (s.isOverMarket && s.overMarketChange !== undefined) ? s.overMarketChange : (s.change || 0);
-    };
-
-    const getActiveChangePercent = (s: Investment) => {
-        if (todayBuySymbols.has(s.symbol?.toUpperCase().trim())) {
-            return s.avgPrice > 0 ? ((getActivePrice(s) - s.avgPrice) / s.avgPrice) * 100 : 0;
-        }
-        return (s.isOverMarket && s.overMarketChangePercent !== undefined) ? s.overMarketChangePercent : (s.changePercent || 0);
-    };
+    const activePrice = (s: Investment) => getActivePrice(s);
+    const activeChange = (s: Investment) => getActiveChange(s, todayBuySymbols);
+    const activeChangePercent = (s: Investment) => getActiveChangePercent(s, todayBuySymbols);
 
     const subTotal = investments.reduce((acc, s) => {
         const val = getActivePrice(s) * s.shares;

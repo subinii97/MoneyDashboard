@@ -1,4 +1,4 @@
-import { Investment } from './types';
+import { Investment, DEFAULT_EXCHANGE_RATE } from './types';
 import { isDomesticSymbol } from './utils';
 
 /**
@@ -46,5 +46,40 @@ export function extractExchangeRate(priceData: any): { rate: number, yesterdayRa
             };
         }
     }
-    return { rate: 1350, yesterdayRate: 1350, time: '' };
+    return { rate: DEFAULT_EXCHANGE_RATE, yesterdayRate: DEFAULT_EXCHANGE_RATE, time: '' };
+}
+
+/**
+ * Resolves the effective price: uses over-market (after-hours/pre-market) price if active.
+ */
+export function getActivePrice(inv: Investment): number {
+    return (inv.isOverMarket && inv.overMarketPrice !== undefined)
+        ? inv.overMarketPrice
+        : (inv.currentPrice || inv.avgPrice);
+}
+
+/**
+ * Resolves the absolute change for the current session.
+ * For newly bought stocks (on the same day), change is relative to purchase price instead of previous close.
+ */
+export function getActiveChange(inv: Investment, todayBuySymbols?: Set<string>): number {
+    const activePrice = getActivePrice(inv);
+    if (todayBuySymbols?.has(inv.symbol?.toUpperCase().trim())) {
+        return activePrice - inv.avgPrice;
+    }
+    return (inv.isOverMarket && inv.overMarketChange !== undefined)
+        ? inv.overMarketChange
+        : (inv.change || 0);
+}
+
+/**
+ * Resolves the percentage change for the current session.
+ */
+export function getActiveChangePercent(inv: Investment, todayBuySymbols?: Set<string>): number {
+    if (todayBuySymbols?.has(inv.symbol?.toUpperCase().trim())) {
+        return inv.avgPrice > 0 ? ((getActivePrice(inv) - inv.avgPrice) / inv.avgPrice) * 100 : 0;
+    }
+    return (inv.isOverMarket && inv.overMarketChangePercent !== undefined)
+        ? inv.overMarketChangePercent
+        : (inv.changePercent || 0);
 }

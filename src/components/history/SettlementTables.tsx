@@ -4,49 +4,9 @@ import React from 'react';
 import { formatKRW } from '@/lib/utils';
 import { Calendar, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
-interface RenderChangeProps {
-    val: number;
-    percent: number;
-    showPercentOnly?: boolean;
-    hidePercent?: boolean;
-    isPrivate?: boolean;
-}
-
-const RenderChange: React.FC<RenderChangeProps> = ({ val, percent, showPercentOnly = false, hidePercent = false, isPrivate = false }) => {
-    const roundedVal = Math.round(val);
-    const roundedPercent = Number(percent.toFixed(2));
-
-    if (roundedVal === 0 && roundedPercent === 0) return <span style={{ color: 'var(--muted)' }}>-</span>;
-    const isUp = roundedVal > 0 || (roundedPercent > 0 && !hidePercent);
-    const color = isUp ? '#dc2626' : '#2563eb';
-    const triangle = isUp ? '▲' : '▼';
-
-    if (showPercentOnly || (isPrivate && !hidePercent)) {
-        if (hidePercent && !isPrivate) return null;
-        if (hidePercent && isPrivate) return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', color: 'var(--muted)', fontWeight: '600' }}><span>*****</span></div>;
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem', color, fontWeight: '600' }}>
-                <span>{triangle}</span>
-                <span>{Math.abs(roundedPercent).toFixed(2)}%</span>
-            </div>
-        );
-    }
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', color, fontWeight: '600' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span>{triangle}</span>
-                <span>{isPrivate ? '*****' : formatKRW(Math.abs(roundedVal))}</span>
-            </div>
-            {!hidePercent && (
-                <span style={{ opacity: 0.85 }}>{isUp ? '+' : '-'}{Math.abs(roundedPercent).toFixed(2)}%</span>
-            )}
-        </div>
-    );
-};
+import { RenderChange, formatValue } from './SettlementUtils';
 
 export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthIndex, setMonthIndex , isPrivate}: any) => {
-    const format = (v: number) => isPrivate ? '*****' : formatKRW(v);
     const months = Object.keys(dailyGroupedByMonth).sort((a, b) => b.localeCompare(a));
     const currentMonth = months[monthIndex];
     const entries = dailyGroupedByMonth[currentMonth] || [];
@@ -106,19 +66,19 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
                                     </div>
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(d.metrics.cash.current)}</div>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(d.metrics.cash.current, isPrivate)}</div>
                                     <RenderChange val={d.metrics.cash.change} percent={d.metrics.cash.percent} hidePercent isPrivate={isPrivate} />
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(d.metrics.domestic.current)}</div>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(d.metrics.domestic.current, isPrivate)}</div>
                                     <RenderChange val={d.metrics.domestic.change} percent={d.metrics.domestic.percent} showPercentOnly isPrivate={isPrivate} />
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(d.metrics.overseas.current)}</div>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(d.metrics.overseas.current, isPrivate)}</div>
                                     <RenderChange val={d.metrics.overseas.change} percent={d.metrics.overseas.percent} showPercentOnly isPrivate={isPrivate} />
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>
-                                    {format(d.totalValue)}
+                                    {formatValue(d.totalValue, isPrivate)}
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <RenderChange val={d.change} percent={d.changePercent} isPrivate={isPrivate} />
@@ -133,7 +93,6 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
 };
 
 export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly , isPrivate}: any) => {
-    const format = (v: number) => isPrivate ? '*****' : formatKRW(v);
     return (
         <section style={{ marginBottom: '4rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -162,18 +121,18 @@ export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly ,
                             <tr key={m.month} style={{ borderBottom: '1px solid var(--border)' }}>
                                 <td style={{ padding: '1rem', fontWeight: '600', textAlign: 'center', borderRight: '1px solid var(--border)' }}>{m.month}</td>
                                 <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(m.metrics.cash.current)}</div>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(m.metrics.cash.current, isPrivate)}</div>
                                     <RenderChange val={m.metrics.cash.change} percent={m.metrics.cash.percent} hidePercent isPrivate={isPrivate} />
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(m.metrics.domestic.current)}</div>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(m.metrics.domestic.current, isPrivate)}</div>
                                     <RenderChange val={m.metrics.domestic.change} percent={m.metrics.domestic.percent} showPercentOnly isPrivate={isPrivate} />
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(m.metrics.overseas.current)}</div>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(m.metrics.overseas.current, isPrivate)}</div>
                                     <RenderChange val={m.metrics.overseas.change} percent={m.metrics.overseas.percent} showPercentOnly isPrivate={isPrivate} />
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{format(m.value)}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{formatValue(m.value, isPrivate)}</td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <RenderChange val={m.change} percent={m.changePercent} isPrivate={isPrivate} />
                                 </td>
@@ -187,7 +146,6 @@ export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly ,
 };
 
 export const WeeklySettlementTable = ({ weeklySettlements, refreshTransactions , isPrivate}: any) => {
-    const format = (v: number) => isPrivate ? '*****' : formatKRW(v);
     const [expandedWeeks, setExpandedWeeks] = React.useState<Set<string>>(new Set());
     
     // 수정 관련 상태 추가
@@ -295,18 +253,18 @@ export const WeeklySettlementTable = ({ weeklySettlements, refreshTransactions ,
                                             </div>
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                            <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(w.metrics.cash.current)}</div>
+                                            <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(w.metrics.cash.current, isPrivate)}</div>
                                             <RenderChange val={w.metrics.cash.change} percent={w.metrics.cash.percent} hidePercent isPrivate={isPrivate} />
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                            <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(w.metrics.domestic.current)}</div>
+                                            <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(w.metrics.domestic.current, isPrivate)}</div>
                                             <RenderChange val={w.metrics.domestic.change} percent={w.metrics.domestic.percent} showPercentOnly isPrivate={isPrivate} />
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
-                                            <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{format(w.metrics.overseas.current)}</div>
+                                            <div style={{ fontWeight: '600', marginBottom: '0.1rem' }}>{formatValue(w.metrics.overseas.current, isPrivate)}</div>
                                             <RenderChange val={w.metrics.overseas.change} percent={w.metrics.overseas.percent} showPercentOnly isPrivate={isPrivate} />
                                         </td>
-                                        <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{format(w.value)}</td>
+                                        <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{formatValue(w.value, isPrivate)}</td>
                                         <td style={{ padding: '1rem', textAlign: 'right' }}>
                                             <RenderChange val={w.change} percent={w.changePercent} isPrivate={isPrivate} />
                                         </td>
@@ -444,7 +402,7 @@ export const WeeklySettlementTable = ({ weeklySettlements, refreshTransactions ,
                                                                             {tx.price ? `${tx.price.toLocaleString()} ${tx.currency}` : '-'}
                                                                         </td>
                                                                         <td style={{ padding: '0.6rem', textAlign: 'right', fontWeight: '600' }}>
-                                                                            {format(tx.amount || (tx.price * tx.shares))} {tx.currency !== 'KRW' && <span style={{fontSize: '0.7rem', opacity: 0.6}}>({tx.currency})</span>}
+                                                                            {formatValue(tx.amount || (tx.price * tx.shares), isPrivate)} {tx.currency !== 'KRW' && <span style={{fontSize: '0.7rem', opacity: 0.6}}>({tx.currency})</span>}
                                                                         </td>
                                                                         <td style={{ padding: '0.3rem', textAlign: 'center' }}>
                                                                             <button

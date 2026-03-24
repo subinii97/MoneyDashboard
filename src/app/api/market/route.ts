@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchMarketIndex, fetchMarketExchangeRate } from '@/lib/stock';
+import { extractNumber } from '@/lib/stock/utils';
+import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
-
-import * as cheerio from 'cheerio';
 
 async function fetchCrypto() {
     try {
@@ -39,15 +39,9 @@ async function fetchCommodity(url: string, id: string, name: string) {
 
         if (!priceText) return null;
 
-        let price = parseFloat(priceText.replace(/,/g, ''));
-        let change = parseFloat(changeText.replace(/,/g, '').replace('+', ''));
-        let changePercent = parseFloat(changePctText.replace(/[()+,% ]/g, ''));
-
-        if (isNaN(price)) price = 0;
-        if (isNaN(change)) change = 0;
-        if (isNaN(changePercent)) changePercent = 0;
-        if (changeText.includes('-') && change > 0) change = -change;
-        if (changePctText.includes('-') && changePercent > 0) changePercent = -changePercent;
+        const price = extractNumber(priceText);
+        const change = extractNumber(changeText);
+        const changePercent = extractNumber(changePctText);
 
         return {
             id,

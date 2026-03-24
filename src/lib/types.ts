@@ -2,6 +2,7 @@
 export type MarketType = 'Domestic' | 'Overseas';
 export type TransactionType = 'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW';
 export type Currency = 'KRW' | 'USD';
+export const DEFAULT_EXCHANGE_RATE = 1350;
 
 export type AssetCategory =
     | 'Cash'
@@ -12,6 +13,11 @@ export type AssetCategory =
     | 'Overseas Stock'
     | 'Overseas Bond'
     | 'Overseas Index';
+
+export const INVESTMENT_CATEGORIES: AssetCategory[] = [
+    'Domestic Stock', 'Domestic Index', 'Domestic Bond',
+    'Overseas Stock', 'Overseas Index', 'Overseas Bond'
+];
 
 // ── Constants ────────────────────────────────────────────────────────────────
 export const CATEGORY_MAP: Record<AssetCategory, string> = {

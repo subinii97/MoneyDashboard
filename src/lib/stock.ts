@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { fetchNaverQuote, fetchDomesticIndex } from './stock/domestic';
 import { fetchNaverOverseasQuote, fetchOverseasIndex } from './stock/overseas';
 import { fetchExchangeRate as fetchNavRate, fetchMarketExchangeRate as fetchMktRate } from './stock/exchange';
-import { extractNumber } from './stock/utils';
+import { extractNumber, formatYmd } from './stock/utils';
 import { isDomesticSymbol } from './utils';
 
 // In-memory cache
@@ -77,9 +77,7 @@ export async function fetchMarketIndexHistory(code: string, days: number = 30) {
                 const row = $(el).attr('data') || '';
                 const parts = row.split('|');
                 if (parts.length >= 5) {
-                    const dateStr = parts[0];
-                    const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
-                    data.push({ date: formattedDate, close: parseFloat(parts[4]) });
+                    data.push({ date: formatYmd(parts[0]), close: parseFloat(parts[4]) });
                 }
             });
             return data;
@@ -102,7 +100,7 @@ export async function fetchMarketIndexHistory(code: string, days: number = 30) {
 
             const flattened = allItems.flat().filter(item => item && item.xymd && item.clos);
             const data = flattened.map((item: any) => ({
-                date: `${item.xymd.substring(0, 4)}-${item.xymd.substring(4, 6)}-${item.xymd.substring(6, 8)}`,
+                date: formatYmd(item.xymd),
                 close: parseFloat(item.clos)
             }));
 

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 const TTL = 10 * 1000; // 10 seconds cache
 const _cache: Record<string, { data: any; ts: number }> = {};
-const DEFAULT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 // ── US S&P 500 Sectors ────────────────────────────────────────────────────────
 const US_SECTORS: Array<{
@@ -291,104 +290,17 @@ const KOSDAQ_SECTORS: Array<{
     },
 ];
 
-// ── Yahoo Finance quote ─────────────────────────────────────────────────────────
-// ── Robust Quote Fetch (using Naver Overseas API) ──────────────────────────────
-async function fetchRobustQuote(symbol: string): Promise<{ changePercent: number; price: number; name: string; status?: string } | null> {
-    const tryFetch = async (sym: string) => {
-        const url = `https://api.stock.naver.com/stock/${sym}/basic`;
-        try {
-            const res = await fetch(url, {
-                headers: { 'User-Agent': DEFAULT_UA },
-                cache: 'no-store',
-            });
-            if (!res.ok) return null;
-            const data = await res.json();
-            if (!data || !data.closePrice) return null;
-            return data;
-        } catch {
-            return null;
-        }
+import { fetchQuote } from '@/lib/stock';
+
+async function getStockInfo(symbol: string) {
+    const data = await fetchQuote(symbol);
+    if (!data || data.error) return null;
+    return {
+        changePercent: data.changePercent,
+        price: data.price,
+        name: data.name,
+        status: data.marketStatus === 'OPEN' ? 'OPEN' : 'CLOSED'
     };
-
-    let data = null;
-    let finalSymbol = symbol;
-
-    if (!symbol.includes('.')) {
-        const suffixes = ['.O', '.N', '.A', '.K', ''];
-        for (const suffix of suffixes) {
-            data = await tryFetch(symbol + suffix);
-            if (data) {
-                finalSymbol = symbol + suffix;
-                break;
-            }
-        }
-    } else {
-        data = await tryFetch(symbol);
-    }
-
-    if (!data) return null;
-
-    const extractNumber = (v: any) => {
-        if (v === undefined || v === null) return 0;
-        const s = String(v).replace(/,/g, '');
-        return parseFloat(s) || 0;
-    };
-
-    const price = extractNumber(data.closePrice);
-    let changePercent = extractNumber(data.fluctuationsRatio);
-    const name = data.stockName || symbol;
-    
-    // Check direction name as backup/override
-    const dirName = (data.compareToPreviousClosePrice?.name || '').toUpperCase();
-    if (dirName.includes('FALLING') || dirName.includes('LOWER')) {
-        changePercent = -Math.abs(changePercent);
-    } else if (dirName.includes('RISING') || dirName.includes('UPPER')) {
-        changePercent = Math.abs(changePercent);
-    }
-
-    // If market is CLOSED, the change for CURRENT day is technically 0 
-    // until the new session starts. (Prevents yesterday's move from sticking around)
-    const isLive = data.marketStatus === 'OPEN';
-    return { 
-        changePercent, 
-        price, 
-        name,
-        status: isLive ? 'OPEN' : 'CLOSED'
-    };
-}
-
-// ── Naver Finance quote (Korean stocks) ────────────────────────────────────────
-async function fetchNaverStockChange(symbol: string): Promise<{ changePercent: number; price: number } | null> {
-    try {
-        const code = symbol.split('.')[0];
-        const url = `https://m.stock.naver.com/api/stock/${code}/basic`;
-        const res = await fetch(url, {
-            headers: { 'User-Agent': DEFAULT_UA },
-            cache: 'no-store',
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        const extractNumber = (v: any) => {
-            if (!v) return 0;
-            return parseFloat(String(v).replace(/,/g, '')) || 0;
-        };
-        const price = extractNumber(data.closePrice);
-        if (price === 0) return null;
-
-        const isLive = data.marketStatus === 'OPEN';
-        let finalChange = extractNumber(data.fluctuationsRatio);
-        
-        const dirName = (data.compareToPreviousPrice?.name || '').toUpperCase();
-        if (dirName.includes('FALLING') || dirName.includes('LOWER')) {
-            finalChange = -Math.abs(finalChange);
-        } else if (dirName.includes('RISING') || dirName.includes('UPPER')) {
-            finalChange = Math.abs(finalChange);
-        }
-
-        return { changePercent: finalChange, price };
-    } catch {
-        return null;
-    }
 }
 
 export async function GET(request: Request) {
@@ -414,9 +326,9 @@ export async function GET(request: Request) {
         if (market === 'US') {
             const sectorResults = await Promise.all(
                 US_SECTORS.map(async (sec) => {
-                    const etfData = await fetchRobustQuote(sec.etf);
+                    const etfData = await getStockInfo(sec.etf);
                     const stockResults = await Promise.all(
-                        sec.stocks.map(s => fetchRobustQuote(s.symbol))
+                        sec.stocks.map(s => getStockInfo(s.symbol))
                     );
                     
                     const stocks = sec.stocks.map((s, i) => ({
@@ -464,7 +376,7 @@ export async function GET(request: Request) {
             const sectorResults = await Promise.all(
                 sourceSectors.map(async (sec) => {
                     const stockResults = await Promise.all(
-                        sec.stocks.map(s => fetchNaverStockChange(s.symbol))
+                        sec.stocks.map(s => getStockInfo(s.symbol))
                     );
                     const stocks = sec.stocks.map((s, i) => ({
                         symbol: s.symbol,

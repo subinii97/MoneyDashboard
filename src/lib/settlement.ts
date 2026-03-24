@@ -1,4 +1,4 @@
-import { HistoryEntry, AssetCategory, MarketType } from './types';
+import { HistoryEntry, AssetCategory, MarketType, DEFAULT_EXCHANGE_RATE } from './types';
 import { convertToKRW, isDomesticSymbol, toLocalDateStr } from './utils';
 
 export const HISTORY_CATEGORIES: AssetCategory[] = [
@@ -14,7 +14,7 @@ export const INVESTMENT_CATEGORIES: AssetCategory[] = [
 /**
  * Get the total KRW value for a specific category in a history entry.
  */
-export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallbackRate = 1350): number => {
+export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallbackRate = DEFAULT_EXCHANGE_RATE): number => {
     const allocation = entry.allocations?.find(a => a.category === cat);
     const entryRate = entry.exchangeRate || fallbackRate;
     const allocationValue = allocation ? convertToKRW(allocation.value, allocation.currency, entryRate) : 0;
@@ -37,12 +37,11 @@ export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallba
             return false;
         });
 
-        return categoryInvestments?.reduce((sum: number, h: any) =>
-            sum + convertToKRW(
-                (h.currentPrice || h.avgPrice) * h.shares,
-                h.currency || (h.marketType === 'Domestic' ? 'KRW' : 'USD'),
-                entryRate
-            ), 0) || 0;
+        return categoryInvestments?.reduce((sum: number, h: any) => {
+            const currency = h.currency || (h.marketType === 'Domestic' ? 'KRW' : 'USD');
+            const price = h.currentPrice ?? h.avgPrice;
+            return sum + convertToKRW(price * h.shares, currency, entryRate);
+        }, 0) || 0;
     }
 
     return allocationValue;
@@ -51,7 +50,7 @@ export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallba
 /**
  * Get summary metrics for a history entry: Cash (Cash+Savings), Domestic, and Overseas totals.
  */
-export const getSummaryMetrics = (entry: HistoryEntry, rate = 1350) => {
+export const getSummaryMetrics = (entry: HistoryEntry, rate = DEFAULT_EXCHANGE_RATE) => {
     const r = entry.exchangeRate || rate;
     const cash = getCategoryValue(entry, 'Cash', r) + getCategoryValue(entry, 'Savings', r);
     const domStock = getCategoryValue(entry, 'Domestic Stock', r);
@@ -100,7 +99,7 @@ const filterByMarketType = (holdings: any[], type: MarketType): any[] =>
 export const calculateTWRMultipliers = (
     allRows: HistoryEntry[],
     type: MarketType,
-    fallbackRate = 1350,
+    fallbackRate = DEFAULT_EXCHANGE_RATE,
     transactions?: any[]
 ): Record<string, number> => {
     let cumReturn = 1;
@@ -140,28 +139,29 @@ export const calculateTWRMultipliers = (
         const todaySellTxs = sellTxByDate[today.date] || [];
         const defaultCurrency = type === 'Domestic' ? 'KRW' : 'USD';
 
-        // Price each previous holding at today's price (or sell price if sold today)
-        prevHoldings.forEach((ph: any) => {
-            let pPrice = ph.currentPrice || ph.avgPrice;
-
-            const ch = currHoldings.find((h: any) => h.symbol === ph.symbol);
-            
-            // If today is live, retroactively calibrate the previous day's closing price
-            // to precisely match the official change provided by the market API.
-            // We skip this on weekends because the API's 'change' would duplicate Friday's return.
+        // Helper to calibrate previous price for live tracking
+        const getCalibratedPrevPrice = (ph: any, ch: any) => {
+            let price = ph.currentPrice || ph.avgPrice;
             if (today.isLive && ch && ch.currentPrice !== undefined) {
                 const dObj = new Date(today.date + 'T00:00:00');
                 const isWeekend = dObj.getDay() === 0 || dObj.getDay() === 6;
-                
                 if (!isWeekend) {
                     const activeChange = (ch.isOverMarket && ch.overMarketChange !== undefined) ? ch.overMarketChange : ch.change;
                     if (activeChange !== undefined) {
-                        pPrice = ch.currentPrice - activeChange;
+                        price = ch.currentPrice - activeChange;
                     }
                 }
             }
+            return price;
+        };
 
-            prevMarketValue += convertToKRW(pPrice * ph.shares, ph.currency || defaultCurrency, ratePrev);
+        // Price each previous holding at today's price (or sell price if sold today)
+        prevHoldings.forEach((ph: any) => {
+            const ch = currHoldings.find((h: any) => h.symbol === ph.symbol);
+            const pPrice = getCalibratedPrevPrice(ph, ch);
+            const currency = ph.currency || defaultCurrency;
+
+            prevMarketValue += convertToKRW(pPrice * ph.shares, currency, ratePrev);
 
             let cPrice: number;
             if (ch) {
@@ -172,7 +172,7 @@ export const calculateTWRMultipliers = (
                 );
                 cPrice = sellTx ? sellTx.price : pPrice;
             }
-            projectedMarketValue += convertToKRW(cPrice * ph.shares, ph.currency || defaultCurrency, rateCurr);
+            projectedMarketValue += convertToKRW(cPrice * ph.shares, currency, rateCurr);
         });
 
         // Account for new positions opened today (adjust for cash flow neutrality)
