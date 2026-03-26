@@ -84,20 +84,44 @@ export function squarifyLayout(
 
 export function getColor(inputPct: number) {
     const pct = Math.round(inputPct * 100) / 100;
-    if (pct === 0) return { bg: '#252528', text: '#777', border: '#333' };
+    
+    // Neutral base color (near 0%)
+    const baseR = 26, baseG = 27, baseB = 30; // Matches #1a1b1e
+    
+    if (pct === 0) return { bg: `rgb(${baseR}, ${baseG}, ${baseB})`, text: '#555', border: 'rgba(255,255,255,0.05)' };
+
+    // Clamping and normalization (cap at 8%)
+    const maxVal = 8.0;
+    const factor = Math.min(Math.abs(pct) / maxVal, 1.0);
+    
+    // Ease-in effect for smoother start from 0%
+    const easedFactor = Math.pow(factor, 0.8); 
 
     if (pct > 0) {
-        if (pct >= 5.0) return { bg: '#ff1a1a', text: '#fff', border: '#ff7875' };
-        if (pct >= 3.0) return { bg: '#d91818', text: '#f5f5f5', border: '#ff7875' };
-        if (pct >= 2.0) return { bg: '#b31515', text: '#e0e0e0', border: '#ffa39e' };
-        if (pct >= 1.0) return { bg: '#8c1212', text: '#bdbdbd', border: '#cf1322' };
-        return { bg: '#45121a', text: '#9e9e9e', border: '#a8071a' };
+        // Red Gradient (Positive)
+        // Target at 8%: #ff1744 -> rgb(255, 23, 68)
+        const tr = 255, tg = 23, tb = 68;
+        const r = Math.round(baseR + (tr - baseR) * easedFactor);
+        const g = Math.round(baseG + (tg - baseG) * easedFactor);
+        const b = Math.round(baseB + (tb - baseB) * easedFactor);
+        
+        return { 
+            bg: `rgb(${r}, ${g}, ${b})`, 
+            text: easedFactor > 0.4 ? '#fff' : '#bdbdbd',
+            border: `rgba(255, 255, 255, ${0.1 + easedFactor * 0.2})`
+        };
     } else {
-        const abs = Math.abs(pct);
-        if (abs >= 5.0) return { bg: '#006fff', text: '#fff', border: '#69c0ff' };
-        if (abs >= 3.0) return { bg: '#1677ff', text: '#f5f5f5', border: '#40a9ff' };
-        if (abs >= 2.0) return { bg: '#0050b3', text: '#e0e0e0', border: '#1890ff' };
-        if (abs >= 1.0) return { bg: '#003a8c', text: '#bdbdbd', border: '#096dd9' };
-        return { bg: '#101a33', text: '#9e9e9e', border: '#001d66' };
+        // Blue Gradient (Negative)
+        // Target at 8%: #2979ff -> rgb(41, 121, 255)
+        const tr = 41, tg = 121, tb = 255;
+        const r = Math.round(baseR + (tr - baseR) * easedFactor);
+        const g = Math.round(baseG + (tg - baseG) * easedFactor);
+        const b = Math.round(baseB + (tb - baseB) * easedFactor);
+        
+        return { 
+            bg: `rgb(${r}, ${g}, ${b})`, 
+            text: easedFactor > 0.4 ? '#fff' : '#bdbdbd',
+            border: `rgba(255, 255, 255, ${0.1 + easedFactor * 0.2})`
+        };
     }
 }

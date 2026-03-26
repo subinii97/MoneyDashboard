@@ -22,14 +22,14 @@ export function SectorTile({ sector, rect, onHover, correlation }: { sector: Sec
         <div style={{ position: 'absolute', left: rect.x + SECTOR_GAP / 2, top: rect.y + SECTOR_GAP / 2, width: innerW, height: innerH, background: 'transparent', borderRadius: 4, overflow: 'hidden', boxSizing: 'border-box' }}>
             <div style={{ height: HEADER_H, background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                    <span style={{ color: c.text, fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sector.name}</span>
+                    <span style={{ color: '#fff', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sector.name}</span>
                     {correlation !== undefined && (
                         <span style={{ fontSize: '10.5px', fontWeight: 900, color: correlation > 0.6 ? '#f87171' : '#eee', backgroundColor: 'rgba(0,0,0,0.4)', padding: '2px 5px', borderRadius: '5px', border: `1px solid ${correlation > 0.6 ? 'rgba(248,113,113,0.4)' : 'rgba(255,255,255,0.15)'}`, whiteSpace: 'nowrap', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
                             🔗 {correlation.toFixed(2)}
                         </span>
                     )}
                 </div>
-                <span style={{ color: c.text, fontWeight: 800, fontSize: 12, whiteSpace: 'nowrap', marginLeft: 6, opacity: 0.9 }}>
+                <span style={{ color: '#fff', fontWeight: 800, fontSize: 12, whiteSpace: 'nowrap', marginLeft: 6, opacity: 0.9 }}>
                     {sector.changePercent >= 0 ? '+' : ''}{sector.changePercent.toFixed(2)}%
                 </span>
             </div>

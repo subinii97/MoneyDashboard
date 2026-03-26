@@ -9,9 +9,9 @@ import { squarifyLayout, getColor } from '@/components/Analysis/TreemapUtils';
 import { SectorTile } from '@/components/Analysis/SectorTile';
 
 const LEGEND = [
-    { label: '-5%+', ...getColor(-5.5) }, { label: '-3%', ...getColor(-3.5) }, { label: '-2%', ...getColor(-2.5) }, { label: '-1%', ...getColor(-1.5) },
+    { label: '-8%↓', ...getColor(-8.5) }, { label: '-5%', ...getColor(-5.5) }, { label: '-3%', ...getColor(-3.5) }, { label: '-1%', ...getColor(-1.5) },
     { label: '0%', ...getColor(0) },
-    { label: '+1%', ...getColor(1.5) }, { label: '+2%', ...getColor(2.5) }, { label: '+3%', ...getColor(3.5) }, { label: '+5%+', ...getColor(5.5) },
+    { label: '+1%', ...getColor(1.5) }, { label: '+3%', ...getColor(3.5) }, { label: '+5%', ...getColor(5.5) }, { label: '+8%↑', ...getColor(8.5) },
 ];
 
 export default function AnalysisPage() {
@@ -21,14 +21,15 @@ export default function AnalysisPage() {
     const [sectors, setSectors] = useState<Sector[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastFetched, setLastFetched] = useState('');
-    const [sortConfig, setSortConfig] = useState<{ key: 'performance' | 'coupling' | 'weight', direction: 'desc' | 'asc' }>({ key: 'performance', direction: 'desc' });
-    const [correlation, setCorrelation] = useState<{ 
-        correlationLag: number; 
+    const [sortConfig, setSortConfig] = useState<{ key: 'performance' | 'sync' | 'weight' | 'influence', direction: 'desc' | 'asc' }>({ key: 'performance', direction: 'desc' });
+    const [correlation, setCorrelation] = useState<{
+        correlationLag: number;
         correlationLagPrev?: number;
         correlationLagHistory?: { date: string, value: number }[];
-        sectorCorrelations?: Record<string, number>; 
-        krSectorCorrelations?: Record<string, number>; 
-        kqSectorCorrelations?: Record<string, number>; 
+        sectorCorrelations?: Record<string, number>;
+        krSectorCorrelations?: Record<string, number>;
+        kqSectorCorrelations?: Record<string, number>;
+        sectorSync?: Record<string, number>;
     } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerSize, setContainerSize] = useState({ w: 1100, h: 560 });
@@ -43,7 +44,13 @@ export default function AnalysisPage() {
             const dataUrl = await toPng(heatmapRef.current, {
                 quality: 1,
                 pixelRatio: 2,
-                backgroundColor: 'var(--background)',
+                backgroundColor: '#ffffff', // Required for PNG output with solid background
+                skipFonts: true,
+                style: {
+                    // Force Light Theme Colors during capture
+                    backgroundColor: '#ffffff',
+                    color: '#000000',
+                },
                 filter: (node: any) => {
                     const exclusionClasses = ['ignore-in-capture'];
                     return !exclusionClasses.some(className => node.classList?.contains(className));
@@ -68,10 +75,41 @@ export default function AnalysisPage() {
         return () => window.removeEventListener('resize', measure);
     }, []);
 
+    const isSessionActive = useCallback((sessionType: string | undefined) => {
+        if (!sessionType || market !== 'US') return false;
+        // NYC is UTC-4 (DST) or UTC-5 (ST). 
+        // Currently it's March 26, so it's DST (UTC-4).
+        const now = new Date();
+        const nycTime = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York',
+            hour: 'numeric', minute: 'numeric', hour12: false
+        }).format(now);
+        const [hour, minute] = nycTime.split(':').map(Number);
+        const timeVal = hour + minute / 60;
+
+        if (sessionType === 'PRE_MARKET') return timeVal >= 4 && timeVal < 9.5;
+        if (sessionType === 'AFTER_MARKET' || sessionType === 'POST_MARKET') return timeVal >= 16 && timeVal < 20;
+        return false;
+    }, [market]);
+
+    const displaySectors = useMemo(() => {
+        return sectors.map(sec => {
+            const stocks = sec.stocks.map(s => {
+                const isActive = isSessionActive(s.overMarketSession);
+                const cp = (isActive && s.overMarketPrice && s.overMarketChangePercent !== undefined) ? s.overMarketChangePercent : s.changePercent;
+                const pr = (isActive && s.overMarketPrice) ? s.overMarketPrice : s.price;
+                return { ...s, changePercent: cp, price: pr };
+            });
+            const totalCap = stocks.reduce((a, s) => a + s.cap, 0) || 1;
+            const sectorChange = stocks.reduce((a, s) => a + s.changePercent * (s.cap / totalCap), 0);
+            return { ...sec, stocks, changePercent: sectorChange };
+        });
+    }, [sectors, isSessionActive]);
+
     const sectorRects = useMemo(() => {
-        if (!sectors.length) return [];
-        return squarifyLayout(sectors.map(s => s.weight), 0, 0, containerSize.w, containerSize.h);
-    }, [sectors, containerSize]);
+        if (!displaySectors.length) return [];
+        return squarifyLayout(displaySectors.map(s => s.weight), 0, 0, containerSize.w, containerSize.h);
+    }, [displaySectors, containerSize]);
 
     const fetchSectors = useCallback(async (m: 'US' | 'KR' | 'KOSDAQ') => {
         if (sectors.length === 0) setLoading(true);
@@ -101,7 +139,7 @@ export default function AnalysisPage() {
         return () => clearInterval(interval);
     }, [market, fetchSectors]);
 
-    const marketChange = sectors.reduce((s, sec) => s + sec.changePercent * (sec.weight / 100), 0);
+    const marketChange = displaySectors.reduce((s, sec) => s + sec.changePercent * (sec.weight / 100), 0);
 
     return (
         <main style={{ padding: '1.5rem 2rem', maxWidth: '1600px', margin: '0 auto', color: 'var(--foreground)' }}>
@@ -120,7 +158,7 @@ export default function AnalysisPage() {
             `}</style>
 
             {/* Analysis Block - THIS IS THE CAPTURE AREA */}
-            <div ref={heatmapRef} style={{ background: 'var(--background)', padding: '1.5rem', borderRadius: '20px', border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.1)' }}>
+            <div ref={heatmapRef} style={{ background: 'var(--background)', padding: '1.5rem', borderRadius: '20px' }}>
                 <header style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: '300px' }}>
                         <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Market Intelligence Report</span>
@@ -200,21 +238,48 @@ export default function AnalysisPage() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ fontSize: '0.75rem', color: '#666', fontWeight: 600 }}><span style={{ opacity: 0.6 }}>Updated:</span> {lastFetched}</div>
-                                <div style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px', background: marketStatus === 'OPEN' ? 'rgba(34,197,94,0.1)' : 'rgba(0,0,0,0.05)', color: marketStatus === 'OPEN' ? '#16a34a' : '#666', border: marketStatus === 'OPEN' ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(0,0,0,0.1)', whiteSpace: 'nowrap' }}>
-                                    {marketStatus === 'OPEN' ? '● 실시간' : market === 'US' ? '장마감 (전일종가)' : '장마감'}
-                                </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px', flexWrap: 'nowrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                <div style={{ fontSize: '0.75rem', color: '#666', fontWeight: 600, whiteSpace: 'nowrap' }}><span style={{ opacity: 0.6 }}>Updated:</span> {lastFetched}</div>
+                                {(() => {
+                                    const firstStock = sectors[0]?.stocks[0];
+                                    const sessionType = firstStock?.overMarketSession;
+                                    const sessionActive = isSessionActive(sessionType);
+                                    
+                                    let label = marketStatus === 'OPEN' ? '● 실시간' : (sessionActive && sessionType === 'PRE_MARKET' ? '● 프리마켓' : sessionActive && (sessionType === 'AFTER_MARKET' || sessionType === 'POST_MARKET') ? '● 애프터마켓' : market === 'US' ? '장마감 (전일종가)' : '장마감');
+                                    let bg = 'rgba(0,0,0,0.05)';
+                                    let color = '#666';
+                                    let border = 'rgba(0,0,0,0.1)';
+
+                                    if (marketStatus === 'OPEN') {
+                                        bg = 'rgba(34,197,94,0.1)';
+                                        color = '#16a34a';
+                                        border = 'rgba(34,197,94,0.2)';
+                                    } else if (sessionActive && sessionType === 'PRE_MARKET') {
+                                        bg = 'rgba(234,179,8,0.15)';
+                                        color = '#ca8a04';
+                                        border = 'rgba(234,179,8,0.3)';
+                                    } else if (sessionActive && (sessionType === 'AFTER_MARKET' || sessionType === 'POST_MARKET')) {
+                                        bg = 'rgba(139,92,246,0.15)';
+                                        color = '#7c3aed';
+                                        border = 'rgba(139,92,246,0.3)';
+                                    }
+
+                                    return (
+                                        <div style={{ fontSize: '0.7rem', fontWeight: 800, padding: '3px 10px', borderRadius: '6px', background: bg, color: color, border: `1px solid ${border}`, whiteSpace: 'nowrap', transition: 'all 0.3s' }}>
+                                            {label}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div style={{ width: '1px', height: '12px', background: 'var(--border)' }}></div>
                             <div style={{ fontSize: '0.85rem', fontWeight: 900, color: marketChange >= 0 ? '#dc2626' : '#2563eb', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{ color: 'var(--foreground)', opacity: 0.8, fontWeight: 700 }}>{market === 'US' ? 'S&P 500' : market === 'KR' ? 'KOSPI' : 'KOSDAQ'}</span>
                                 {marketChange >= 0 ? '▲' : '▼'} {Math.abs(marketChange).toFixed(2)}%
                             </div>
-                            
+
                             {correlation && (
-                                <div 
+                                <div
                                     onMouseEnter={() => setHoverSync(true)}
                                     onMouseLeave={() => setHoverSync(false)}
                                     style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'help' }}
@@ -225,8 +290,8 @@ export default function AnalysisPage() {
                                             <span style={{ opacity: 0.6 }}> 한미 증시 동조화:</span>
                                             <span style={{ color: correlation.correlationLag > 0.6 ? '#dc2626' : 'var(--foreground)', fontWeight: 800 }}>{(correlation.correlationLag * 100).toFixed(1)}%</span>
                                             {correlation.correlationLagPrev !== undefined && (
-                                                <span style={{ fontSize: '0.65rem', marginLeft: '2px', color: (correlation.correlationLag - correlation.correlationLagPrev) >= 0 ? '#16a34a' : '#dc2626', opacity: 0.9 }}>
-                                                    {(correlation.correlationLag - (correlation.correlationLagPrev || 0)) >= 0 ? '▲' : '▼'}{(Math.abs(correlation.correlationLag - (correlation.correlationLagPrev || 0)) * 100).toFixed(1)}%
+                                                <span style={{ fontSize: '0.65rem', marginLeft: '2px', color: (correlation.correlationLag - correlation.correlationLagPrev) >= 0 ? '#dc2626' : '#2563eb', opacity: 0.9 }}>
+                                                    {(correlation.correlationLag - (correlation.correlationLagPrev || 0)) >= 0 ? '▲' : '▼'}{(Math.abs(correlation.correlationLag - (correlation.correlationLagPrev || 0)) * 100).toFixed(1)}%p
                                                 </span>
                                             )}
                                         </div>
@@ -238,32 +303,49 @@ export default function AnalysisPage() {
 
                                     {/* Sync Trend Modal */}
                                     {hoverSync && correlation.correlationLagHistory && (
-                                        <div style={{ position: 'absolute', top: '100%', right: '0', zIndex: 3000, marginTop: '12px', width: '280px', background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(20px)', borderRadius: '20px', border: '1px solid rgba(0,0,0,0.08)', padding: '1.25rem', boxShadow: '0 20px 50px rgba(0,0,0,0.2)', pointerEvents: 'none', color: '#111' }}>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#000', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
+                                        <div style={{ position: 'absolute', top: '100%', right: '0', zIndex: 3000, marginTop: '12px', width: '340px', background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(20px)', borderRadius: '20px', border: '1px solid rgba(0,0,0,0.08)', padding: '1.5rem', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', pointerEvents: 'none', color: '#111' }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#000', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between' }}>
                                                 <span>한미 동조화 경향 (14D)</span>
                                                 <span style={{ color: 'var(--primary)', opacity: 0.8 }}>Trend</span>
                                             </div>
-                                            <div style={{ height: '80px', width: '100%', position: 'relative' }}>
-                                                <svg width="100%" height="100%" viewBox="0 0 240 80" preserveAspectRatio="none">
-                                                    <defs>
-                                                        <linearGradient id="syncGrad" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.3" />
-                                                            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <path
-                                                        d={`M ${correlation.correlationLagHistory.map((h, i) => `${(i / (correlation.correlationLagHistory!.length - 1)) * 240},${80 - h.value * 80}`).join(' L ')}`}
-                                                        fill="none"
-                                                        stroke="var(--primary)"
-                                                        strokeWidth="2.5"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    />
-                                                    <path
-                                                        d={`M 0,80 L ${correlation.correlationLagHistory.map((h, i) => `${(i / (correlation.correlationLagHistory!.length - 1)) * 240},${80 - h.value * 80}`).join(' L ')} L 240,80 Z`}
-                                                        fill="url(#syncGrad)"
-                                                    />
-                                                </svg>
+                                            <div style={{ height: '120px', width: '100%', position: 'relative' }}>
+                                                {(() => {
+                                                    const history = correlation.correlationLagHistory!;
+                                                    const values = history.map(h => h.value);
+                                                    const minVal = Math.min(...values);
+                                                    const maxVal = Math.max(...values);
+                                                    const range = maxVal - minVal || 0.1;
+                                                    // Add 15% padding top/bottom
+                                                    const chartHeight = 120;
+                                                    const yMin = Math.max(0, minVal - range * 0.15);
+                                                    const yMax = Math.min(1, maxVal + range * 0.15);
+                                                    const yRange = yMax - yMin;
+
+                                                    const getY = (v: number) => chartHeight - ((v - yMin) / yRange) * chartHeight;
+                                                    const points = history.map((h, i) => ({
+                                                        x: (i / (history.length - 1)) * 240,
+                                                        y: getY(h.value)
+                                                    }));
+                                                    const pathD = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
+                                                    const areaD = `M 0,${chartHeight} L ${points.map(p => `${p.x},${p.y}`).join(' L ')} L 240,${chartHeight} Z`;
+
+                                                    return (
+                                                        <svg width="100%" height="100%" viewBox={`0 0 240 ${chartHeight}`} preserveAspectRatio="none">
+                                                            <defs>
+                                                                <linearGradient id="syncGrad" x1="0" y1="0" x2="0" y2="1">
+                                                                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.3" />
+                                                                    <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+                                                                </linearGradient>
+                                                            </defs>
+                                                            <path d={pathD} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                                                            <path d={areaD} fill="url(#syncGrad)" />
+                                                            
+                                                            {/* Max/Min Labels - Larger and clearer */}
+                                                            <text x="8" y="16" style={{ fontSize: '11px', fontWeight: 900, fill: 'var(--primary)', filter: 'drop-shadow(0 1px 1px rgba(255,255,255,0.5))' }}>MAX: {(maxVal * 100).toFixed(1)}%</text>
+                                                            <text x="8" y={chartHeight - 10} style={{ fontSize: '11px', fontWeight: 900, fill: '#666', opacity: 0.8 }}>MIN: {(minVal * 100).toFixed(1)}%</text>
+                                                        </svg>
+                                                    );
+                                                })()}
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '0.65rem', color: '#888', fontWeight: 600 }}>
                                                 <span>{correlation.correlationLagHistory[0].date.split('-').slice(1).join('/')}</span>
@@ -275,8 +357,8 @@ export default function AnalysisPage() {
                                                     <div style={{ fontSize: '0.85rem', fontWeight: 800 }}>{(correlation.correlationLagHistory.reduce((a, b) => a + b.value, 0) / correlation.correlationLagHistory.length * 100).toFixed(1)}%</div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '0.6rem', color: '#999', textTransform: 'uppercase' }}>Peak</div>
-                                                    <div style={{ fontSize: '0.85rem', fontWeight: 800 }}>{(Math.max(...correlation.correlationLagHistory.map(h => h.value)) * 100).toFixed(1)}%</div>
+                                                    <div style={{ fontSize: '0.6rem', color: '#999', textTransform: 'uppercase' }}>Current</div>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{(correlation.correlationLag * 100).toFixed(1)}%</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -290,7 +372,7 @@ export default function AnalysisPage() {
                     <div className="ignore-in-capture" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', background: 'var(--card)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                             {(['KR', 'KOSDAQ', 'US'] as const).map(m => (
-                                <button key={m} onClick={() => setMarket(m)} style={{ padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px', border: 'none', background: market === m ? 'var(--foreground)' : 'transparent', color: market === m ? 'var(--background)' : 'var(--muted)', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s', whiteSpace: 'nowrap' }}>
+                                <button key={m} onClick={() => { setMarket(m); }} style={{ padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px', border: 'none', background: market === m ? 'var(--foreground)' : 'transparent', color: market === m ? 'var(--background)' : 'var(--muted)', cursor: 'pointer', fontWeight: 700, transition: 'all 0.18s', whiteSpace: 'nowrap' }}>
                                     {m === 'KR' ? '🇰🇷 KOSPI' : m === 'KOSDAQ' ? '🇰🇷 KOSDAQ' : '🇺🇸 S&P 500'}
                                 </button>
                             ))}
@@ -303,7 +385,7 @@ export default function AnalysisPage() {
 
                 <div ref={containerRef} style={{ width: '100%', height: containerSize.h, position: 'relative', background: 'var(--card)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', minHeight: 400 }}>
                     {sectorRects.map((rect, i) => {
-                        const sec = sectors[i];
+                        const sec = displaySectors[i];
                         if (!sec) return null;
                         const sectorCorr = market === 'US' ? correlation?.sectorCorrelations?.[sec.id] : market === 'KR' ? correlation?.krSectorCorrelations?.[sec.id] : correlation?.kqSectorCorrelations?.[sec.id];
                         return <SectorTile key={sec.id} sector={sec} rect={rect} correlation={sectorCorr} onHover={(s, e) => { setHoveredStock(s); if (e) setMousePos({ x: e.clientX, y: e.clientY }); }} />;
@@ -316,47 +398,159 @@ export default function AnalysisPage() {
                     )}
                 </div>
 
-                {!loading && sectors.length > 0 && (
+                {!loading && displaySectors.length > 0 && (
                     <div style={{ marginTop: '0.8rem', display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
                         {LEGEND.map(l => (
-                            <div key={l.label} style={{ width: 50, height: 26, background: l.bg, borderRadius: 5, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800, color: l.text }}>{l.label}</div>
+                            <div key={l.label} style={{
+                                minWidth: 50, height: 26, background: l.bg, borderRadius: 5, border: 'none',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '0.78rem', fontWeight: 800, color: l.text,
+                                padding: '0 10px' // Same padding for all, box will widen as needed
+                            }}>
+                                {l.label}
+                            </div>
                         ))}
                     </div>
                 )}
             </div>
 
-            {!loading && sectors.length > 0 && (
-                <div style={{ marginTop: '3.5rem', marginBottom: '2rem' }}>
-                    <div style={{ textAlign: 'left', fontSize: '0.75rem', color: '#888', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', paddingLeft: '8px', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '960px', margin: '0 auto' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)' }}></div>
-                        Market Sector Performance & Influence Insight
+            {!loading && displaySectors.length > 0 && (
+                <div style={{ marginTop: '4rem', marginBottom: '4rem' }}>
+                    <div style={{ textAlign: 'left', maxWidth: '1080px', margin: '0 auto', padding: '0 1rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '16px', height: '2px', background: 'var(--primary)' }}></div>
+                            Advanced Market Dynamics Analysis
+                        </div>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.04em', marginBottom: '2.5rem' }}>섹터 별 시장 점유율 및 영향력</h2>
                     </div>
-                    <div className="glass" style={{ width: '100%', maxWidth: '960px', margin: '0 auto', overflowX: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
+
+                    <div className="glass" style={{ width: '100%', maxWidth: '1080px', margin: '0 auto', overflowX: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '24px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(var(--primary-glow-rgb), 0.05)' }}>
-                                    <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 800 }}>SECTOR NAME</th>
-                                    <th onClick={() => setSortConfig({ key: 'weight', direction: sortConfig.key === 'weight' && sortConfig.direction === 'desc' ? 'asc' : 'desc' })} style={{ padding: '1.25rem 1.5rem', fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 800, textAlign: 'right', cursor: 'pointer' }}>MARKET SHARE {sortConfig.key === 'weight' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : ''}</th>
-                                    <th onClick={() => setSortConfig({ key: 'performance', direction: sortConfig.key === 'performance' && sortConfig.direction === 'desc' ? 'asc' : 'desc' })} style={{ padding: '1.25rem 1.5rem', fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 800, textAlign: 'right', cursor: 'pointer' }}>PERFORMANCE {sortConfig.key === 'performance' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : ''}</th>
-                                    <th onClick={() => setSortConfig({ key: 'coupling', direction: sortConfig.key === 'coupling' && sortConfig.direction === 'desc' ? 'asc' : 'desc' })} style={{ padding: '1.25rem 1.5rem', fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 800, textAlign: 'right', cursor: 'pointer' }}>INFLUENCE {sortConfig.key === 'coupling' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : ''}</th>
+                                <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.03)' }}>
+                                    <th style={{ padding: '1.5rem', fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', width: '18%', textAlign: 'center' }}>섹터 구분</th>
+                                    <th onClick={() => setSortConfig({ key: 'weight', direction: sortConfig.key === 'weight' && sortConfig.direction === 'desc' ? 'asc' : 'desc' })} style={{ padding: '1.5rem', fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 800, textAlign: 'center', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', width: '12%' }}>
+                                        시장 점유율 {sortConfig.key === 'weight' && (sortConfig.direction === 'desc' ? '▼' : '▲')}
+                                    </th>
+                                    <th onClick={() => setSortConfig({ key: 'performance', direction: sortConfig.key === 'performance' && sortConfig.direction === 'desc' ? 'asc' : 'desc' })} style={{ padding: '1.5rem', fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 800, textAlign: 'center', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', width: '12%' }}>
+                                        변동률 {sortConfig.key === 'performance' && (sortConfig.direction === 'desc' ? '▼' : '▲')}
+                                    </th>
+                                    <th style={{ padding: '1.5rem', fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', width: '24%' }}>거래량 상위 종목</th>
+                                    <th onClick={() => setSortConfig({ key: 'influence', direction: sortConfig.key === 'influence' && sortConfig.direction === 'desc' ? 'asc' : 'desc' })} style={{ padding: '1.5rem', fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 800, textAlign: 'right', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', width: '17%' }}>
+                                        지수 영향력 {sortConfig.key === 'influence' && (sortConfig.direction === 'desc' ? '▼' : '▲')}
+                                    </th>
+                                    <th onClick={() => setSortConfig({ key: 'sync', direction: sortConfig.key === 'sync' && sortConfig.direction === 'desc' ? 'asc' : 'desc' })} style={{ padding: '1.5rem', fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 800, textAlign: 'right', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', width: '17%' }}>
+                                        한미 동조화 {sortConfig.key === 'sync' && (sortConfig.direction === 'desc' ? '▼' : '▲')}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {[...sectors].sort((a, b) => {
+                                {[...displaySectors].sort((a, b) => {
                                     if (sortConfig.key === 'performance') return sortConfig.direction === 'desc' ? b.changePercent - a.changePercent : a.changePercent - b.changePercent;
                                     if (sortConfig.key === 'weight') return sortConfig.direction === 'desc' ? b.weight - a.weight : a.weight - b.weight;
-                                    const corrA = (market === 'US' ? correlation?.sectorCorrelations?.[a.id] : market === 'KR' ? correlation?.krSectorCorrelations?.[a.id] : (correlation as any)?.kqSectorCorrelations?.[a.id]) || 0;
-                                    const corrB = (market === 'US' ? correlation?.sectorCorrelations?.[b.id] : market === 'KR' ? correlation?.krSectorCorrelations?.[b.id] : (correlation as any)?.kqSectorCorrelations?.[b.id]) || 0;
-                                    return sortConfig.direction === 'desc' ? corrB - corrA : corrA - corrB;
+                                    
+                                    const valA = sortConfig.key === 'influence' 
+                                        ? (market === 'US' ? correlation?.sectorCorrelations?.[a.id] : market === 'KR' ? correlation?.krSectorCorrelations?.[a.id] : (correlation as any)?.kqSectorCorrelations?.[a.id])
+                                        : correlation?.sectorSync?.[a.id];
+                                    const valB = sortConfig.key === 'influence'
+                                        ? (market === 'US' ? correlation?.sectorCorrelations?.[b.id] : market === 'KR' ? correlation?.krSectorCorrelations?.[b.id] : (correlation as any)?.kqSectorCorrelations?.[b.id])
+                                        : correlation?.sectorSync?.[b.id];
+
+                                    return sortConfig.direction === 'desc' ? (valB || 0) - (valA || 0) : (valA || 0) - (valB || 0);
                                 }).map((sec, idx) => {
                                     const c = getColor(sec.changePercent);
-                                    const sectorCorr = market === 'US' ? correlation?.sectorCorrelations?.[sec.id] : market === 'KR' ? correlation?.krSectorCorrelations?.[sec.id] : correlation?.kqSectorCorrelations?.[sec.id];
+                                    const sectorCorr = market === 'US' ? correlation?.sectorCorrelations?.[sec.id] : market === 'KR' ? correlation?.krSectorCorrelations?.[sec.id] : (correlation as any)?.kqSectorCorrelations?.[sec.id];
+                                    const sectorSync = correlation?.sectorSync?.[sec.id];
+
+                                    // Identify Top Drivers based on Trading Value
+                                    const sortedByValue = [...sec.stocks].sort((a, b) => (b.tradingValue || 0) - (a.tradingValue || 0));
+                                    const mainDriver = sortedByValue[0];
+                                    const subDriver = sortedByValue[1];
+                                    const thirdDriver = sortedByValue[2];
+
+                                    const formatValue = (v: number | undefined | null) => {
+                                        if (v === undefined || v === null) return '0';
+                                        const isUS = market === 'US';
+                                        const prefix = isUS ? '$' : '₩';
+                                        let val = '';
+                                        if (isUS) {
+                                            if (v >= 1e12) val = `${(v / 1e12).toFixed(1)}T`;
+                                            else if (v >= 1e9) val = `${(v / 1e9).toFixed(1)}B`;
+                                            else if (v >= 1e6) val = `${(v / 1e6).toFixed(1)}M`;
+                                            else val = v.toLocaleString();
+                                        } else {
+                                            if (v >= 1e12) val = `${(v / 1e12).toFixed(1)}조`;
+                                            else if (v >= 1e8) val = `${(v / 1e8).toFixed(1)}억`;
+                                            else val = v.toLocaleString();
+                                        }
+                                        return `${prefix}${val}`;
+                                    };
+
                                     return (
-                                        <tr key={sec.id} style={{ borderBottom: idx === sectors.length - 1 ? 'none' : '1px solid var(--border)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--card-hover)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                            <td style={{ padding: '1.2rem 1.5rem' }}><div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ width: '6px', height: '24px', borderRadius: '3px', background: c.border }}></div><span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--foreground)' }}>{sec.name}</span></div></td>
-                                            <td style={{ padding: '1.2rem 1.5rem', textAlign: 'right' }}><div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--foreground)' }}>{sec.weight.toFixed(1)}%</div></td>
-                                            <td style={{ padding: '1.2rem 1.5rem', textAlign: 'right' }}><div style={{ display: 'inline-flex', padding: '0.4rem 0.8rem', background: c.bg, color: c.text, borderRadius: '8px', fontWeight: 900, fontSize: '0.95rem', border: `1px solid ${c.border}`, minWidth: '70px', justifyContent: 'center' }}>{sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%</div></td>
-                                            <td style={{ padding: '1.2rem 1.5rem', textAlign: 'right' }}>{sectorCorr !== undefined ? (<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem', fontWeight: 900, color: sectorCorr > 0.6 ? '#f87171' : 'var(--foreground)' }}><span style={{ fontSize: '0.9rem', opacity: 0.5 }}>🔗</span>{(sectorCorr * 100).toFixed(1)}%</div><div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--muted)', marginTop: '2px', textTransform: 'uppercase' }}>{sectorCorr > 0.6 ? 'High Influence' : 'Moderate'}</div></div>) : (<span style={{ color: 'var(--muted)' }}>–</span>)}</td>
+                                        <tr key={sec.id} style={{ borderBottom: idx === displaySectors.length - 1 ? 'none' : '1px solid var(--border)', transition: 'all 0.2s', cursor: 'default' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                            <td style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                                <div style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--foreground)', letterSpacing: '-0.02em' }}>{sec.name}</div>
+                                            </td>
+                                            <td style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--foreground)' }}>{sec.weight.toFixed(1)}%</div>
+                                            </td>
+                                            <td style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                                <div style={{ display: 'inline-flex', padding: '0.5rem 1rem', background: c.bg, color: c.text, borderRadius: '10px', fontWeight: 900, fontSize: '1.1rem', border: `1px solid ${c.border}`, minWidth: '85px', justifyContent: 'center', boxShadow: `0 4px 15px ${c.border}22` }}>
+                                                    {sec.changePercent >= 0 ? '+' : ''}{sec.changePercent.toFixed(2)}%
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '1.5rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', whiteSpace: 'nowrap' }}>
+                                                    {mainDriver && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
+                                                            <div style={{ width: '28px', textAlign: 'center', fontSize: '0.6rem', fontWeight: 900, background: 'var(--primary)', color: 'white', padding: '1px 3px', borderRadius: '4px', lineHeight: 1 }}>1st</div>
+                                                            <span style={{ fontWeight: 800, color: 'var(--foreground)' }}>{mainDriver.name}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: mainDriver.changePercent >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 800 }}>{mainDriver.changePercent >= 0 ? '+' : ''}{mainDriver.changePercent.toFixed(1)}%</span>
+                                                            {mainDriver.tradingValue > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--muted)', fontWeight: 600 }}>({formatValue(mainDriver.tradingValue)})</span>}
+                                                        </div>
+                                                    )}
+                                                    {subDriver && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
+                                                            <div style={{ width: '28px', textAlign: 'center', fontSize: '0.6rem', fontWeight: 900, background: 'rgba(255,255,255,0.1)', color: 'var(--muted)', padding: '1px 3px', borderRadius: '4px', lineHeight: 1 }}>2nd</div>
+                                                            <span style={{ fontWeight: 600, color: 'var(--foreground)', opacity: 0.85 }}>{subDriver.name}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: subDriver.changePercent >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 700 }}>{subDriver.changePercent >= 0 ? '+' : ''}{subDriver.changePercent.toFixed(1)}%</span>
+                                                            {subDriver.tradingValue > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--muted)', fontWeight: 500 }}>({formatValue(subDriver.tradingValue)})</span>}
+                                                        </div>
+                                                    )}
+                                                    {thirdDriver && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
+                                                            <div style={{ width: '28px', textAlign: 'center', fontSize: '0.6rem', fontWeight: 900, background: 'rgba(255,255,255,0.1)', color: 'var(--muted)', padding: '1px 3px', borderRadius: '4px', lineHeight: 1 }}>3rd</div>
+                                                            <span style={{ fontWeight: 600, color: 'var(--foreground)', opacity: 0.85 }}>{thirdDriver.name}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: thirdDriver.changePercent >= 0 ? '#ef4444' : '#3b82f6', fontWeight: 700 }}>{thirdDriver.changePercent >= 0 ? '+' : ''}{thirdDriver.changePercent.toFixed(1)}%</span>
+                                                            {thirdDriver.tradingValue > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--muted)', fontWeight: 500 }}>({formatValue(thirdDriver.tradingValue)})</span>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '1.5rem', textAlign: 'right' }}>
+                                                {sectorCorr !== undefined ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 900, color: sectorCorr > 0.65 ? '#dc2626' : 'var(--foreground)' }}>
+                                                            {(sectorCorr * 100).toFixed(1)}%
+                                                        </div>
+                                                        <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--muted)', marginTop: '2px', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.03)' }}>
+                                                            {sectorCorr > 0.75 ? 'Critical' : sectorCorr > 0.4 ? 'Matched' : 'Decoupled'}
+                                                        </div>
+                                                    </div>
+                                                ) : <span style={{ color: 'var(--muted)', opacity: 0.5 }}>-</span>}
+                                            </td>
+                                            <td style={{ padding: '1.5rem', textAlign: 'right' }}>
+                                                {sectorSync !== undefined ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 900, color: sectorSync > 0.6 ? '#dc2626' : 'var(--foreground)' }}>
+                                                            {(sectorSync * 100).toFixed(1)}%
+                                                        </div>
+                                                        <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--primary)', opacity: 0.8, marginTop: '2px', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '4px', background: 'rgba(var(--primary-rgb), 0.05)' }}>
+                                                            {sectorSync > 0.6 ? 'High Sync' : 'Low Sync'}
+                                                        </div>
+                                                    </div>
+                                                ) : <span style={{ color: 'var(--muted)', opacity: 0.5 }}>-</span>}
+                                            </td>
                                         </tr>
                                     );
                                 })}

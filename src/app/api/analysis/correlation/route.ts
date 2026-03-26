@@ -18,19 +18,25 @@ function getReturns(data: { date: string; close: number }[]) {
 function calculatePearson(x: number[], y: number[]) {
     if (x.length < 5 || x.length !== y.length) return 0;
     const n = x.length;
-    const mux = x.reduce((a, b) => a + b, 0) / n;
-    const muy = y.reduce((a, b) => a + b, 0) / n;
+    
+    // Assign linear weights: more recent days get higher weights
+    const weights = Array.from({ length: n }, (_, i) => i + 1);
+    const sumW = weights.reduce((a, b) => a + b, 0);
+
+    const mux = x.reduce((a, b, i) => a + (b * weights[i]), 0) / sumW;
+    const muy = y.reduce((a, b, i) => a + (b * weights[i]), 0) / sumW;
 
     let num = 0;
     let denX = 0;
     let denY = 0;
 
     for (let i = 0; i < n; i++) {
+        const w = weights[i];
         const dx = x[i] - mux;
         const dy = y[i] - muy;
-        num += dx * dy;
-        denX += dx * dx;
-        denY += dy * dy;
+        num += w * dx * dy;
+        denX += w * dx * dx;
+        denY += w * dy * dy;
     }
 
     const den = Math.sqrt(denX * denY);
@@ -46,22 +52,21 @@ const SECTOR_ETFS = [
 
 const KR_SECTOR_PROXIES = [
     { id: 'kr-elec', symbol: '005930' }, { id: 'kr-heavy', symbol: '005380' },
-    { id: 'kr-finance', symbol: '105560' }, { id: 'kr-it', symbol: '035420' },
+    { id: 'kr-finance', symbol: '105560' }, { id: 'kr-it-service', symbol: '035420' },
     { id: 'kr-bio', symbol: '207940' }, { id: 'kr-chem', symbol: '051910' },
     { id: 'kr-steel', symbol: '005490' }, { id: 'kr-consumer', symbol: '033780' },
-    { id: 'kr-util', symbol: '017670' }, { id: 'kr-const', symbol: '032830' },
 ];
 
 const KQ_SECTOR_PROXIES = [
-    { id: 'kq-pharma', symbol: '196170' }, { id: 'kq-elec', symbol: '247540' },
-    { id: 'kq-heavy', symbol: '277810' }, { id: 'kq-chem', symbol: '086520' },
-    { id: 'kq-it', symbol: '263750' }, { id: 'kq-med', symbol: '214150' },
+    { id: 'kq-pharma', symbol: '196170' }, { id: 'kq-it', symbol: '058470' },
+    { id: 'kq-battery', symbol: '247540' }, { id: 'kq-heavy', symbol: '277810' },
+    { id: 'kq-culture', symbol: '263750' }, { id: 'kq-fin', symbol: '086520' },
 ];
 
 async function fetchTickerHistory(symbol: string, isDomestic = false) {
     if (isDomestic) {
         // Use Naver FChart for domestic history
-        const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${symbol}&timeframe=day&count=20&requestType=0`;
+        const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${symbol}&timeframe=day&count=60&requestType=0`;
         try {
             const res = await fetch(url);
             const xml = await res.text();
@@ -81,7 +86,7 @@ async function fetchTickerHistory(symbol: string, isDomestic = false) {
             return data;
         } catch { return []; }
     } else {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`;
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
         try {
             const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
             if (!res.ok) return [];
@@ -103,9 +108,9 @@ async function fetchTickerHistory(symbol: string, isDomestic = false) {
 export async function GET() {
     try {
         const [krData, usData, kqData, ...histories] = await Promise.all([
-            fetchMarketIndexHistory('KOSPI', 40),
-            fetchMarketIndexHistory('S&P500', 40),
-            fetchMarketIndexHistory('KOSDAQ', 40),
+            fetchMarketIndexHistory('KOSPI', 60),
+            fetchMarketIndexHistory('S&P500', 60),
+            fetchMarketIndexHistory('KOSDAQ', 60),
             ...SECTOR_ETFS.map(s => fetchTickerHistory(s.etf, false)),
             ...KR_SECTOR_PROXIES.map(s => fetchTickerHistory(s.symbol, true)),
             ...KQ_SECTOR_PROXIES.map(s => fetchTickerHistory(s.symbol, true))
@@ -138,21 +143,22 @@ export async function GET() {
             return calculatePearson(lagX, lagY);
         };
 
-        const globalCorrLag = calculateLagCorr(usData);
+        const windowSize = 10;
+        const currentWindow = krDates.slice(-windowSize);
+        const prevWindow = krDates.slice(-windowSize - 1, -1);
+
+        const globalCorrLag = calculateLagCorr(usData, krReturns, currentWindow);
+        const correlationLagPrev = calculateLagCorr(usData, krReturns, prevWindow);
         
         // Calculate Trend (Last 14 days)
         const lagTrend: { date: string, value: number }[] = [];
-        const windowSize = 10; // Use a sliding window of the previous 10 trading days
-        for (let i = Math.max(0, krDates.length - 14); i < krDates.length; i++) {
-            const windowDates = krDates.slice(Math.max(0, i - windowSize + 1), i + 1);
-            if (windowDates.length >= 5) { // Ensure enough data points for correlation
-                lagTrend.push({
-                    date: krDates[i],
-                    value: calculateLagCorr(usData, krReturns, windowDates)
-                });
-            }
+        for (let i = Math.max(windowSize, krDates.length - 14); i < krDates.length; i++) {
+            const trendWindow = krDates.slice(i - windowSize + 1, i + 1);
+            lagTrend.push({
+                date: krDates[i],
+                value: calculateLagCorr(usData, krReturns, trendWindow)
+            });
         }
-        const correlationLagPrev = lagTrend.length > 1 ? lagTrend[lagTrend.length - 2].value : 0;
 
         const sectorCorrelations: Record<string, number> = {};
         SECTOR_ETFS.forEach((s, i) => {
@@ -195,6 +201,39 @@ export async function GET() {
             }
         });
 
+        const sectorSync: Record<string, number> = {};
+        // Map KR Proxy ID to US Sector Index in SECTOR_ETFS
+        const SYNC_MAP: Record<string, number> = {
+            'kr-elec': 0,      // XLK (Tech)
+            'kr-finance': 1,   // XLF (Financials)
+            'kr-bio': 2,       // XLV (Health)
+            'kr-heavy': 5,     // XLI (Industrials)
+            'kr-it-service': 4, // XLC (Communication)
+            'kr-chem': 9,      // XLB (Materials)
+            'kr-steel': 9,     // XLB (Materials)
+            'kr-consumer': 6,  // XLP (Cons. Def)
+            'kq-pharma': 2,    // XLV (Health)
+            'kq-it': 0,        // XLK (Tech)
+            'kq-battery': 9,   // XLB (Materials)
+            'kq-heavy': 5,     // XLI (Industrials)
+        };
+
+        [...KR_SECTOR_PROXIES, ...KQ_SECTOR_PROXIES].forEach((s, i) => {
+            const usIdx = SYNC_MAP[s.id];
+            if (usIdx === undefined) return;
+
+            const krHist = i < KR_SECTOR_PROXIES.length ? krProxies[i] : kqProxies[i - KR_SECTOR_PROXIES.length];
+            const usHist = etfHistories[usIdx];
+
+            if (krHist && usHist && krHist.length > 5 && usHist.length > 5) {
+                const sRet = getReturns(krHist);
+                const sDates = Object.keys(sRet).sort();
+                
+                // Use the same lagged correlation logic as the global index
+                sectorSync[s.id] = calculateLagCorr(usHist, sRet, sDates.slice(-14));
+            }
+        });
+
         const sameDayReturnsUS = getReturns(usData);
         const commonDates = Object.keys(sameDayReturnsUS).filter(d => krReturns[d] !== undefined).sort();
         const globalCorrSameDay = calculatePearson(
@@ -210,6 +249,7 @@ export async function GET() {
             sectorCorrelations,
             krSectorCorrelations,
             kqSectorCorrelations,
+            sectorSync,
             sampleSize: commonDates.length,
         });
     } catch {

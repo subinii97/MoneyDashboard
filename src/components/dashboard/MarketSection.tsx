@@ -117,9 +117,29 @@ export function MarketSection({ data, sparklines, loading, lastFetched }: Market
         </div>
     );
 
+    const getExternalLink = (item: any) => {
+        const id = item.id;
+        if (id === 'KOSPI') return 'https://finance.naver.com/sise/sise_index.naver?code=KOSPI';
+        if (id === 'KOSDAQ') return 'https://finance.naver.com/sise/sise_index.naver?code=KOSDAQ';
+        if (id === 'NASDAQ') return 'https://www.investing.com/indices/nasdaq-composite';
+        if (id === 'DOW') return 'https://www.investing.com/indices/us-30';
+        if (id === 'USDKRW') return 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW';
+        if (id === 'EURKRW') return 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_EURKRW';
+        if (id === 'JPYKRW') return 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_JPYKRW';
+        if (id === 'EURUSD') return 'https://www.investing.com/currencies/eur-usd';
+        if (id === 'BTC') return 'https://www.binance.com/en/trade/BTC_USDT';
+        if (id === 'ETH') return 'https://www.binance.com/en/trade/ETH_USDT';
+        if (id === 'GOLD') return 'https://www.investing.com/commodities/gold';
+        if (id === 'SILVER') return 'https://www.investing.com/commodities/silver';
+        if (id === 'WTI') return 'https://www.investing.com/commodities/crude-oil';
+        if (id === 'COPPER') return 'https://www.investing.com/commodities/copper';
+        if (id === 'IRON') return 'https://www.investing.com/commodities/iron-ore-62-cfr-futures';
+        return '#';
+    };
+
     const renderRow = (item: any, sparkKey: string, isAlwaysLive = false, prefix = '', suffix = '') => (
         <div key={item.id} style={{ ...rowStyle, cursor: 'pointer' }}
-            onClick={() => router.push(`/analysis/market/${item.id}`)}
+            onClick={() => window.open(getExternalLink(item), '_blank')}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--card-hover)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >

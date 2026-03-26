@@ -4,6 +4,10 @@ export interface Stock {
     cap: number;
     changePercent: number;
     price: number;
+    tradingValue: number;
+    overMarketSession?: string;
+    overMarketPrice?: number;
+    overMarketChangePercent?: number;
 }
 
 export interface Sector {
