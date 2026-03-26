@@ -14,7 +14,8 @@ export default function HistoryPage() {
         monthlySettlements,
         loading,
         setHistory,
-        refreshTransactions
+        refreshTransactions,
+        deleteHistoryEntry
     } = useHistoryData();
 
     const [showAddMonthly, setShowAddMonthly] = useState(false);
@@ -87,6 +88,7 @@ export default function HistoryPage() {
                 getDayOfWeek={getDayOfWeek}
                 monthIndex={dailyMonthIndex}
                 setMonthIndex={setDailyMonthIndex}
+                onDelete={deleteHistoryEntry}
                 isPrivate={isPrivate}
             />
 
@@ -99,6 +101,7 @@ export default function HistoryPage() {
             <MonthlySettlementTable
                 monthlySettlements={monthlySettlements}
                 setShowAddMonthly={setShowAddMonthly}
+                onDelete={deleteHistoryEntry}
                 isPrivate={isPrivate}
             />
 

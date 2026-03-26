@@ -216,11 +216,39 @@ export function useHistoryData() {
 
             const prevTwrDomMult = prevEntry ? (twrDom[prevEntry.date] ?? 1) : 1;
             const currTwrDomMult = twrDom[entry.date] ?? 1;
-            const finalDomPercent = (prevTwrDomMult > 0 ? (currTwrDomMult / prevTwrDomMult - 1) : 0) * 100;
+            let finalDomPercent = (prevTwrDomMult > 0 ? (currTwrDomMult / prevTwrDomMult - 1) : 0) * 100;
 
             const prevTwrOsMult = prevEntry ? syncOverseasFriday(prevEntry.date, twrOs) : 1;
             const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
-            const finalOsPercent = (prevTwrOsMult > 0 ? (currTwrOsMult / prevTwrOsMult - 1) : 0) * 100;
+            let finalOsPercent = (prevTwrOsMult > 0 ? (currTwrOsMult / prevTwrOsMult - 1) : 0) * 100;
+
+            // Live Correction: Use individual holding 변화율 for real-time accuracy on the live entry
+            if (entry.isLive && entry.holdings) {
+                let domMktGain = 0; let domMktPrev = 0;
+                let osMktGain = 0; let osMktPrev = 0;
+                
+                const holdings = Array.isArray(entry.holdings) ? entry.holdings 
+                    : (typeof entry.holdings === 'string' ? JSON.parse(entry.holdings) : []);
+
+                holdings.forEach((h: any) => {
+                    const activePrice = (h.isOverMarket && h.overMarketPrice !== undefined) ? h.overMarketPrice : (h.currentPrice || h.avgPrice);
+                    const activeChange = (h.isOverMarket && h.overMarketChange !== undefined) ? h.overMarketChange : (h.change || 0);
+                    const valChange = convertToKRW(activeChange * h.shares, h.currency || 'USD', r);
+                    const valPrev = convertToKRW((activePrice - activeChange) * h.shares, h.currency || 'USD', r);
+                    
+                    const isDomestic = h.marketType === 'Domestic' || ['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(h.category);
+                    if (isDomestic) {
+                        domMktGain += valChange;
+                        domMktPrev += valPrev;
+                    } else {
+                        osMktGain += valChange;
+                        osMktPrev += valPrev;
+                    }
+                });
+
+                if (domMktPrev > 0) finalDomPercent = (domMktGain / domMktPrev) * 100;
+                if (osMktPrev > 0) finalOsPercent = (osMktGain / osMktPrev) * 100;
+            }
 
             const dObj = new Date(entry.date + 'T00:00:00');
             const isWeekend = dObj.getDay() === 6 || dObj.getDay() === 0;
@@ -380,6 +408,7 @@ export function useHistoryData() {
 
             return {
                 month: m,
+                date: entry.date,
                 value: entry.totalValue,
                 change: prev ? entry.totalValue - prev.totalValue : 0,
                 changePercent: (prev && prev.totalValue > 0) ? ((entry.totalValue - prev.totalValue) / prev.totalValue) * 100 : 0,
@@ -411,6 +440,25 @@ export function useHistoryData() {
         }
     };
 
+    const deleteHistoryEntry = async (date: string) => {
+        if (!confirm(`${date} 내역을 정말 삭제하시겠습니까?`)) return;
+        try {
+            const res = await fetch('/api/snapshot', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date })
+            });
+            if (res.ok) {
+                setHistory(prev => prev.filter(h => h.date !== date));
+            } else {
+                alert('삭제에 실패했습니다.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('오류가 발생했습니다.');
+        }
+    };
+
     return {
         dailySettlements,
         dailyGroupedByMonth,
@@ -419,6 +467,7 @@ export function useHistoryData() {
         loading,
         rate,
         setHistory,
-        refreshTransactions
+        refreshTransactions,
+        deleteHistoryEntry
     };
 }

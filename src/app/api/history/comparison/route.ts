@@ -140,7 +140,7 @@ export async function GET(request: Request) {
         const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas', 1350, allTransactions);
 
         const domesticBase = domesticMultipliers[refDate] || 1;
-        const overseasBase = overseasMultipliers[refDate] || 1;
+        const overseasBase = syncOverseasFriday(refDate, overseasMultipliers);
 
         const calcRelReturn = (curr: number, base: number) => {
             return base > 0 ? ((curr / base) - 1) * 100 : 0;

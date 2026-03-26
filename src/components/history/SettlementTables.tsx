@@ -2,11 +2,11 @@
 
 import React from 'react';
 import { formatKRW } from '@/lib/utils';
-import { Calendar, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ArrowLeftRight, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 
 import { RenderChange, formatValue } from './SettlementUtils';
 
-export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthIndex, setMonthIndex , isPrivate}: any) => {
+export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthIndex, setMonthIndex , isPrivate, onDelete}: any) => {
     const months = Object.keys(dailyGroupedByMonth).sort((a, b) => b.localeCompare(a));
     const currentMonth = months[monthIndex];
     const entries = dailyGroupedByMonth[currentMonth] || [];
@@ -53,7 +53,8 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
                             <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>국내투자</th>
                             <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>해외투자</th>
                             <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>합계</th>
-                            <th style={{ padding: '1rem', textAlign: 'center' }}>전일 대비</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>전일 대비</th>
+                            <th style={{ padding: '1rem', textAlign: 'center' }}>관리</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -80,8 +81,18 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
                                 <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>
                                     {formatValue(d.totalValue, isPrivate)}
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <RenderChange val={d.change} percent={d.changePercent} isPrivate={isPrivate} />
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                    <button 
+                                        onClick={() => onDelete && onDelete(d.date)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.6 }}
+                                        className="hover-opacity"
+                                        title="기록 삭제"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -92,7 +103,7 @@ export const DailySettlementTable = ({ dailyGroupedByMonth, getDayOfWeek, monthI
     );
 };
 
-export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly , isPrivate}: any) => {
+export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly , isPrivate, onDelete}: any) => {
     return (
         <section style={{ marginBottom: '4rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -113,7 +124,8 @@ export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly ,
                             <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>국내투자</th>
                             <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>해외투자</th>
                             <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>합계</th>
-                            <th style={{ padding: '1rem', textAlign: 'center' }}>전월 대비</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', borderRight: '1px solid var(--border)' }}>전월 대비</th>
+                            <th style={{ padding: '1rem', textAlign: 'center' }}>관리</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -133,8 +145,18 @@ export const MonthlySettlementTable = ({ monthlySettlements, setShowAddMonthly ,
                                     <RenderChange val={m.metrics.overseas.change} percent={m.metrics.overseas.percent} showPercentOnly isPrivate={isPrivate} />
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', borderRight: '1px solid var(--border)' }}>{formatValue(m.value, isPrivate)}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                                     <RenderChange val={m.change} percent={m.changePercent} isPrivate={isPrivate} />
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                    <button 
+                                        onClick={() => onDelete && onDelete(m.date)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.6 }}
+                                        className="hover-opacity"
+                                        title="기록 삭제"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </td>
                             </tr>
                         ))}
