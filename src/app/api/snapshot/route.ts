@@ -275,3 +275,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: 'Snapshot failed' }, { status: 500 });
     }
 }
+
+export async function DELETE(request: Request) {
+    try {
+        const { date } = await request.json();
+        if (!date) return NextResponse.json({ error: 'Date is required' }, { status: 400 });
+        
+        repo.history.delete(date);
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Failed to delete history entry:', error);
+        return NextResponse.json({ success: false, error: 'Failed to delete history entry' }, { status: 500 });
+    }
+}

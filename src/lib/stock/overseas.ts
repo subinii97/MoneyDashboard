@@ -1,10 +1,10 @@
-import { extractNumber, MOBILE_USER_AGENT } from './utils';
+import { extractNumber, parseTradingValue, MOBILE_USER_AGENT } from './utils';
 
 const overseasSymbolMap: Record<string, string> = {};
 
 export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = false) {
     const tryFetch = async (sym: string) => {
-        const url = `https://api.stock.naver.com/stock/${sym}/basic`;
+        const url = `https://polling.finance.naver.com/api/realtime/worldstock/stock/${sym}`;
         try {
             const response = await fetch(url, {
                 headers: { 'User-Agent': MOBILE_USER_AGENT },
@@ -12,7 +12,8 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
                 next: forceRefresh ? undefined : { revalidate: 30 }
             });
             if (!response.ok) return null;
-            const data = await response.json();
+            const json = await response.json();
+            const data = json.datas?.[0];
             if (!data || !data.closePrice) return null;
             return data;
         } catch {
@@ -61,6 +62,7 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
     let price = extractNumber(data.closePrice);
     let change = extractNumber(String(data.compareToPreviousClosePricePrice || data.compareToPreviousClosePrice || '0'));
     let changePercent = extractNumber(String(data.fluctuationsRatio || '0'));
+    const tradingValue = parseTradingValue(data.accumulatedTradingValue);
 
     let isOverMarket = false;
     let overMarketSession = '';
@@ -71,11 +73,27 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
     if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
         const over = data.overMarketPriceInfo;
         if (over.overPrice && over.overPrice !== '0' && over.overPrice !== '') {
-            overMarketPrice = extractNumber(over.overPrice);
-            overMarketChange = extractNumber(String(over.compareToPreviousClosePrice || '0'));
-            overMarketChangePercent = extractNumber(String(over.fluctuationsRatio || '0'));
-            isOverMarket = true;
-            overMarketSession = over.tradingSessionType; // usually 'PRE_MARKET' or 'AFTER_MARKET'
+            // Validate if the session is actually active in NYC
+            const now = new Date();
+            const nycTimeStr = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                hour: 'numeric', minute: 'numeric', hour12: false
+            }).format(now);
+            const [hour, minute] = nycTimeStr.split(':').map(Number);
+            const timeVal = hour + minute / 60;
+            const session = over.tradingSessionType; // PRE_MARKET or AFTER_MARKET
+
+            const isSessionActive = 
+                (session === 'PRE_MARKET' && timeVal >= 4 && timeVal < 9.5) ||
+                ((session === 'AFTER_MARKET' || session === 'POST_MARKET') && timeVal >= 16 && timeVal < 20);
+
+            if (isSessionActive) {
+                overMarketPrice = extractNumber(over.overPrice);
+                overMarketChange = extractNumber(String(over.compareToPreviousClosePrice || '0'));
+                overMarketChangePercent = extractNumber(String(over.fluctuationsRatio || '0'));
+                isOverMarket = true;
+                overMarketSession = session;
+            }
         }
     }
 
@@ -89,6 +107,7 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
         name: data.stockName || symbol,
         change: isNaN(change) ? 0 : change,
         changePercent: isNaN(changePercent) ? 0 : changePercent,
+        tradingValue,
         previousClose: isNaN(previousClose) ? price : previousClose,
         marketStatus: data.marketStatus || 'CLOSE',
         isOverMarket,

@@ -5,23 +5,27 @@
 export const extractNumber = (val: any): number => {
     if (val === undefined || val === null) return 0;
     if (typeof val === 'number') return val;
-    const text = String(val);
-    const cleaned = text.replace(/,/g, '').trim();
-    const match = cleaned.match(/[-+]?[0-9]*\.?[0-9]+/);
+    const text = String(val).replace(/,/g, '').trim();
+    const match = text.match(/[-+]?[0-9]*\.?[0-9]+/);
     if (!match) return 0;
 
     const valString = match[0];
+    const num = parseFloat(valString);
 
-    // Naver Double Fix: if the string is like "65006500" or "4.114.11"
-    if (valString.length >= 2 && valString.indexOf('.') === -1 && valString.length % 2 === 0) {
+    if (valString.length >= 2 && !valString.includes('.') && valString.length % 2 === 0) {
         const half = valString.length / 2;
-        const firstHalf = valString.substring(0, half);
-        const secondHalf = valString.substring(half);
-        if (firstHalf === secondHalf) {
-            return parseFloat(firstHalf);
-        }
+        if (valString.substring(0, half) === valString.substring(half)) return parseFloat(valString.substring(0, half));
     }
-    return parseFloat(valString);
+    return num;
+};
+
+export const parseTradingValue = (val: any): number => {
+    if (!val) return 0;
+    const text = String(val).replace(/,/g, '');
+    let num = extractNumber(text);
+    if (text.includes('백만')) num *= 1_000_000;
+    else if (text.includes('억')) num *= 100_000_000;
+    return num;
 };
 
 export const formatYmd = (ymd: string): string => {

@@ -1,36 +1,34 @@
-import { extractNumber, DEFAULT_USER_AGENT, MOBILE_USER_AGENT } from './utils';
+import { extractNumber, parseTradingValue, DEFAULT_USER_AGENT, MOBILE_USER_AGENT } from './utils';
 
 export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
     const code = symbol.split('.')[0];
-    const url = `https://m.stock.naver.com/api/stock/${code}/basic`;
+    const url = `https://polling.finance.naver.com/api/realtime/domestic/stock/${code}`;
 
     try {
         const response = await fetch(url, {
-            headers: { 'User-Agent': DEFAULT_USER_AGENT },
+            headers: { 'User-Agent': MOBILE_USER_AGENT },
             cache: forceRefresh ? 'no-store' : undefined,
             next: forceRefresh ? undefined : { revalidate: 30 }
         });
 
         if (!response.ok) return { symbol, error: 'Naver Finance API access failed' };
 
-        const data = await response.json();
+        const json = await response.json();
+        const data = json.datas?.[0];
+        if (!data) return { symbol, error: 'No data' };
 
         const name = data.stockName || symbol;
         const price = extractNumber(data.closePrice);
-
-        if (price === 0) return { symbol, error: 'Price not found on Naver API' };
-
         const changeMagnitude = extractNumber(data.compareToPreviousClosePrice);
         const changePercentMagnitude = extractNumber(data.fluctuationsRatio);
 
-        // UPPER_LIMIT(상한가), RISING → 양수 / LOWER_LIMIT(하한가), FALLING → 음수
         const dirName: string = data.compareToPreviousPrice?.name || '';
         const changeSign = (dirName === 'FALLING' || dirName === 'LOWER_LIMIT') ? -1
             : (dirName === 'RISING' || dirName === 'UPPER_LIMIT') ? 1 : 0;
 
         const change = Math.abs(changeMagnitude) * changeSign;
         const changePercent = Math.abs(changePercentMagnitude) * changeSign;
-        const previousClose = price - change;
+        const tradingValue = parseTradingValue(data.accumulatedTradingValue);
 
         const quote: any = {
             symbol,
@@ -40,31 +38,9 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
             name,
             change,
             changePercent,
-            previousClose,
+            tradingValue,
             marketStatus: data.marketStatus || 'CLOSE'
         };
-
-        // Check for over-market (NXT)
-        if (data.overMarketPriceInfo && data.overMarketPriceInfo.overMarketStatus === 'OPEN') {
-            const overInfo = data.overMarketPriceInfo;
-            const sessionType: string = overInfo.tradingSessionType || 'AFTER_MARKET';
-
-            if (sessionType !== 'REGULAR_MARKET') {
-                quote.isOverMarket = true;
-                quote.overMarketSession = sessionType === 'AFTER_MARKET' ? 'NXT' : sessionType;
-                quote.overMarketPrice = extractNumber(overInfo.overPrice);
-
-                const overDirName: string = overInfo.compareToPreviousPrice?.name || '';
-                const overChangeSign = (overDirName === 'FALLING' || overDirName === 'LOWER_LIMIT') ? -1
-                    : (overDirName === 'RISING' || overDirName === 'UPPER_LIMIT') ? 1 : 0;
-
-                const overChangeMagnitude = extractNumber(overInfo.compareToPreviousClosePrice);
-                const overPercentMagnitude = extractNumber(overInfo.fluctuationsRatio);
-
-                quote.overMarketChange = Math.abs(overChangeMagnitude) * overChangeSign;
-                quote.overMarketChangePercent = Math.abs(overPercentMagnitude) * overChangeSign;
-            }
-        }
 
         return quote;
     } catch (error) {

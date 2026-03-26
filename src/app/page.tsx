@@ -81,12 +81,20 @@ export default function Home() {
                     </button>
 
                     {displayRate && (
-                        <div className="glass flex-center" style={{ padding: '0.3rem 0.6rem', gap: '0.4rem', borderRadius: '100px', fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500' }}>
+                        <a 
+                            href="https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="glass flex-center" 
+                            style={{ padding: '0.3rem 0.6rem', gap: '0.4rem', borderRadius: '100px', fontSize: '0.85rem', color: 'var(--muted)', fontWeight: '500', textDecoration: 'none', transition: 'all 0.2s' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--white-10)')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
                             {isRateLive && <span className="animate-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16a34a' }}></span>}
                             <DollarSign size={14} color="var(--primary)" />
                             <span>1 USD = <span style={{ color: 'var(--foreground)', fontWeight: '800' }}>{displayRate.toLocaleString()}</span> KRW</span>
                             <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>• {formatTime(displayRateTime)} {isRateLive ? 'Live' : ''}</span>
-                        </div>
+                        </a>
                     )}
                 </div>
             </header>

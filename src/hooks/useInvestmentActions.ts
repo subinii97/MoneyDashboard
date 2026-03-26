@@ -12,7 +12,7 @@ interface UseInvestmentActionsProps {
     setAssets: (assets: Assets) => void;
 }
 
-export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: UseInvestmentActionsProps) {
+export function useInvestmentActions({ assets, rate, lastUpdated, fetchData, setAssets }: UseInvestmentActionsProps) {
     const [knownNames, setKnownNames] = useState<Record<string, string>>({});
     const [todayTransactions, setTodayTransactions] = useState<Transaction[]>([]);
 
@@ -59,13 +59,16 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
 
     // ── Core helpers ────────────────────────────────────────────────────────
     const saveAssets = useCallback(async (updatedAssets: Assets) => {
+        // Optimistic UI update: update local state immediately
+        setAssets(updatedAssets);
+        
         await fetch('/api/assets', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedAssets),
         });
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, setAssets]);
 
     const applyTransaction = useCallback((
         investments: Investment[],
@@ -258,6 +261,24 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
         await saveAssets({ investments: tempInvestments, allocations: tempAllocations });
     }, [assets, applyTransaction, adjustCash, saveAssets]);
 
+    const deleteTransaction = useCallback(async (tx: Transaction) => {
+        if (!confirm('정말 이 거래 내역을 삭제하시겠습니까? 관련 자산 수량과 현금 잔고가 복구됩니다.')) return;
+
+        // 1. Revert the transaction
+        const tempInvestments = applyTransaction(assets.investments, tx, 'revert');
+        const tempAllocations = adjustCash(assets.allocations, tx, 'revert');
+
+        // 2. Delete from DB
+        await fetch('/api/transactions', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: tx.id }),
+        });
+
+        // 3. Save updated assets
+        await saveAssets({ investments: tempInvestments, allocations: tempAllocations });
+    }, [assets, applyTransaction, adjustCash, saveAssets]);
+
     return {
         knownNames,
         todayTransactions,
@@ -267,5 +288,6 @@ export function useInvestmentActions({ assets, rate, lastUpdated, fetchData }: U
         saveEdit,
         handleTransaction,
         saveTxEdit,
+        deleteTransaction,
     };
 }

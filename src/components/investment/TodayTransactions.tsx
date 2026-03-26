@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Edit } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { Transaction, Investment } from '@/lib/types';
 
 interface Props {
@@ -9,9 +9,10 @@ interface Props {
     investments: Investment[];
     knownNames: Record<string, string>;
     onEditTx: (tx: Transaction) => void;
+    onDeleteTx: (tx: Transaction) => void;
 }
 
-export function TodayTransactions({ transactions, investments, knownNames, onEditTx }: Props) {
+export function TodayTransactions({ transactions, investments, knownNames, onEditTx, onDeleteTx }: Props) {
     if (transactions.length === 0) return null;
 
     return (
@@ -58,12 +59,22 @@ export function TodayTransactions({ transactions, investments, knownNames, onEdi
                                     {prefix}{Number(tx.amount).toLocaleString()}
                                 </td>
                                 <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                                    <button
-                                        onClick={() => onEditTx(tx)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', opacity: 0.8 }}
-                                    >
-                                        <Edit size={16} />
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                                        <button
+                                            onClick={() => onEditTx(tx)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', opacity: 0.8 }}
+                                            title="수정"
+                                        >
+                                            <Edit size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => onDeleteTx(tx)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.8 }}
+                                            title="삭제"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         );

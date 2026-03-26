@@ -147,6 +147,7 @@ const stmts = {
     updateHistoryAdjustment: db.prepare(
         'UPDATE history SET manualAdjustment = ?, totalValue = ? WHERE date = ?'
     ),
+    deleteHistory: db.prepare('DELETE FROM history WHERE date = ?'),
 
     // Transactions
     getTransactionsByDate: db.prepare('SELECT * FROM transactions WHERE date = ? ORDER BY id DESC'),
@@ -297,6 +298,14 @@ export const repo = {
                 stmts.updateHistoryAdjustment.run(adjustment, total, date);
             } catch (error) {
                 console.error('repo.history.updateAdjustment failed:', error);
+                throw error;
+            }
+        },
+        delete: (date: string) => {
+            try {
+                stmts.deleteHistory.run(date);
+            } catch (error) {
+                console.error('repo.history.delete failed:', error);
                 throw error;
             }
         },

@@ -29,6 +29,7 @@ export default function InvestmentManager() {
         saveEdit,
         handleTransaction,
         saveTxEdit,
+        deleteTransaction,
     } = useInvestmentActions({ assets, rate, lastUpdated, fetchData, setAssets });
 
     const [isPrivate, setIsPrivate] = useState(false);
@@ -242,6 +243,7 @@ export default function InvestmentManager() {
                         investments={assets.investments}
                         knownNames={knownNames}
                         onEditTx={startEditingTx}
+                        onDeleteTx={deleteTransaction}
                     />
                 )}
 
