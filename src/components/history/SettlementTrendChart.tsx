@@ -4,244 +4,57 @@ import React, { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { formatKRW } from '@/lib/utils';
+import { HistoryChartContainer } from './HistoryChartContainer';
 
-interface SettlementTrendChartProps {
-    dailyData: any[];
-    weeklyData: any[];
-    monthlyData: any[];
-    scope: ChartScope;
-    onScopeChange: (scope: ChartScope) => void;
-    isPrivate?: boolean;
-}
-
-export type ChartScope = '1w' | '2w' | '1m' | '3m' | '1y' | 'weekly';
-
-const SettlementTrendChart: React.FC<SettlementTrendChartProps> = ({ dailyData, weeklyData, monthlyData, scope, onScopeChange, isPrivate }) => {
-
-    const categories = useMemo(() => [
-        { key: 'osBond', name: '해외채권', color: '#7c2d12' },
-        { key: 'osIndex', name: '해외지수', color: '#b91c1c' },
-        { key: 'osStock', name: '해외주식', color: '#dc2626' },
-        { key: 'domBond', name: '국내채권', color: '#1e3a8a' },
-        { key: 'domIndex', name: '국내지수', color: '#1d4ed8' },
-        { key: 'domStock', name: '국내주식', color: '#5f63b8' },
-        { key: 'cash', name: '현금/예금', color: '#059669' }
-    ], []);
-
-    const [activeCategories, setActiveCategories] = useState<string[]>(categories.map(c => c.key));
+const SettlementTrendChart = ({ dailyData, weeklyData, monthlyData, scope, onScopeChange, isPrivate }: any) => {
+    const cats = useMemo(() => [{ k: 'osBond', n: '해외채권', c: '#7c2d12' }, { k: 'osIndex', n: '해외지수', c: '#b91c1c' }, { k: 'osStock', n: '해외주식', c: '#dc2626' }, { k: 'domBond', n: '국내채권', c: '#1e3a8a' }, { k: 'domIndex', n: '국내지수', c: '#1d4ed8' }, { k: 'domStock', n: '국내주식', c: '#5f63b8' }, { k: 'cash', n: '현금/예금', c: '#059669' }], []);
+    const [active, setActive] = useState<string[]>(cats.map(c => c.k));
 
     const chartData = useMemo(() => {
         let raw: any[] = [];
-        if (scope === 'weekly') {
-            raw = [...weeklyData].reverse().map(w => ({
-                date: w.period.split(' ~ ')[1],
-                osBond: w.metrics.osBond.current,
-                osIndex: w.metrics.osIndex.current,
-                osStock: w.metrics.osStock.current,
-                domBond: w.metrics.domBond.current,
-                domIndex: w.metrics.domIndex.current,
-                domStock: w.metrics.domStock.current,
-                cash: w.metrics.cash.current,
-            }));
-        } else {
-            let days = 30;
-            if (scope === '1w') days = 7;
-            else if (scope === '2w') days = 14;
-            else if (scope === '1m') days = 30;
-            else if (scope === '3m') days = 90;
-            else if (scope === '1y') days = 365;
-
-            raw = [...dailyData].reverse().slice(-days).map(d => ({
-                date: d.date,
-                osBond: d.metrics.osBond.current,
-                osIndex: d.metrics.osIndex.current,
-                osStock: d.metrics.osStock.current,
-                domBond: d.metrics.domBond.current,
-                domIndex: d.metrics.domIndex.current,
-                domStock: d.metrics.domStock.current,
-                cash: d.metrics.cash.current,
-            }));
+        if (scope === 'weekly') raw = [...weeklyData].reverse().map(w => ({ date: w.period.split(' ~ ')[1], osBond: w.metrics.osBond.current, osIndex: w.metrics.osIndex.current, osStock: w.metrics.osStock.current, domBond: w.metrics.domBond.current, domIndex: w.metrics.domIndex.current, domStock: w.metrics.domStock.current, cash: w.metrics.cash.current }));
+        else {
+            const dMap: any = { '1w': 7, '2w': 14, '1m': 30, '3m': 90, '1y': 365 };
+            raw = [...dailyData].reverse().slice(-(dMap[scope] || 30)).map(d => ({ date: d.date, osBond: d.metrics.osBond.current, osIndex: d.metrics.osIndex.current, osStock: d.metrics.osStock.current, domBond: d.metrics.domBond.current, domIndex: d.metrics.domIndex.current, domStock: d.metrics.domStock.current, cash: d.metrics.cash.current }));
         }
         return raw;
-    }, [scope, dailyData, weeklyData, monthlyData]);
+    }, [scope, dailyData, weeklyData]);
 
     const yDomain = useMemo(() => {
-        if (chartData.length === 0 || activeCategories.length === 0) return [0, 1000000];
-
-        const values = chartData.map(d => {
-            return activeCategories.reduce((sum, cat) => sum + (d[cat] || 0), 0);
-        });
-
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-
-        // If 2+ categories are stacked, use 0 as minimum. 
-        // If single category, use 95% of min to show fluctuations.
-        const finalMin = activeCategories.length >= 2 ? 0 : Math.floor(min * 0.95);
-        const finalMax = Math.ceil(max * 1.05);
-
-        return [finalMin, finalMax];
-    }, [chartData, activeCategories]);
-
-    const toggleCategory = (key: string) => {
-        const allKeys = categories.map(c => c.key);
-        const isAllSelected = activeCategories.length === allKeys.length;
-
-        if (isAllSelected) {
-            setActiveCategories([key]);
-        } else {
-            setActiveCategories(prev => {
-                if (prev.includes(key)) {
-                    return prev.filter(k => k !== key);
-                }
-                const next = [...prev, key];
-                // Maintain defined order for stacking stability
-                return categories.map(c => c.key).filter(k => next.includes(k));
-            });
-        }
-    };
-
-    const handleAllToggle = () => {
-        const allKeys = categories.map(c => c.key);
-        if (activeCategories.length === allKeys.length) {
-            setActiveCategories([]);
-        } else {
-            setActiveCategories(allKeys);
-        }
-    };
-
-    const isAllSelected = activeCategories.length === categories.length;
+        if (!chartData.length || !active.length) return [0, 1000000];
+        const vals = chartData.map(d => active.reduce((s, cat) => s + (d[cat] || 0), 0));
+        return [active.length >= 2 ? 0 : Math.floor(Math.min(...vals) * 0.95), Math.ceil(Math.max(...vals) * 1.05)];
+    }, [chartData, active]);
 
     return (
-        <section style={{ marginBottom: '4rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <TrendingUp size={24} color="var(--primary)" />
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>자산 추이</h2>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                        <button
-                            onClick={handleAllToggle}
-                            className="glass"
-                            style={{
-                                padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', border: 'none',
-                                background: isAllSelected ? 'var(--primary)' : 'var(--border)',
-                                color: isAllSelected ? 'white' : 'var(--muted)', cursor: 'pointer', fontWeight: '600'
-                            }}
-                        >
-                            전체
-                        </button>
-                        {categories.map(cat => {
-                            const active = activeCategories.includes(cat.key);
+        <HistoryChartContainer title="자산 추이" icon={<TrendingUp size={24} color="var(--primary)" />} scope={scope} onScopeChange={onScopeChange} 
+            scopes={[{id: '1w', label: '1주'}, {id: '2w', label: '2주'}, {id: '1m', label: '1달'}, {id: '3m', label: '3달'}, {id: '1y', label: '1년'}, {id: 'weekly', label: '주별'}]}>
+            <div style={{ position: 'absolute', top: '1.5rem', left: '11rem', display: 'flex', gap: '0.4rem', zIndex: 10 }}>
+                <button onClick={() => setActive(active.length === cats.length ? [] : cats.map(c => c.k))} className="glass" style={{ padding: '0.2rem 0.5rem', fontSize: '0.65rem', background: active.length === cats.length ? 'var(--primary)' : 'var(--border)', color: 'white', border: 'none', borderRadius: '4px' }}>전체</button>
+                {cats.map(c => <button key={c.k} onClick={() => setActive(prev => prev.length === cats.length ? [c.k] : (prev.includes(c.k) ? prev.filter(k => k !== c.k) : [...prev, c.k]))} className="glass" style={{ padding: '0.2rem 0.5rem', fontSize: '0.65rem', background: active.includes(c.k) ? c.c : 'var(--border)', color: 'white', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'white' }} />{c.n}</button>)}
+            </div>
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="date" stroke="var(--muted)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => v.substring(5)} />
+                    <YAxis stroke="var(--muted)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => isPrivate ? '***' : `${(v / 1000000).toFixed(0)}M`} domain={yDomain} allowDataOverflow />
+                    <Tooltip content={({ active: ac, payload, label }: any) => {
+                        if (ac && payload?.length) {
+                            const vis = payload.filter((p: any) => active.includes(p.dataKey)); if (!vis.length) return null;
                             return (
-                                <button
-                                    key={cat.key}
-                                    onClick={() => toggleCategory(cat.key)}
-                                    className="glass"
-                                    style={{
-                                        padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', border: 'none',
-                                        background: active ? cat.color : 'var(--border)',
-                                        color: active ? 'white' : 'var(--muted)', cursor: 'pointer', fontWeight: '600',
-                                        display: 'flex', alignItems: 'center', gap: '0.25rem'
-                                    }}
-                                >
-                                    <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: active ? 'white' : cat.color }}></div>
-                                    {cat.name}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-                <div className="glass" style={{ display: 'flex', gap: '0.2rem', padding: '0.2rem' }}>
-                    {(['1w', '2w', '1m', '3m', '1y', 'weekly'] as const).map((s) => (
-                        <button
-                            key={s}
-                            onClick={() => onScopeChange(s)}
-                            style={{
-                                padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: '4px', border: 'none',
-                                background: scope === s ? 'var(--primary)' : 'transparent',
-                                color: scope === s ? 'white' : 'var(--muted)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: '600'
-                            }}
-                        >
-                            {s === '1w' ? '1주' : s === '2w' ? '2주' : s === '1m' ? '1달' : s === '3m' ? '3달' : s === '1y' ? '1년' : '주별'}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="glass" style={{ padding: '1.5rem', height: '400px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis
-                            dataKey="date"
-                            stroke="var(--muted)"
-                            fontSize={10}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(val) => {
-                                return val.substring(5);
-                            }}
-                        />
-                        <YAxis
-                            stroke="var(--muted)"
-                            fontSize={10}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(val) => isPrivate ? '***' : `${(val / 1000000).toFixed(0)}M`}
-                            domain={yDomain}
-                            allowDataOverflow={true}
-                        />
-                        <Tooltip
-                            content={({ active, payload, label }: any) => {
-                                if (active && payload && payload.length) {
-                                    const visiblePayload = payload.filter((p: any) => activeCategories.includes(p.dataKey));
-                                    if (visiblePayload.length === 0) return null;
-                                    const total = visiblePayload.reduce((sum: number, entry: any) => sum + entry.value, 0);
-
-                                    return (
-                                        <div className="glass" style={{ padding: '1rem', border: '1px solid var(--border)', fontSize: '0.75rem', minWidth: '180px' }}>
-                                            <div style={{ color: 'var(--muted)', marginBottom: '0.6rem', fontWeight: '600', borderBottom: '1px solid var(--border)', paddingBottom: '0.4rem' }}>{label}</div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                                {visiblePayload.slice().reverse().map((entry: any, idx: number) => (
-                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                            <div style={{ width: '7px', height: '7px', borderRadius: '1.5px', background: entry.color }}></div>
-                                                            <span style={{ color: 'var(--foreground)' }}>{entry.name}</span>
-                                                        </div>
-                                                        <span style={{ fontWeight: '700' }}>{isPrivate ? '*****' : formatKRW(entry.value)}</span>
-                                                    </div>
-                                                ))}
-                                                <div style={{ marginTop: '0.4rem', paddingTop: '0.4rem', borderTop: '1px dotted var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '800', color: 'var(--primary)' }}>
-                                                    <span>{activeCategories.length === categories.length ? '총 합계' : '선택 합계'}</span>
-                                                    <span>{isPrivate ? '*****' : formatKRW(total)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            }}
-                        />
-                        {categories
-                            .map(cat => (
-                                <Area
-                                    key={cat.key}
-                                    type="monotone"
-                                    dataKey={activeCategories.includes(cat.key) ? cat.key : () => 0}
-                                    name={cat.name}
-                                    stackId="1"
-                                    stroke={activeCategories.includes(cat.key) ? cat.color : 'transparent'}
-                                    fill={activeCategories.includes(cat.key) ? cat.color : 'transparent'}
-                                    fillOpacity={activeCategories.includes(cat.key) ? 0.4 : 0}
-                                    isAnimationActive={false}
-                                />
-                            ))}
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
-        </section>
+                                <div className="glass" style={{ padding: '0.8rem', fontSize: '0.7rem', minWidth: '160px' }}>
+                                    <div style={{ color: 'var(--muted)', marginBottom: '0.4rem', fontWeight: '600' }}>{label}</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                        {vis.slice().reverse().map((e: any, i: number) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{e.name}</span><span style={{ fontWeight: '700' }}>{isPrivate ? '***' : formatKRW(e.value)}</span></div>)}
+                                        <div style={{ marginTop: '0.4rem', borderTop: '1px dotted var(--border)', display: 'flex', justifyContent: 'space-between', color: 'var(--primary)', fontWeight: '800' }}><span>합계</span><span>{isPrivate ? '***' : formatKRW(vis.reduce((s: number, e: any) => s + e.value, 0))}</span></div>
+                                    </div>
+                                </div>);
+                        } return null;
+                    }} />
+                    {cats.map(c => <Area key={c.k} type="monotone" dataKey={active.includes(c.k) ? c.k : () => 0} name={c.n} stackId="1" stroke={active.includes(c.k) ? c.c : 'transparent'} fill={active.includes(c.k) ? c.c : 'transparent'} fillOpacity={active.includes(c.k) ? 0.4 : 0} isAnimationActive={false} />)}
+                </AreaChart>
+            </ResponsiveContainer>
+        </HistoryChartContainer>
     );
 };
 

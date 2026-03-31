@@ -1,38 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import {
-    HistoryEntry,
-    AssetCategory,
-    DailySettlement,
-    WeeklySettlement,
-    MonthlySettlement,
-    FullSettlementMetrics,
-    INVESTMENT_CATEGORIES,
-} from '@/lib/types';
-import { getCategoryValue, calculateTWRMultipliers, getSummaryMetrics, syncOverseasFriday } from '@/lib/settlement';
-import { convertToKRW } from '@/lib/utils';
+import { HistoryEntry, DailySettlement, WeeklySettlement, MonthlySettlement, INVESTMENT_CATEGORIES } from '@/lib/types';
+import { processHistoryData } from '@/lib/settlement-processor';
 
-// ── Local helpers ─────────────────────────────────────────────────────────────
-
-/** Recalculate investment-category allocations from updated holdings prices. */
-function recalcAllocations(
-    allocations: any[],
-    holdings: any[],
-    exchangeRate: number
-): any[] {
-    return allocations.map((alc: any) => {
-        if (!INVESTMENT_CATEGORIES.includes(alc.category)) return alc;
-        const categoryValue = holdings
-            .filter((h: any) => h.category === alc.category)
-            .reduce((sum: number, h: any) => {
-                const val = (h.currentPrice || h.avgPrice) * h.shares;
-                return sum + (h.currency === 'USD' ? val * exchangeRate : val);
-            }, 0);
-        return { ...alc, value: categoryValue / (alc.currency === 'USD' ? exchangeRate : 1) };
-    });
-}
-
-
-export type { DailySettlement, WeeklySettlement, MonthlySettlement };
+const recalcAllocations = (a: any[], h: any[], r: number) => a.map(al => {
+    if (!INVESTMENT_CATEGORIES.includes(al.category)) return al;
+    const v = h.filter(x => x.category === al.category).reduce((s, x) => {
+        const val = (x.currentPrice || x.avgPrice) * x.shares;
+        return s + (x.currency === 'USD' ? val * r : val);
+    }, 0);
+    return { ...al, value: v / (al.currency === 'USD' ? r : 1) };
+});
 
 export function useHistoryData() {
     const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -40,434 +17,43 @@ export function useHistoryData() {
     const [loading, setLoading] = useState(true);
     const [rate, setRate] = useState(1350);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // 1. Fetch history + trigger live snapshot + transactions
-                const [historyRes, liveRes, txRes] = await Promise.all([
-                    fetch('/api/snapshot?includeHoldings=true'),
-                    fetch('/api/snapshot', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ auto: true })
-                    }).catch(() => null),
-                    fetch('/api/transactions').catch(() => null)
-                ]);
-                const historyData = await historyRes.json();
-                let liveData = null;
-                if (liveRes && liveRes.ok) {
-                    try {
-                        liveData = await liveRes.json();
-                    } catch (e) { }
-                }
-
-                let txData = [];
-                if (txRes && txRes.ok) {
-                    try {
-                        txData = await txRes.json();
-                    } catch (e) { }
-                }
-                setTransactions(Array.isArray(txData) ? txData : []);
-
-                let finalHistory = Array.isArray(historyData) ? historyData : [];
-
-                if (liveData && liveData.success && liveData.entry) {
-                    const entry = liveData.entry;
-                    if (!liveData.isSettled) {
-                        entry.isLive = true;
-                    }
-
-                    // 2. Fetch real-time prices from /api/stock (same source as investment page)
-                    //    and apply them to the live entry's holdings for consistency
-                    if (entry.isLive && entry.holdings && entry.holdings.length > 0) {
-                        const symbols = [...new Set(entry.holdings.map((h: any) => h.symbol))].join(',');
-                        try {
-                            const priceRes = await fetch(`/api/stock?symbols=${symbols}&t=${Date.now()}`, { cache: 'no-store' });
-                            const priceData = await priceRes.json();
-
-                            if (priceData.exchangeRate) {
-                                const r = typeof priceData.exchangeRate === 'object' ? priceData.exchangeRate.rate : priceData.exchangeRate;
-                                setRate(r);
-                                entry.exchangeRate = r;
-                            }
-
-                            if (priceData.results) {
-                                entry.holdings = entry.holdings.map((h: any) => {
-                                    const info = priceData.results.find((r: any) =>
-                                        r.symbol.trim().toUpperCase() === h.symbol.trim().toUpperCase()
-                                    );
-                                    if (info) {
-                                        const activePrice = (info.isOverMarket && info.overMarketPrice !== undefined) ? info.overMarketPrice : info.price;
-                                        if (activePrice) {
-                                            return {
-                                                ...h,
-                                                currentPrice: activePrice,
-                                                change: info.change,
-                                                changePercent: info.changePercent,
-                                                marketStatus: info.marketStatus,
-                                                isOverMarket: info.isOverMarket,
-                                                overMarketPrice: info.overMarketPrice,
-                                                overMarketChange: info.overMarketChange,
-                                                overMarketChangePercent: info.overMarketChangePercent,
-                                                overMarketSession: info.overMarketSession
-                                            };
-                                        }
-                                    }
-                                    return h;
-                                });
-
-                                // Recalculate totalValue with updated prices
-                                const invValue = entry.holdings.reduce((acc: number, h: any) => {
-                                    const val = (h.currentPrice || h.avgPrice) * h.shares;
-                                    return acc + (h.currency === 'USD' ? val * entry.exchangeRate : val);
-                                }, 0);
-
-                                // Add non-investment allocation values
-                                const nonInvValue = (entry.allocations || [])
-                                    .filter((a: any) => !INVESTMENT_CATEGORIES.includes(a.category))
-                                    .reduce((acc: number, a: any) =>
-                                        acc + (a.currency === 'USD' ? a.value * entry.exchangeRate : a.value), 0);
-
-                                // Sync allocations to reflect updated holding prices
-                                if (entry.allocations) {
-                                    entry.allocations = recalcAllocations(
-                                        entry.allocations,
-                                        entry.holdings,
-                                        entry.exchangeRate
-                                    );
-                                }
-
-                                entry.totalValue = invValue + nonInvValue;
-                            }
-                        } catch (e) {
-                            console.error('Failed to sync live prices', e);
-                        }
-                    }
-
-                    const existingIndex = finalHistory.findIndex((e: any) => e.date === entry.date);
-                    if (existingIndex >= 0) {
-                        finalHistory[existingIndex] = entry;
-                    } else {
-                        finalHistory.push(entry);
-                    }
-                }
-                finalHistory.sort((a, b) => a.date.localeCompare(b.date));
-
-                setHistory(finalHistory);
-            } catch (err) {
-                console.error('Failed to fetch initial data', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-        
-        // Auto-refresh live data every minute if overseas market is open (or just for live entries)
-        const interval = setInterval(() => {
-            fetchData();
-        }, 60000);
-        
-        return () => clearInterval(interval);
-    }, []);
-
-    const twrDom = useMemo(() => calculateTWRMultipliers(history, 'Domestic', rate, transactions), [history, rate, transactions]);
-    const twrOs = useMemo(() => calculateTWRMultipliers(history, 'Overseas', rate, transactions), [history, rate, transactions]);
-
-    const dailySettlements = useMemo((): DailySettlement[] => {
-        const filtered = history.filter(entry => entry.holdings && entry.holdings.length > 0);
-
-        return filtered.map((entry, index, arr) => {
-            const r = entry.exchangeRate || rate;
-            let currM = getSummaryMetrics(entry, r);
-            let dsTotalValue = entry.totalValue;
-
-            // Generalized Lookahead: Borrow overseas values from the next day's KST morning snapshot (Tue-Sat)
-            const nextEntry = index < arr.length - 1 ? arr[index + 1] : null;
-            if (nextEntry) {
-                const nObj = new Date(nextEntry.date + 'T00:00:00');
-                const nextDayKST = nObj.getDay(); 
-                if (nextDayKST >= 2 && nextDayKST <= 6) {
-                    const nextM = getSummaryMetrics(nextEntry, nextEntry.exchangeRate || rate);
-                    const diff = nextM.overseas - currM.overseas;
-                    currM.overseas = nextM.overseas;
-                    dsTotalValue += diff;
-                }
-            }
-
-            const prevEntry = index > 0 ? arr[index - 1] : null;
-            let prevM = prevEntry ? getSummaryMetrics(prevEntry, prevEntry.exchangeRate || rate) : null;
-            let prevTotalValue = prevEntry ? prevEntry.totalValue : 0;
-
-            if (prevEntry) {
-                const pNextEntry = index <= arr.length - 1 ? arr[index] : null;
-                if (pNextEntry) {
-                    const pnObj = new Date(pNextEntry.date + 'T00:00:00');
-                    const pnDayKST = pnObj.getDay();
-                    if (pnDayKST >= 2 && pnDayKST <= 6) {
-                        const pnM = getSummaryMetrics(pNextEntry, pNextEntry.exchangeRate || rate);
-                        if (prevM) {
-                            const diff = pnM.overseas - prevM.overseas;
-                            prevM.overseas = pnM.overseas;
-                            prevTotalValue += diff;
-                        }
-                    }
-                }
-            }
-
-            const prevTwrDomMult = prevEntry ? (twrDom[prevEntry.date] ?? 1) : 1;
-            const currTwrDomMult = twrDom[entry.date] ?? 1;
-            let finalDomPercent = (prevTwrDomMult > 0 ? (currTwrDomMult / prevTwrDomMult - 1) : 0) * 100;
-
-            const prevTwrOsMult = prevEntry ? syncOverseasFriday(prevEntry.date, twrOs) : 1;
-            const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
-            let finalOsPercent = (prevTwrOsMult > 0 ? (currTwrOsMult / prevTwrOsMult - 1) : 0) * 100;
-
-            // Live Correction: Use individual holding 변화율 for real-time accuracy on the live entry
-            if (entry.isLive && entry.holdings) {
-                let domMktGain = 0; let domMktPrev = 0;
-                let osMktGain = 0; let osMktPrev = 0;
-                
-                const holdings = Array.isArray(entry.holdings) ? entry.holdings 
-                    : (typeof entry.holdings === 'string' ? JSON.parse(entry.holdings) : []);
-
-                holdings.forEach((h: any) => {
-                    const activePrice = (h.isOverMarket && h.overMarketPrice !== undefined) ? h.overMarketPrice : (h.currentPrice || h.avgPrice);
-                    const activeChange = (h.isOverMarket && h.overMarketChange !== undefined) ? h.overMarketChange : (h.change || 0);
-                    const valChange = convertToKRW(activeChange * h.shares, h.currency || 'USD', r);
-                    const valPrev = convertToKRW((activePrice - activeChange) * h.shares, h.currency || 'USD', r);
-                    
-                    const isDomestic = h.marketType === 'Domestic' || ['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(h.category);
-                    if (isDomestic) {
-                        domMktGain += valChange;
-                        domMktPrev += valPrev;
-                    } else {
-                        osMktGain += valChange;
-                        osMktPrev += valPrev;
-                    }
-                });
-
-                if (domMktPrev > 0) finalDomPercent = (domMktGain / domMktPrev) * 100;
-                if (osMktPrev > 0) finalOsPercent = (osMktGain / osMktPrev) * 100;
-            }
-
-            const dObj = new Date(entry.date + 'T00:00:00');
-            const isWeekend = dObj.getDay() === 6 || dObj.getDay() === 0;
-
-            const domChange = (prevM && !isWeekend) ? prevM.domestic * (finalDomPercent / 100) : 0;
-            const osChange = (prevM && !isWeekend) ? prevM.overseas * (finalOsPercent / 100) : 0;
-
-            const ds: DailySettlement = {
-                ...entry,
-                totalValue: dsTotalValue,
-                change: prevEntry ? (dsTotalValue - prevTotalValue) : 0,
-                changePercent: (prevEntry && prevTotalValue > 0) ? ((dsTotalValue - prevTotalValue) / prevTotalValue) * 100 : 0,
-                metrics: {
-                    cash: {
-                        current: currM.cash,
-                        change: prevM ? currM.cash - prevM.cash : 0,
-                        percent: (prevM && prevM.cash > 0) ? ((currM.cash - prevM.cash) / prevM.cash) * 100 : 0
-                    },
-                    domStock: { current: currM.domStock, change: 0, percent: 0 },
-                    domIndex: { current: currM.domIndex, change: 0, percent: 0 },
-                    domBond: { current: currM.domBond, change: 0, percent: 0 },
-                    osStock: { current: currM.osStock, change: 0, percent: 0 },
-                    osIndex: { current: currM.osIndex, change: 0, percent: 0 },
-                    osBond: { current: currM.osBond, change: 0, percent: 0 },
-                    domestic: { current: currM.domestic, change: domChange, percent: isWeekend ? 0 : finalDomPercent },
-                    overseas: { current: currM.overseas, change: osChange, percent: isWeekend ? 0 : finalOsPercent }
-                }
-            };
-
-            return ds;
-        }).reverse();
-    }, [history, rate, twrDom, twrOs]);
-
-    const dailyGroupedByMonth = useMemo(() => {
-        const grouped: Record<string, DailySettlement[]> = {};
-        dailySettlements.forEach(d => {
-            const month = d.date.substring(0, 7);
-            if (!grouped[month]) grouped[month] = [];
-            grouped[month].push(d);
-        });
-        return grouped;
-    }, [dailySettlements]);
-
-    const weeklySettlements = useMemo((): WeeklySettlement[] => {
-        const settlements: WeeklySettlement[] = [];
-        if (history.length > 0) {
-            const filtered = history.filter(e => e.holdings && e.holdings.length > 0);
-
-            // 주별 TWR: 일별과 동일한 누적 배수 맵 재사용
-            // const twrDom = calculateTWRMultipliers(filtered, 'Domestic', rate); // Removed, using outer twrDom
-            // const twrOs = calculateTWRMultipliers(filtered, 'Overseas', rate); // Removed, using outer twrOs
-
-            const symbolMap: Record<string, string> = {};
-            history.forEach(h => {
-                if (h.holdings) {
-                    h.holdings.forEach(inv => {
-                        if (inv.symbol && inv.name && !symbolMap[inv.symbol]) {
-                            symbolMap[inv.symbol] = inv.name;
-                        }
-                    });
-                }
-            });
-
-            const grouped: Record<string, HistoryEntry> = {};
-            history.forEach(entry => {
-                const d = new Date(entry.date);
-                const day = d.getDay();
-                if (day >= 1 && day <= 6) {
-                    const startOfWeek = new Date(d);
-                    startOfWeek.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-                    const endOfWeek = new Date(startOfWeek);
-                    endOfWeek.setDate(startOfWeek.getDate() + 5);
-                    const key = `${endOfWeek.toISOString().substring(0, 10)}`;
-                    if (!grouped[key] || entry.date > grouped[key].date) grouped[key] = entry;
-                }
-            });
-
-            const keys = Object.keys(grouped).sort();
-            keys.forEach((key, index) => {
-                const entry = grouped[key];
-                const prev = index > 0 ? grouped[keys[index - 1]] : null;
-                const r = entry.exchangeRate || rate;
-                const currM = getSummaryMetrics(entry, r);
-                const prevM = prev ? getSummaryMetrics(prev, prev.exchangeRate || rate) : null;
-
-                // 주간 TWR = 이번 주 말 누적 배수 / 지난 주 말 누적 배수 - 1
-                const prevTwrDomMult = prev ? (twrDom[prev.date] ?? 1) : 1;
-                const currTwrDomMult = twrDom[entry.date] ?? 1;
-                const weekDomReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
-
-                const prevTwrOsMult = prev ? syncOverseasFriday(prev.date, twrOs) : 1;
-                const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
-                const weekOsReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
-
-                const domChange = (prevM?.domestic || 0) * weekDomReturn;
-                const osChange = (prevM?.overseas || 0) * weekOsReturn;
-
-                const startDate = new Date(new Date(key).setDate(new Date(key).getDate() - 5)).toISOString().substring(0, 10);
-                const endDate = key;
-                const weeklyTx = transactions.filter((t: any) => t.date >= startDate && t.date <= endDate).map(t => ({
-                    ...t,
-                    name: t.symbol ? symbolMap[t.symbol] : undefined
-                }));
-
-                settlements.push({
-                    period: `${startDate.substring(2)} ~ ${endDate.substring(2)}`,
-                    startDate,
-                    endDate,
-                    transactions: weeklyTx,
-                    value: entry.totalValue,
-                    change: prev ? entry.totalValue - prev.totalValue : 0,
-                    changePercent: (prev && prev.totalValue > 0) ? ((entry.totalValue - prev.totalValue) / prev.totalValue) * 100 : 0,
-                    metrics: {
-                        cash: { current: currM.cash, change: prevM ? currM.cash - prevM.cash : 0, percent: 0 },
-                        domStock: { current: currM.domStock, change: 0, percent: 0 },
-                        domIndex: { current: currM.domIndex, change: 0, percent: 0 },
-                        domBond: { current: currM.domBond, change: 0, percent: 0 },
-                        osStock: { current: currM.osStock, change: 0, percent: 0 },
-                        osIndex: { current: currM.osIndex, change: 0, percent: 0 },
-                        osBond: { current: currM.osBond, change: 0, percent: 0 },
-                        domestic: { current: currM.domestic, change: domChange, percent: weekDomReturn * 100 },
-                        overseas: { current: currM.overseas, change: osChange, percent: weekOsReturn * 100 }
-                    }
-                });
-            });
-            settlements.reverse();
-        }
-        return settlements;
-    }, [history, rate, twrDom, twrOs, transactions]);
-
-    const monthlySettlements = useMemo((): MonthlySettlement[] => {
-        const map: Record<string, HistoryEntry> = {};
-        history.forEach(entry => {
-            const m = entry.date.substring(0, 7);
-            if (!map[m] || entry.date >= map[m].date) map[m] = entry;
-        });
-
-        const keys = Object.keys(map).sort();
-        return keys.map((m, index) => {
-            const entry = map[m];
-            const prev = index > 0 ? map[keys[index - 1]] : null;
-            const r = entry.exchangeRate || rate;
-            const currM = getSummaryMetrics(entry, r);
-            const prevM = prev ? getSummaryMetrics(prev, prev.exchangeRate || rate) : null;
-
-            // 월간 TWR = 이번 달 말 누적 배수 / 지난 달 말 누적 배수 - 1
-            const prevTwrDomMult = prev ? (twrDom[prev.date] ?? 1) : 1;
-            const currTwrDomMult = twrDom[entry.date] ?? 1;
-            const monDomReturn = prevTwrDomMult > 0 ? currTwrDomMult / prevTwrDomMult - 1 : 0;
-
-            const prevTwrOsMult = prev ? syncOverseasFriday(prev.date, twrOs) : 1;
-            const currTwrOsMult = syncOverseasFriday(entry.date, twrOs);
-            const monOsReturn = prevTwrOsMult > 0 ? currTwrOsMult / prevTwrOsMult - 1 : 0;
-
-            const domChange = (prevM?.domestic || 0) * monDomReturn;
-            const osChange = (prevM?.overseas || 0) * monOsReturn;
-
-            return {
-                month: m,
-                date: entry.date,
-                value: entry.totalValue,
-                change: prev ? entry.totalValue - prev.totalValue : 0,
-                changePercent: (prev && prev.totalValue > 0) ? ((entry.totalValue - prev.totalValue) / prev.totalValue) * 100 : 0,
-                metrics: {
-                    cash: { current: currM.cash, change: prevM ? currM.cash - prevM.cash : 0, percent: 0 },
-                    domStock: { current: currM.domStock, change: 0, percent: 0 },
-                    domIndex: { current: currM.domIndex, change: 0, percent: 0 },
-                    domBond: { current: currM.domBond, change: 0, percent: 0 },
-                    osStock: { current: currM.osStock, change: 0, percent: 0 },
-                    osIndex: { current: currM.osIndex, change: 0, percent: 0 },
-                    osBond: { current: currM.osBond, change: 0, percent: 0 },
-                    domestic: { current: currM.domestic, change: domChange, percent: monDomReturn * 100 },
-                    overseas: { current: currM.overseas, change: osChange, percent: monOsReturn * 100 }
-                },
-                isManual: !entry.holdings || entry.holdings.length === 0
-            };
-        }).reverse();
-    }, [history, rate, twrDom, twrOs]);
-
-    const refreshTransactions = async () => {
+    const fetchData = async () => {
         try {
-            const txRes = await fetch('/api/transactions?t=' + Date.now());
-            if (txRes.ok) {
-                const txData = await txRes.json();
-                setTransactions(Array.isArray(txData) ? txData : []);
+            const [hRes, lRes, tRes] = await Promise.all([fetch('/api/snapshot?includeHoldings=true'), fetch('/api/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auto: true }) }), fetch('/api/transactions')]);
+            let finalH = await hRes.json(), live = await lRes.json(), txs = await tRes.json();
+            setTransactions(Array.isArray(txs) ? txs : []);
+            if (live?.success && live.entry) {
+                const entry = live.entry; if (!live.isSettled) entry.isLive = true;
+                if (entry.isLive && entry.holdings?.length > 0) {
+                    const symbols = [...new Set(entry.holdings.map((h: any) => h.symbol))].join(',');
+                    try {
+                        const pRes = await fetch(`/api/stock?symbols=${symbols}&t=${Date.now()}`);
+                        const pData = await pRes.json();
+                        if (pData.exchangeRate) { const r = pData.exchangeRate.rate || pData.exchangeRate; setRate(r); entry.exchangeRate = r; }
+                        if (pData.results) {
+                            entry.holdings = entry.holdings.map((h: any) => {
+                                const i = pData.results.find((r: any) => r.symbol.trim().toUpperCase() === h.symbol.trim().toUpperCase());
+                                if (i) { const pr = (i.isOverMarket && i.overMarketPrice !== undefined) ? i.overMarketPrice : i.price; return { ...h, currentPrice: pr, change: i.change, isOverMarket: i.isOverMarket, overMarketPrice: i.overMarketPrice, overMarketSession: i.overMarketSession }; }
+                                return h;
+                            });
+                            if (entry.allocations) entry.allocations = recalcAllocations(entry.allocations, entry.holdings, entry.exchangeRate);
+                            entry.totalValue = entry.holdings.reduce((s: number, h: any) => s + (h.currentPrice || h.avgPrice) * h.shares * (h.currency === 'USD' ? entry.exchangeRate : 1), 0) + (entry.allocations || []).filter((a: any) => !INVESTMENT_CATEGORIES.includes(a.category)).reduce((s: number, a: any) => s + (a.currency === 'USD' ? a.value * entry.exchangeRate : a.value), 0);
+                        }
+                    } catch (e) { console.error(e); }
+                }
+                const idx = finalH.findIndex((e: any) => e.date === entry.date); if (idx >= 0) finalH[idx] = entry; else finalH.push(entry);
             }
-        } catch (e) {
-            console.error('Failed to refetch transactions', e);
-        }
+            setHistory(finalH.sort((a, b) => a.date.localeCompare(b.date)));
+        } catch (err) { console.error(err); } finally { setLoading(false); }
     };
 
-    const deleteHistoryEntry = async (date: string) => {
-        if (!confirm(`${date} 내역을 정말 삭제하시겠습니까?`)) return;
-        try {
-            const res = await fetch('/api/snapshot', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date })
-            });
-            if (res.ok) {
-                setHistory(prev => prev.filter(h => h.date !== date));
-            } else {
-                alert('삭제에 실패했습니다.');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
-    };
+    useEffect(() => { fetchData(); const i = setInterval(fetchData, 60000); return () => clearInterval(i); }, []);
+
+    const { daily, weekly, monthly, grouped } = useMemo(() => processHistoryData(history, transactions, rate), [history, transactions, rate]);
 
     return {
-        dailySettlements,
-        dailyGroupedByMonth,
-        weeklySettlements,
-        monthlySettlements,
-        loading,
-        rate,
-        setHistory,
-        refreshTransactions,
-        deleteHistoryEntry
+        dailySettlements: daily, dailyGroupedByMonth: grouped, weeklySettlements: weekly, monthlySettlements: monthly,
+        loading, rate, setHistory, refreshTransactions: async () => { const r = await fetch('/api/transactions?t=' + Date.now()); if (r.ok) setTransactions(await r.json()); },
+        deleteHistoryEntry: async (date: string) => { if (confirm(`${date} 삭제?`)) { const r = await fetch('/api/snapshot', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }) }); if (r.ok) setHistory(p => p.filter(h => h.date !== date)); } }
     };
 }

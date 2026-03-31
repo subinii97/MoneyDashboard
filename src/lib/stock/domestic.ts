@@ -30,6 +30,33 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
         const changePercent = Math.abs(changePercentMagnitude) * changeSign;
         const tradingValue = parseTradingValue(data.accumulatedTradingValue);
 
+        let isOverMarket = false;
+        let overMarketSession = '';
+        let overMarketPrice: number | undefined;
+        let overMarketChange: number | undefined;
+        let overMarketChangePercent: number | undefined;
+
+        if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
+            const over = data.overMarketPriceInfo;
+            if (over.overPrice && over.overPrice !== '0' && over.overPrice !== '') {
+                // KR After-market limit: 8 PM KST
+                const now = new Date();
+                const kstOffset = 9 * 60 * 60 * 1000;
+                const kstDate = new Date(now.getTime() + kstOffset);
+                const hour = kstDate.getUTCHours();
+                const minute = kstDate.getUTCMinutes();
+                const timeVal = hour + minute / 60;
+
+                if (timeVal >= 15.6 && timeVal < 20) {
+                    overMarketPrice = extractNumber(over.overPrice);
+                    overMarketChange = extractNumber(String(over.compareToPreviousClosePrice || '0'));
+                    overMarketChangePercent = extractNumber(String(over.fluctuationsRatio || '0'));
+                    isOverMarket = true;
+                    overMarketSession = 'AFTER_MARKET';
+                }
+            }
+        }
+
         const quote: any = {
             symbol,
             price,
@@ -39,7 +66,12 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
             change,
             changePercent,
             tradingValue,
-            marketStatus: data.marketStatus || 'CLOSE'
+            marketStatus: data.marketStatus || 'CLOSE',
+            isOverMarket,
+            overMarketSession,
+            overMarketPrice,
+            overMarketChange,
+            overMarketChangePercent
         };
 
         return quote;

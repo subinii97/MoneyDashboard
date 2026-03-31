@@ -65,6 +65,8 @@ export async function GET(request: Request) {
                     const liveData = await liveSnapshotRes.json();
                     if (liveData && liveData.success && liveData.entry && !liveData.isSettled) {
                         const liveEntry = liveData.entry;
+                        const todayStr = todayObj.toISOString().substring(0, 10);
+                        liveEntry.date = todayStr;
                         liveEntry.isLive = true;
 
                         try {
@@ -140,7 +142,9 @@ export async function GET(request: Request) {
         const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas', 1350, allTransactions);
 
         const domesticBase = domesticMultipliers[refDate] || 1;
-        const overseasBase = syncOverseasFriday(refDate, overseasMultipliers);
+        
+        const refRow = visibleRows[0];
+        const overseasBase = refRow?.meta?.overseasSettled ? (overseasMultipliers[refDate] || 1) : syncOverseasFriday(refDate, overseasMultipliers);
 
         const calcRelReturn = (curr: number, base: number) => {
             return base > 0 ? ((curr / base) - 1) * 100 : 0;
@@ -148,7 +152,8 @@ export async function GET(request: Request) {
 
         const result = visibleRows.map(row => {
             const date = row.date;
-            const overseasVal = syncOverseasFriday(date, overseasMultipliers);
+            // 만약 이미 정산된 행이라면 sync를 통해 다음 날의 값을 가져올 필요가 없음 (이미 자신의 세션 값이 반영됨)
+            const overseasVal = row.meta?.overseasSettled ? (overseasMultipliers[date] || 1) : syncOverseasFriday(date, overseasMultipliers);
 
             let currentKospi = getIndexPrice(kospi, date);
             let currentKosdaq = getIndexPrice(kosdaq, date);

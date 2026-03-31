@@ -9,11 +9,16 @@ const getSettlementStatus = (targetDateStr: string, now: Date) => {
     const [y, m, d] = targetDateStr.split('-').map(Number);
     const midnight = new Date(y, m - 1, d);
 
+    // 주말(토/일)에는 장이 열리지 않으므로 정산 처리 안 함
+    const dayOfWeek = midnight.getDay(); // 0: Sun, 6: Sat
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return { domesticSettled: false, overseasSettled: false };
+    }
+
     const domesticDeadline = new Date(midnight);
     domesticDeadline.setHours(21, 0, 0, 0);
 
     const overseasDeadline = new Date(midnight);
-    overseasDeadline.setDate(overseasDeadline.getDate() + 1);
     overseasDeadline.setHours(7, 0, 0, 0);
 
     return {
@@ -35,7 +40,12 @@ export async function GET(request: Request) {
         }
 
         const history = repo.history.getAll(includeHoldings);
-        return NextResponse.json(history);
+        // 일요일 항목은 유효하지 않으므로 필터링 (잘못 저장된 경우 대비)
+        const filtered = history.filter((h: any) => {
+            const d = new Date(h.date + 'T00:00:00').getDay();
+            return d !== 0; // 0 = 일요일
+        });
+        return NextResponse.json(filtered);
     } catch (error) {
         console.error('Failed to fetch history:', error);
         return NextResponse.json([], { status: 200 });
@@ -94,6 +104,14 @@ export async function POST(request: Request) {
                     ...inv,
                     currentPrice,
                     currency,
+                    change: (quote as any).change,
+                    changePercent: (quote as any).changePercent,
+                    isOverMarket: quote.isOverMarket,
+                    overMarketPrice: quote.overMarketPrice,
+                    overMarketChange: quote.overMarketChange,
+                    overMarketChangePercent: quote.overMarketChangePercent,
+                    overMarketSession: (quote as any).overMarketSession,
+                    marketStatus: (quote as any).marketStatus,
                     category: inv.category || (inv.marketType === 'Domestic' ? 'Domestic Stock' : 'Overseas Stock')
                 };
             })
@@ -105,29 +123,96 @@ export async function POST(request: Request) {
         let daysToProcess: string[] = [];
         let referenceDateStr = todayStr;
 
-        if (body.auto) {
-            if (now.getHours() < 7) {
-                referenceDateStr = yesterdayStr;
-            } else {
-                referenceDateStr = todayStr;
+        // 오늘이 주말이면 마지막 평일(금요일) 날짜로 라이브 entry를 생성해 반환
+        // isSettled:false로 반환 → 프론트엔드가 isLive=true로 처리 → 금요일 행을 현재가로 업데이트
+        const todayDayOfWeek = now.getDay(); // 0: Sun, 6: Sat
+        const isTodayWeekend = todayDayOfWeek === 0 || todayDayOfWeek === 6;
+
+        if (isTodayWeekend) {
+            // 마지막 평일(금요일) 날짜 계산
+            const lastWeekdayDate = new Date(now);
+            while ([0, 6].includes(lastWeekdayDate.getDay())) {
+                lastWeekdayDate.setDate(lastWeekdayDate.getDate() - 1);
             }
+            const lastWeekdayStr = toLocalDateStr(lastWeekdayDate);
+
+            // 현재 라이브 가격으로 총 평가액 계산
+            const invValue = liveInvEntries.reduce((acc, inv) => {
+                const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
+                return acc + (inv.currency === 'USD' ? val * rate : val);
+            }, 0);
+            const otherValue = (assets.allocations || [])
+                .filter((a: any) => !['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(a.category))
+                .reduce((acc: number, a: any) => {
+                    let val = a.value || 0;
+                    if (a.details?.length > 0) {
+                        val = a.details.reduce((s: number, d: any) => s + (d.value || 0) * (d.currency === 'USD' ? rate : 1) / (a.currency === 'USD' ? rate : 1), 0);
+                    }
+                    return acc + (a.currency === 'USD' ? val * rate : val);
+                }, 0);
+            const totalValue = invValue + otherValue;
+
+            const updAlloc = (assets.allocations || []).map((alc: any) => {
+                if (['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(alc.category)) {
+                    const catVal = liveInvEntries
+                        .filter((inv: any) => inv.category === alc.category)
+                        .reduce((s: number, inv: any) => s + (inv.currentPrice || inv.avgPrice) * inv.shares * (inv.currency === 'USD' ? rate : 1), 0);
+                    return { ...alc, value: catVal / (alc.currency === 'USD' ? rate : 1) };
+                }
+                return alc;
+            });
+
+            const dbRow = repo.history.getByDate(lastWeekdayStr);
+            const weekendEntry: HistoryEntry = {
+                date: lastWeekdayStr,
+                totalValue,
+                snapshotValue: totalValue,
+                manualAdjustment: dbRow?.manualAdjustment || 0,
+                holdings: liveInvEntries,
+                allocations: updAlloc,
+                exchangeRate: rate,
+                meta: { domesticSettled: true, overseasSettled: true },
+                isWeekendSettled: true
+            } as any;
+
+            // 주말에는 금요일 장이 이미 종료되었으므로 필수 저장
+            repo.history.upsert(weekendEntry);
+            
+            // 여기서 즉시 반환하지 않고, 아래의 loop에서 다른 누락된 요일들도 정산할 수 있게 유도
+            finalResponseEntry = weekendEntry;
+            finalResponseIsSettled = true;
+            referenceDateStr = lastWeekdayStr; 
+        }
+
+        if (body.auto && !isTodayWeekend) { // 주말이 아닐 때만 daysToProcess를 새로 설정 (주말이면 위에서 referenceDateStr 설정됨)
+            referenceDateStr = todayStr;
             const refDate = new Date(referenceDateStr + 'T12:00:00Z');
             const minus1 = new Date(refDate); minus1.setDate(refDate.getDate() - 1);
             daysToProcess = [toLocalDateStr(minus1), referenceDateStr];
-
-            const allHist = repo.history.getAll(false) as HistoryEntry[];
-            for (const h of allHist) {
-                if (h.meta && (!h.meta.domesticSettled || !h.meta.overseasSettled)) {
-                    if (!daysToProcess.includes(h.date)) {
-                        daysToProcess.push(h.date);
-                    }
-                }
-            }
-            daysToProcess.sort((a, b) => a.localeCompare(b));
+        } else if (isTodayWeekend) {
+             // 주말인 경우: 마지막 평일(금요일)과 그 이전 평일(목요일) 등을 확인
+             const refDate = new Date(referenceDateStr + 'T12:00:00Z');
+             const minus1 = new Date(refDate); minus1.setDate(refDate.getDate() - 1);
+             daysToProcess = [toLocalDateStr(minus1), referenceDateStr];
         } else {
             daysToProcess = [todayStr];
             referenceDateStr = todayStr;
         }
+
+        // 공통: 아직 정산되지 않은 과거 내역들 추가
+        const allHist = repo.history.getAll(false) as HistoryEntry[];
+        for (const h of allHist) {
+            if (h.meta && (!h.meta.domesticSettled || !h.meta.overseasSettled)) {
+                if (!daysToProcess.includes(h.date)) {
+                    daysToProcess.push(h.date);
+                }
+            }
+        }
+        daysToProcess.sort((a, b) => a.localeCompare(b));
+        daysToProcess = daysToProcess.filter(d => {
+            const day = new Date(d + 'T00:00:00').getDay();
+            return day !== 0 && day !== 6;
+        });
 
         for (const targetDate of daysToProcess) {
             const status = getSettlementStatus(targetDate, now);

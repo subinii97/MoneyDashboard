@@ -93,7 +93,9 @@ export function useAssets(paused = false) {
     useEffect(() => {
         fetchData(true);
         const timer = setInterval(() => {
-            if (!pausedRef.current) fetchData(true);
+            // 주말에는 가격이 고정이므로 실시간 refresh 불필요
+            const dow = new Date().getDay();
+            if (!pausedRef.current && dow !== 0 && dow !== 6) fetchData(true);
         }, REFRESH_INTERVAL_MS);
         return () => clearInterval(timer);
     }, [fetchData]);
