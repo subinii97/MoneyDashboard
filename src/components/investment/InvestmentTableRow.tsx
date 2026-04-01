@@ -193,13 +193,6 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
             </td>
 
 
-            {/* ── 비중 ── */}
-            <td style={{ textAlign: 'center', padding: '0.6rem 0.4rem', borderRight: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>
-                    {weight.toFixed(1)}%
-                </div>
-            </td>
-
             {/* ── 작업 ── */}
             <td style={{ padding: '0.75rem 0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>

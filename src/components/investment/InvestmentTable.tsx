@@ -21,11 +21,11 @@ interface InvestmentTableProps {
 export const InvestmentTable: React.FC<InvestmentTableProps> = ({
     investments, transactions, title, rate, yesterdayRate, isPrivate, onEdit, onDelete, onTransaction
 }) => {
-    const [sortKey, setSortKey] = useState<'value' | 'plPercent' | 'dailyPercent' | 'weight'>('value');
+    const [sortKey, setSortKey] = useState<'value' | 'plPercent' | 'dailyPercent'>('value');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [isUSDMode, setIsUSDMode] = useState(false);
 
-    const toggleSort = (key: 'value' | 'plPercent' | 'dailyPercent' | 'weight') => {
+    const toggleSort = (key: 'value' | 'plPercent' | 'dailyPercent') => {
         if (sortKey === key) {
             setSortDir(prev => prev === 'desc' ? 'asc' : 'desc');
         } else {
@@ -229,8 +229,8 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <table className="dashboard-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: 'center', width: '38%' }}>종목</th>
-                            <th style={{ textAlign: 'center', width: '16%' }}>
+                            <th style={{ textAlign: 'center', width: '40%' }}>종목</th>
+                            <th style={{ textAlign: 'center', width: '20%' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                     <span>현재가 /</span>
                                     <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'dailyPercent' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('dailyPercent')} title="일간 변동률 기준 정렬">
@@ -239,8 +239,8 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                     {!isPrivate && <span>/ 평단가</span>}
                                 </div>
                             </th>
-                            <th style={{ textAlign: 'center', width: '8%' }}>수량</th>
-                            <th style={{ textAlign: 'center', width: '16%' }}>
+                            <th style={{ textAlign: 'center', width: '10%' }}>수량</th>
+                            <th style={{ textAlign: 'center', width: '18%' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                     <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'value' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('value')} title="평가액 기준 정렬">
                                         평가액{sortKey === 'value' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
@@ -250,9 +250,6 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                         변동률{sortKey === 'plPercent' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                                     </span>
                                 </div>
-                            </th>
-                            <th style={{ textAlign: 'center', width: '10%', cursor: 'pointer', userSelect: 'none', color: sortKey === 'weight' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('weight')}>
-                                매입 비중 {sortKey === 'weight' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </th>
                             <th style={{ textAlign: 'center', width: '12%' }}>거래 / 수정 / 삭제</th>
                         </tr>
@@ -264,7 +261,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                             const getDailyPercent = (inv: Investment) => getActiveChangePercent(inv);
 
                             let valA = 0, valB = 0;
-                            if (sortKey === 'value' || sortKey === 'weight') {
+                            if (sortKey === 'value') {
                                 valA = getVal(a);
                                 valB = getVal(b);
                             } else if (sortKey === 'plPercent') {
