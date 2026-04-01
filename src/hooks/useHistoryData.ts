@@ -43,7 +43,7 @@ export function useHistoryData() {
                 }
                 const idx = finalH.findIndex((e: any) => e.date === entry.date); if (idx >= 0) finalH[idx] = entry; else finalH.push(entry);
             }
-            setHistory(finalH.sort((a, b) => a.date.localeCompare(b.date)));
+            setHistory(finalH.sort((a: HistoryEntry, b: HistoryEntry) => a.date.localeCompare(b.date)));
         } catch (err) { console.error(err); } finally { setLoading(false); }
     };
 

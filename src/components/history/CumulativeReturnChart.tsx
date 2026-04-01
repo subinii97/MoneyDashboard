@@ -30,10 +30,10 @@ const CumulativeReturnChart = (props: any) => (
                             </div>);
                     } return null;
                 }} />
-                <Legend content={({ payload }: any) => {
+                <Legend verticalAlign="top" height={50} content={({ payload }: any) => {
                     const order = ['코스피', '코스닥', '내 국내주식', '나스닥', '다우존스', '내 해외주식'];
                     const sorted = order.map(n => payload?.find((p: any) => p.value === n)).filter(Boolean);
-                    return (<div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', paddingTop: '20px', flexWrap: 'wrap' }}>
+                    return (<div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', paddingBottom: '20px', flexWrap: 'wrap' }}>
                         {sorted.map((e: any, i: number) => (<div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><div style={{ width: '12px', height: '3px', backgroundColor: e.color, borderRadius: '1px' }} /><span style={{ fontSize: '0.75rem', color: 'var(--foreground)', fontWeight: '500' }}>{e.value}</span></div>))}
                     </div>);
                 }} />

@@ -47,7 +47,8 @@ export async function GET(request: Request) {
             fetchMarketIndexHistory('DOW', daysCount + 20)
         ]);
 
-        const allRows = repo.history.getInRange(startDateStr, endDateStr);
+        const leadStart = new Date(new Date(startDateStr).getTime() - 7 * 24 * 3600 * 1000).toISOString().substring(0, 10);
+        const allRows = repo.history.getInRange(leadStart, endDateStr);
 
         try {
             const maxDateObj = new Date(endDateStr);
@@ -87,11 +88,16 @@ export async function GET(request: Request) {
                             const priceRes = await fetch(new URL(`/api/stock?symbols=${symbols}`, request.url).toString());
                             const priceData = await priceRes.json();
 
+                            if (priceData.exchangeRate) {
+                                liveEntry.exchangeRate = priceData.exchangeRate.rate || priceData.exchangeRate;
+                            }
+
                             liveEntry.holdings.forEach((h: any) => {
-                                const info = priceData.results.find((r: any) => r.symbol === h.symbol);
+                                const info = priceData.results?.find((r: any) => r.symbol === h.symbol);
                                 if (info) {
                                     h.currentPrice = (info.isOverMarket && info.overMarketPrice !== undefined) ? info.overMarketPrice : info.price;
                                     h.change = (info.isOverMarket && info.overMarketChange !== undefined) ? info.overMarketChange : (info.change || 0);
+                                    h.currency = info.currency || 'USD';
                                 }
                             });
                         } catch (e) {
@@ -131,40 +137,54 @@ export async function GET(request: Request) {
             return latest;
         };
 
-        const kospiBase = getIndexPrice(kospi, refDate);
-        const kosdaqBase = getIndexPrice(kosdaq, refDate);
-        const nasdaqBase = getIndexPrice(nasdaq, refDate);
-        const dowBase = getIndexPrice(dow, refDate);
+        const firstDate = visibleRows[0].date;
+        const secondDate = visibleRows.length > 1 ? visibleRows[1].date : undefined;
+
+        // 동기화된 베이스 가격/멀티플라이어 계산 (차트가 0%에서 시작하도록 보장)
+        const getSyncBase = (series: any[], d: string, nD: string | undefined) => {
+            if (nD) return getIndexPrice(series, nD);
+            return getIndexPrice(series, d);
+        };
+
+        const kospiBase = getIndexPrice(kospi, firstDate);
+        const kosdaqBase = getIndexPrice(kosdaq, firstDate);
+        const nasdaqBase = getSyncBase(nasdaq, firstDate, secondDate);
+        const dowBase = getSyncBase(dow, firstDate, secondDate);
 
         const allTransactions = repo.transactions.getTypeInRange('SELL', startDateStr, endDateStr);
-
         const domesticMultipliers = calculateTWRMultipliers(allRows, 'Domestic', 1350, allTransactions);
         const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas', 1350, allTransactions);
 
-        const domesticBase = domesticMultipliers[refDate] || 1;
-        
-        const refRow = visibleRows[0];
-        const overseasBase = refRow?.meta?.overseasSettled ? (overseasMultipliers[refDate] || 1) : syncOverseasFriday(refDate, overseasMultipliers);
+        const domesticBase = domesticMultipliers[firstDate] || 1;
+        const overseasBase = secondDate ? (overseasMultipliers[secondDate] || 1) : (overseasMultipliers[firstDate] || 1);
 
         const calcRelReturn = (curr: number, base: number) => {
             return base > 0 ? ((curr / base) - 1) * 100 : 0;
         };
 
-        const result = visibleRows.map(row => {
+        const result = visibleRows.map((row, idx) => {
             const date = row.date;
             // 만약 이미 정산된 행이라면 sync를 통해 다음 날의 값을 가져올 필요가 없음 (이미 자신의 세션 값이 반영됨)
-            const overseasVal = row.meta?.overseasSettled ? (overseasMultipliers[date] || 1) : syncOverseasFriday(date, overseasMultipliers);
-
             let currentKospi = getIndexPrice(kospi, date);
             let currentKosdaq = getIndexPrice(kosdaq, date);
-            let currentNasdaq = getIndexPrice(nasdaq, date);
-            let currentDow = getIndexPrice(dow, date);
+            
+            const nextRow = idx < visibleRows.length - 1 ? visibleRows[idx + 1] : undefined;
+            const nextDate = nextRow?.date;
+
+            // 해외 지수 및 수익 동기화: 무조건 다음 거래일 오전의 성과를 이전 날짜의 세션 결과로 간주 (Settled 여부 무관)
+            const syncVal = (series: any[], d: string, nD: string | undefined, liveVal?: number) => {
+                if (nD) return getIndexPrice(series, nD);
+                return liveVal || getIndexPrice(series, d);
+            };
+
+            const overseasVal = nextDate ? (overseasMultipliers[nextDate] || 1) : (overseasMultipliers[date] || 1);
+            let currentNasdaq = syncVal(nasdaq, date, nextDate, row.isLive ? row.liveIndices?.nasdaq : undefined);
+            let currentDow = syncVal(dow, date, nextDate, row.isLive ? row.liveIndices?.dow : undefined);
 
             if (row.isLive && row.liveIndices) {
                 if (row.liveIndices.kospi) currentKospi = row.liveIndices.kospi;
                 if (row.liveIndices.kosdaq) currentKosdaq = row.liveIndices.kosdaq;
-                if (row.liveIndices.nasdaq) currentNasdaq = row.liveIndices.nasdaq;
-                if (row.liveIndices.dow) currentDow = row.liveIndices.dow;
+                // nasdaq, dow, overseasVal는 위 동기화 로직에서 처리됨
             }
 
             return {

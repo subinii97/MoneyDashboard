@@ -28,9 +28,26 @@ export default function AnalysisPage() {
     const handleSaveImage = useCallback(async () => {
         if (!heatmapRef.current) return;
         try {
-            const dataUrl = await toPng(heatmapRef.current, { quality: 1, pixelRatio: 2, backgroundColor: '#fff', style: { backgroundColor: '#fff', color: '#000' }, filter: (n: any) => !n.classList?.contains('ignore-in-capture') });
-            const link = document.createElement('a'); link.download = `market-heatmap-${market.toLowerCase()}-${new Date().toISOString().split('T')[0]}.png`; link.href = dataUrl; link.click();
-        } catch (err) { console.error(err); }
+            // Wait for any images or fonts to be ready
+            await document.fonts.ready;
+            const dataUrl = await toPng(heatmapRef.current, { 
+                quality: 1, 
+                pixelRatio: 2, 
+                backgroundColor: '#fff', 
+                style: { backgroundColor: '#fff', color: '#000' },
+                filter: (n: any) => !n.classList?.contains('ignore-in-capture'),
+                cacheBust: true,
+            });
+            const link = document.createElement('a');
+            link.download = `market-heatmap-${market.toLowerCase()}-${new Date().toISOString().split('T')[0]}.png`;
+            link.href = dataUrl;
+            link.click();
+        } catch (err: any) {
+            console.error('Image Capture Failed:', err);
+            if (err.name === 'SecurityError' || err.message?.includes('cssRules')) {
+                alert('CSS 보안 정책으로 인해 이미지 저장이 제한되었습니다. 브라우저 확장 프로그램을 끄거나 다른 브라우저에서 시도해 보세요.');
+            }
+        }
     }, [market]);
 
     useLayoutEffect(() => {
@@ -100,7 +117,7 @@ export default function AnalysisPage() {
                     <div style={{ flex: 1 }}>
                         <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.15em' }}>Market Intelligence Report</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
-                            <h1 style={{ fontSize: '2.25rem', fontWeight: '900', letterSpacing: '-0.05em', textTransform: 'uppercase' }}>{market === 'US' ? 'US STOCKS' : market} HEATMAP</h1>
+                            <h1 style={{ fontSize: '2.25rem', fontWeight: '900', letterSpacing: '-0.05em', textTransform: 'uppercase' }}>{market === 'US' ? 'S&P 500' : (market === 'KR' ? 'KOSPI' : market)} HEATMAP</h1>
                             <div onMouseEnter={() => setHoverHelp(true)} onMouseLeave={() => setHoverHelp(false)} style={{ color: 'var(--muted)', cursor: 'help' }}>
                                 <Info size={20} /> {hoverHelp && <MarketHelpTooltip />}
                             </div>
@@ -108,9 +125,14 @@ export default function AnalysisPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px', fontSize: '0.75rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ opacity: 0.6 }}>Updated: {lastFetched}</span>
-                                <div style={{ fontWeight: 800, padding: '3px 10px', borderRadius: '6px', background: 'rgba(0,0,0,0.05)', color: '#666', border: '1px solid rgba(0,0,0,0.1)' }}>● {market} {marketStatus}</div>
+                                <div style={{ 
+                                    fontWeight: 800, padding: '3px 10px', borderRadius: '6px', 
+                                    background: marketStatus === 'OPEN' ? 'rgba(34, 197, 94, 0.1)' : (marketStatus === 'CLOSED' ? 'rgba(0,0,0,0.05)' : 'rgba(245, 158, 11, 0.1)'),
+                                    color: marketStatus === 'OPEN' ? '#22c55e' : (marketStatus === 'CLOSED' ? '#666' : '#f59e0b'),
+                                    border: `1px solid ${marketStatus === 'OPEN' ? 'rgba(34, 197, 94, 0.2)' : (marketStatus === 'CLOSED' ? 'rgba(0,0,0,0.1)' : 'rgba(245, 158, 11, 0.2)')}`
+                                }}>● {market === 'KR' ? 'KOSPI' : (market === 'US' ? 'S&P 500' : market)} {marketStatus}</div>
                             </div>
-                            <div style={{ fontWeight: 900, color: marketChange >= 0 ? '#dc2626' : '#2563eb' }}>{market === 'US' ? 'S&P 500' : market} {marketChange >= 0 ? '▲' : '▼'} {Math.abs(marketChange).toFixed(2)}%</div>
+                            <div style={{ fontWeight: 900, color: marketChange >= 0 ? '#dc2626' : '#2563eb' }}>{market === 'US' ? 'S&P 500' : (market === 'KR' ? 'KOSPI' : market)} {marketChange >= 0 ? '▲' : '▼'} {Math.abs(marketChange).toFixed(2)}%</div>
                             {correlation && (
                                 <div onMouseEnter={() => setHoverSync(true)} onMouseLeave={() => setHoverSync(false)} style={{ position: 'relative', cursor: 'help', fontWeight: 700, color: 'var(--muted)' }}>
                                     한미 증시 동조화: <span style={{ fontWeight: 800, color: correlation.correlationLag > 0.6 ? '#dc2626' : 'inherit' }}>{(correlation.correlationLag * 100).toFixed(1)}%</span>
@@ -121,7 +143,7 @@ export default function AnalysisPage() {
                     </div>
                     <div className="ignore-in-capture" style={{ display: 'flex', gap: '0.75rem' }}>
                         <div style={{ display: 'flex', background: 'var(--card)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                            {(['KR', 'KOSDAQ', 'US'] as const).map(m => <button key={m} onClick={() => setMarket(m)} style={{ padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px', border: 'none', background: market === m ? 'var(--foreground)' : 'transparent', color: market === m ? 'var(--background)' : 'var(--muted)', cursor: 'pointer', fontWeight: 700 }}>{m}</button>)}
+                            {(['KR', 'KOSDAQ', 'US'] as const).map(m => <button key={m} onClick={() => setMarket(m)} style={{ padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px', border: 'none', background: market === m ? 'var(--foreground)' : 'transparent', color: market === m ? 'var(--background)' : 'var(--muted)', cursor: 'pointer', fontWeight: 700 }}>{m === 'KR' ? 'KOSPI' : (m === 'US' ? 'S&P 500' : m)}</button>)}
                         </div>
                         <button onClick={handleSaveImage} style={{ padding: '0 1rem', background: 'var(--card)', borderRadius: '10px', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.85rem' }}><ImageIcon size={18} /> PNG 저장</button>
                     </div>

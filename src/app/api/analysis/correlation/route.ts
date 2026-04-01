@@ -19,8 +19,9 @@ function calculatePearson(x: number[], y: number[]) {
     if (x.length < 5 || x.length !== y.length) return 0;
     const n = x.length;
     
-    // Assign linear weights: more recent days get higher weights
-    const weights = Array.from({ length: n }, (_, i) => i + 1);
+    // Weights: EMA-like weights to give more importance to recent days, but more smoothly
+    // w_i = e^(0.15 * i)
+    const weights = Array.from({ length: n }, (_, i) => Math.exp(0.15 * i));
     const sumW = weights.reduce((a, b) => a + b, 0);
 
     const mux = x.reduce((a, b, i) => a + (b * weights[i]), 0) / sumW;
@@ -68,7 +69,7 @@ async function fetchTickerHistory(symbol: string, isDomestic = false) {
         // Use Naver FChart for domestic history
         const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${symbol}&timeframe=day&count=60&requestType=0`;
         try {
-            const res = await fetch(url);
+            const res = await fetch(url, { cache: 'no-store' });
             const xml = await res.text();
             const $ = load(xml, { xmlMode: true });
             const data: { date: string; close: number }[] = [];
@@ -108,12 +109,12 @@ async function fetchTickerHistory(symbol: string, isDomestic = false) {
 export async function GET() {
     try {
         const [krData, usData, kqData, ...histories] = await Promise.all([
-            fetchMarketIndexHistory('KOSPI', 60),
-            fetchMarketIndexHistory('S&P500', 60),
-            fetchMarketIndexHistory('KOSDAQ', 60),
-            ...SECTOR_ETFS.map(s => fetchTickerHistory(s.etf, false)),
-            ...KR_SECTOR_PROXIES.map(s => fetchTickerHistory(s.symbol, true)),
-            ...KQ_SECTOR_PROXIES.map(s => fetchTickerHistory(s.symbol, true))
+            fetchMarketIndexHistory('KOSPI', 65),
+            fetchMarketIndexHistory('S&P500', 65),
+            fetchMarketIndexHistory('KOSDAQ', 65),
+            ...SECTOR_ETFS.map((s: any) => fetchTickerHistory(s.etf, false)),
+            ...KR_SECTOR_PROXIES.map((s: any) => fetchTickerHistory(s.symbol, true)),
+            ...KQ_SECTOR_PROXIES.map((s: any) => fetchTickerHistory(s.symbol, true))
         ]);
 
         const etfHistories = histories.slice(0, SECTOR_ETFS.length);
@@ -125,7 +126,6 @@ export async function GET() {
         const krReturns = getReturns(krData);
         const krDates = Object.keys(krReturns).sort();
         const kqReturns = getReturns(kqData);
-        const kqDates = Object.keys(kqReturns).sort();
 
         const calculateLagCorr = (uData: { date: string; close: number }[], kRet = krReturns, kDatesInput = krDates) => {
             const uReturns = getReturns(uData);
@@ -134,23 +134,29 @@ export async function GET() {
             const lagY: number[] = [];
             for (let i = 0; i < kDatesInput.length; i++) {
                 const dk = kDatesInput[i];
+                // US market closes before KR market opens for the same business date (in Korea time)
+                // Find US return that happened most recently before day dk
                 const dUSIdx = uDates.findIndex(d => d >= dk) - 1;
                 if (dUSIdx >= 0) {
-                    lagX.push(uReturns[uDates[dUSIdx]]);
-                    lagY.push(kRet[dk]);
+                    const uRetVal = uReturns[uDates[dUSIdx]];
+                    const kRetVal = kRet[dk];
+                    if (uRetVal !== undefined && kRetVal !== undefined) {
+                      lagX.push(uRetVal);
+                      lagY.push(kRetVal);
+                    }
                 }
             }
             return calculatePearson(lagX, lagY);
         };
 
-        const windowSize = 10;
+        const windowSize = 14; // Increase window size for more robust estimation
         const currentWindow = krDates.slice(-windowSize);
         const prevWindow = krDates.slice(-windowSize - 1, -1);
 
         const globalCorrLag = calculateLagCorr(usData, krReturns, currentWindow);
         const correlationLagPrev = calculateLagCorr(usData, krReturns, prevWindow);
         
-        // Calculate Trend (Last 14 days)
+        // Calculate Trend (Last 14 trading days)
         const lagTrend: { date: string, value: number }[] = [];
         for (let i = Math.max(windowSize, krDates.length - 14); i < krDates.length; i++) {
             const trendWindow = krDates.slice(i - windowSize + 1, i + 1);
@@ -161,13 +167,13 @@ export async function GET() {
         }
 
         const sectorCorrelations: Record<string, number> = {};
-        SECTOR_ETFS.forEach((s, i) => {
-            if (etfHistories[i]?.length > 5) sectorCorrelations[s.id] = calculateLagCorr(etfHistories[i]);
+        SECTOR_ETFS.forEach((s: any, i: number) => {
+            if (etfHistories[i]?.length > 5) sectorCorrelations[s.id] = calculateLagCorr(etfHistories[i] as any);
         });
 
         const krSectorCorrelations: Record<string, number> = {};
-        KR_SECTOR_PROXIES.forEach((s, i) => {
-            const hist = krProxies[i];
+        KR_SECTOR_PROXIES.forEach((s: any, i: number) => {
+            const hist = krProxies[i] as any;
             if (hist && hist.length > 5) {
                 const sRet = getReturns(hist);
                 const sDates = Object.keys(sRet).sort();
@@ -184,8 +190,8 @@ export async function GET() {
         });
 
         const kqSectorCorrelations: Record<string, number> = {};
-        KQ_SECTOR_PROXIES.forEach((s, i) => {
-            const hist = kqProxies[i];
+        KQ_SECTOR_PROXIES.forEach((s: any, i: number) => {
+            const hist = kqProxies[i] as any;
             if (hist && hist.length > 5) {
                 const sRet = getReturns(hist);
                 const sDates = Object.keys(sRet).sort();
@@ -218,12 +224,12 @@ export async function GET() {
             'kq-heavy': 5,     // XLI (Industrials)
         };
 
-        [...KR_SECTOR_PROXIES, ...KQ_SECTOR_PROXIES].forEach((s, i) => {
+        [...KR_SECTOR_PROXIES, ...KQ_SECTOR_PROXIES].forEach((s: any, i: number) => {
             const usIdx = SYNC_MAP[s.id];
             if (usIdx === undefined) return;
 
-            const krHist = i < KR_SECTOR_PROXIES.length ? krProxies[i] : kqProxies[i - KR_SECTOR_PROXIES.length];
-            const usHist = etfHistories[usIdx];
+            const krHist = (i < KR_SECTOR_PROXIES.length ? krProxies[i] : kqProxies[i - KR_SECTOR_PROXIES.length]) as any;
+            const usHist = etfHistories[usIdx] as any;
 
             if (krHist && usHist && krHist.length > 5 && usHist.length > 5) {
                 const sRet = getReturns(krHist);
@@ -237,8 +243,8 @@ export async function GET() {
         const sameDayReturnsUS = getReturns(usData);
         const commonDates = Object.keys(sameDayReturnsUS).filter(d => krReturns[d] !== undefined).sort();
         const globalCorrSameDay = calculatePearson(
-            commonDates.map(d => sameDayReturnsUS[d]),
-            commonDates.map(d => krReturns[d])
+            commonDates.map((d: any) => sameDayReturnsUS[d]),
+            commonDates.map((d: any) => krReturns[d])
         );
 
         return NextResponse.json({
