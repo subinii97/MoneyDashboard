@@ -1,11 +1,11 @@
-const Database = await import('better-sqlite3');
-const path = await import('path');
+import Database from 'better-sqlite3';
+import path from 'path';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'dashboard.db');
-const db = new Database.default(DB_PATH);
+const db = new Database(DB_PATH);
 
 // Helper to fetch historical close price
-async function fetchHistoricalClose(symbol, date, isDomestic) {
+async function fetchHistoricalClose(symbol: string, date: string, isDomestic: boolean) {
     const market = isDomestic ? 'ks' : 'us';
     const cleanSymbol = isDomestic ? `${symbol}.KS` : symbol;
     const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSymbol}`;
@@ -29,7 +29,7 @@ async function fetchHistoricalClose(symbol, date, isDomestic) {
             if (tDate >= date) return closes[i];
         }
         return closes[0]; 
-    } catch (e) {
+    } catch (e: any) {
         console.error(`Error for ${symbol}:`, e);
         return null;
     }
@@ -40,7 +40,7 @@ async function fixSettlement() {
     
     for (const date of targetDates) {
         process.stdout.write(`Settling ${date}... `);
-        const row = db.prepare('SELECT * FROM history WHERE date = ?').get(date);
+        const row = db.prepare('SELECT * FROM history WHERE date = ?').get(date) as any;
         if (!row) {
             console.log('Not found in DB.');
             continue;
@@ -49,7 +49,7 @@ async function fixSettlement() {
         const holdings = JSON.parse(row.holdings || '[]');
         const rate = row.exchangeRate || 1350;
 
-        const newHoldings = [];
+        const newHoldings: any[] = [];
         for (const h of holdings) {
             const isDomestic = h.marketType === 'Domestic' || ['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(h.category);
             const price = await fetchHistoricalClose(h.symbol, date, isDomestic);
@@ -60,15 +60,15 @@ async function fixSettlement() {
             }
         }
 
-        const invTotal = newHoldings.reduce((sum, h) => {
+        const invTotal = newHoldings.reduce((sum: number, h: any) => {
             const isUSD = h.currency === 'USD';
             return sum + (h.currentPrice || 0) * h.shares * (isUSD ? rate : 1);
         }, 0);
 
         const allocs = JSON.parse(row.allocations || '[]');
-        const nonInvTotal = allocs
-            .filter((a) => !['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(a.category))
-            .reduce((sum, a) => sum + (a.currency === 'USD' ? a.value * rate : a.value), 0);
+        const nonInvTotal = (allocs as any[])
+            .filter((a: any) => !['Domestic Stock', 'Overseas Stock', 'Domestic Index', 'Overseas Index', 'Domestic Bond', 'Overseas Bond'].includes(a.category))
+            .reduce((sum: number, a: any) => sum + (a.currency === 'USD' ? a.value * rate : a.value), 0);
 
         const totalValue = invTotal + nonInvTotal;
         const meta = JSON.stringify({ domesticSettled: true, overseasSettled: true });
@@ -80,4 +80,10 @@ async function fixSettlement() {
     }
 }
 
-fixSettlement().then(() => console.log('Done'));
+fixSettlement().then(() => {
+    console.log('Done');
+    process.exit(0);
+}).catch(err => {
+    console.error(err);
+    process.exit(1);
+});

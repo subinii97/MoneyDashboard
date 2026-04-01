@@ -7,18 +7,22 @@ import { fetchHistoricalClosePrice } from '@/lib/stock/history';
 
 const getSettlementStatus = (targetDateStr: string, now: Date) => {
     const [y, m, d] = targetDateStr.split('-').map(Number);
-    const midnight = new Date(y, m - 1, d);
+    const dayDate = new Date(y, m - 1, d);
 
-    // 주말(토/일)에는 장이 열리지 않으므로 정산 처리 안 함
-    const dayOfWeek = midnight.getDay(); // 0: Sun, 6: Sat
+    // 주말(토/일)은 다음 평일에 정산되거나 처리되므로 기본적으로 정산 대상에서 제외
+    const dayOfWeek = dayDate.getDay(); // 0: Sun, 6: Sat
     if (dayOfWeek === 0 || dayOfWeek === 6) {
         return { domesticSettled: false, overseasSettled: false };
     }
 
-    const domesticDeadline = new Date(midnight);
+    // 국내 장 정산: 당일 오후 9시 이후
+    const domesticDeadline = new Date(dayDate);
     domesticDeadline.setHours(21, 0, 0, 0);
 
-    const overseasDeadline = new Date(midnight);
+    // 해외 장 정산: 미국 시간 당일 마감은 한국 시간 "다음 날" 오전 7시 이후
+    // 예: 3월 31일(화) 미국 장은 4월 1일(수) 오전 6~7시에 마감됨
+    const overseasDeadline = new Date(dayDate);
+    overseasDeadline.setDate(dayDate.getDate() + 1);
     overseasDeadline.setHours(7, 0, 0, 0);
 
     return {
@@ -225,7 +229,9 @@ export async function POST(request: Request) {
                 meta = { domesticSettled: true, overseasSettled: true };
             }
 
-            if (meta.domesticSettled && meta.overseasSettled) {
+            const dayDate = new Date(targetDate + 'T00:00:00');
+            const isRecent = (now.getTime() - dayDate.getTime()) < 7 * 24 * 3600 * 1000;
+            if (meta.domesticSettled && meta.overseasSettled && !isRecent) {
                 if (targetDate === referenceDateStr && dbRow) {
                     finalResponseEntry = dbRow;
                     finalResponseIsSettled = true;
@@ -273,27 +279,6 @@ export async function POST(request: Request) {
                 return acc + (inv.currency === 'USD' ? val * rate : val);
             }, 0);
 
-            const totalOtherValue = (assets.allocations || [])
-                .filter(a => ![
-                    'Domestic Stock', 'Overseas Stock',
-                    'Domestic Index', 'Overseas Index',
-                    'Domestic Bond', 'Overseas Bond'
-                ].includes(a.category))
-                .reduce((acc, a) => {
-                    let val = a.value || 0;
-                    if (a.details && a.details.length > 0) {
-                        val = a.details.reduce((sum, d) => {
-                            const dVal = d.value || 0;
-                            const dRate = (d.currency === 'USD' ? rate : 1);
-                            const aRate = (a.currency === 'USD' ? rate : 1);
-                            return sum + (dVal * dRate / aRate);
-                        }, 0);
-                    }
-                    return acc + (a.currency === 'USD' ? val * rate : val);
-                }, 0);
-
-            const totalValue = totalOtherValue + totalInvValue;
-
             const updatedAllocations = (assets.allocations || []).map(alc => {
                 const isInvCat = [
                     'Domestic Stock', 'Overseas Stock',
@@ -311,6 +296,12 @@ export async function POST(request: Request) {
                     return { ...alc, value: categoryValue / (alc.currency === 'USD' ? rate : 1) };
                 }
 
+                // 과거 내역 정산 시, 투자 자산 외의 정보(현금 등)는 이미 저장된 정보를 우선함 (오늘 수정한 현금이 어제 내역에 덮어씌워지는 것 방지)
+                if (targetDate !== todayStr && dbRow && dbRow.allocations) {
+                    const oldAlc = dbRow.allocations.find((a: any) => a.category === alc.category);
+                    if (oldAlc) return oldAlc;
+                }
+
                 if (alc.details && alc.details.length > 0) {
                     const sumValue = alc.details.reduce((sum, d) => {
                         const dVal = d.value || 0;
@@ -322,6 +313,19 @@ export async function POST(request: Request) {
                 }
                 return alc;
             });
+
+            const totalOtherValue = updatedAllocations
+                .filter(a => ![
+                    'Domestic Stock', 'Overseas Stock',
+                    'Domestic Index', 'Overseas Index',
+                    'Domestic Bond', 'Overseas Bond'
+                ].includes(a.category))
+                .reduce((acc, a) => {
+                    const val = a.value || 0;
+                    return acc + (a.currency === 'USD' ? val * rate : val);
+                }, 0);
+
+            const totalValue = totalInvValue + totalOtherValue;
 
             if (status.domesticSettled) meta.domesticSettled = true;
             if (status.overseasSettled) meta.overseasSettled = true;
