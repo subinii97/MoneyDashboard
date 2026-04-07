@@ -53,7 +53,8 @@ export function useHistoryData() {
 
     return {
         dailySettlements: daily, dailyGroupedByMonth: grouped, weeklySettlements: weekly, monthlySettlements: monthly,
-        loading, rate, setHistory, refreshTransactions: async () => { const r = await fetch('/api/transactions?t=' + Date.now()); if (r.ok) setTransactions(await r.json()); },
+        loading, rate, history, transactions, setHistory, 
+        refreshTransactions: async () => { const r = await fetch('/api/transactions?t=' + Date.now()); if (r.ok) setTransactions(await r.json()); },
         deleteHistoryEntry: async (date: string) => { if (confirm(`${date} 삭제?`)) { const r = await fetch('/api/snapshot', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }) }); if (r.ok) setHistory(p => p.filter(h => h.date !== date)); } }
     };
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useHistoryData } from '@/hooks/useHistoryData';
 import { DailySettlementTable, WeeklySettlementTable, MonthlySettlementTable } from '@/components/history/SettlementTables';
 import SettlementTrendChart from '@/components/history/SettlementTrendChart';
+import RealizedPLChart from '@/components/history/RealizedPLChart';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function HistoryPage() {
@@ -13,6 +14,8 @@ export default function HistoryPage() {
         weeklySettlements,
         monthlySettlements,
         loading,
+        rate,
+        transactions,
         setHistory,
         refreshTransactions,
         deleteHistoryEntry
@@ -80,6 +83,12 @@ export default function HistoryPage() {
                 monthlyData={monthlySettlements}
                 scope={chartScope}
                 onScopeChange={setChartScope}
+                isPrivate={isPrivate}
+            />
+
+            <RealizedPLChart
+                transactions={transactions}
+                rate={rate}
                 isPrivate={isPrivate}
             />
 
