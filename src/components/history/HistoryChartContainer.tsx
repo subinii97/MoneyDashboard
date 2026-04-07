@@ -52,7 +52,7 @@ export const HistoryChartContainer: React.FC<ChartContainerProps> = ({ title, ic
                     )}
                 </div>
             </div>
-            <div className="glass" style={{ padding: '1.5rem', height: '400px' }}>{children}</div>
+            <div className="glass" style={{ padding: '1.5rem 1.5rem 2.5rem 1.5rem', height: '400px' }}>{children}</div>
         </section>
     );
 };

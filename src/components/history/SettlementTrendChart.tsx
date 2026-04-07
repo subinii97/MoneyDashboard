@@ -34,7 +34,7 @@ const SettlementTrendChart = ({ dailyData, weeklyData, monthlyData, scope, onSco
                 {cats.map(c => <button key={c.k} onClick={() => setActive(prev => prev.length === cats.length ? [c.k] : (prev.includes(c.k) ? prev.filter(k => k !== c.k) : [...prev, c.k]))} className="glass" style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem', background: active.includes(c.k) ? c.c : 'var(--border)', color: 'white', border: 'none', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, transition: 'all 0.2s' }}><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', opacity: active.includes(c.k) ? 1 : 0.4 }} />{c.n}</button>)}
             </div>
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 15 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="date" stroke="var(--muted)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => v.substring(5)} />
                     <YAxis stroke="var(--muted)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => isPrivate ? '***' : `${(v / 1000000).toFixed(0)}M`} domain={yDomain} allowDataOverflow />
