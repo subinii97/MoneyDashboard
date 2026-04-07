@@ -19,7 +19,7 @@ export function SectorTile({ sector, rect, onHover, correlation }: { sector: Sec
     const stockRects = squarifyLayout(caps, 0, 0, layoutW, layoutH);
 
     return (
-        <div style={{ position: 'absolute', left: rect.x + SECTOR_GAP / 2, top: rect.y + SECTOR_GAP / 2, width: innerW, height: innerH, background: 'transparent', borderRadius: 4, overflow: 'hidden', boxSizing: 'border-box' }}>
+        <div style={{ position: 'absolute', left: rect.x + SECTOR_GAP / 2, top: rect.y + SECTOR_GAP / 2, width: innerW, height: innerH, background: 'transparent', borderRadius: 4, overflow: 'hidden', boxSizing: 'border-box', transition: 'left 0.5s ease-out, top 0.5s ease-out, width 0.5s ease-out, height 0.5s ease-out' }}>
             <div style={{ height: HEADER_H, background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
                     <span style={{ color: '#fff', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sector.name}</span>

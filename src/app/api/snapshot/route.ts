@@ -4,32 +4,8 @@ import { Assets, HistoryEntry, SettlementMeta } from '@/lib/types';
 import { fetchQuote, fetchExchangeRate } from '@/lib/stock';
 import { toLocalDateStr } from '@/lib/utils';
 import { fetchHistoricalClosePrice } from '@/lib/stock/history';
+import { getSessionInfo, isDomesticDateSettled, isOverseasDateSettled } from '@/lib/session';
 
-const getSettlementStatus = (targetDateStr: string, now: Date) => {
-    const [y, m, d] = targetDateStr.split('-').map(Number);
-    const dayDate = new Date(y, m - 1, d);
-
-    // 주말(토/일)은 다음 평일에 정산되거나 처리되므로 기본적으로 정산 대상에서 제외
-    const dayOfWeek = dayDate.getDay(); // 0: Sun, 6: Sat
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-        return { domesticSettled: false, overseasSettled: false };
-    }
-
-    // 국내 장 정산: 당일 오후 9시 이후
-    const domesticDeadline = new Date(dayDate);
-    domesticDeadline.setHours(21, 0, 0, 0);
-
-    // 해외 장 정산: 미국 시간 당일 마감은 한국 시간 "다음 날" 오전 7시 이후
-    // 예: 3월 31일(화) 미국 장은 4월 1일(수) 오전 6~7시에 마감됨
-    const overseasDeadline = new Date(dayDate);
-    overseasDeadline.setDate(dayDate.getDate() + 1);
-    overseasDeadline.setHours(7, 0, 0, 0);
-
-    return {
-        domesticSettled: now >= domesticDeadline,
-        overseasSettled: now >= overseasDeadline
-    };
-};
 
 export async function GET(request: Request) {
     try {
@@ -44,7 +20,6 @@ export async function GET(request: Request) {
         }
 
         const history = repo.history.getAll(includeHoldings);
-        // 일요일 항목은 유효하지 않으므로 필터링 (잘못 저장된 경우 대비)
         const filtered = history.filter((h: any) => {
             const d = new Date(h.date + 'T00:00:00').getDay();
             return d !== 0; // 0 = 일요일
@@ -59,18 +34,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json().catch(() => ({}));
-
-        // Fetch current assets from DB via repository
         const investments = repo.investments.getAll();
         const allocations = repo.allocations.getAll();
-
         const assets: Assets = { investments, allocations };
 
         if (assets.investments.length === 0 && assets.allocations.length === 0) {
             return NextResponse.json({ success: false, error: 'No assets found to snapshot' }, { status: 400 });
         }
 
-        // Manual adjustment logic
         if (body.date && body.manualAdjustment !== undefined) {
             const row = repo.history.getByDate(body.date);
             if (row) {
@@ -86,7 +57,11 @@ export async function POST(request: Request) {
         yesterday.setDate(now.getDate() - 1);
         const yesterdayStr = toLocalDateStr(yesterday);
 
-        // Fetch latest rate
+        // ─── 세션 경계 정보 (단일 진실 공급원) ──────────────────────────────────
+        const session = getSessionInfo(now);
+        // 해외 세션 날짜: KST 17:00 이전이면 어제 KST(= 어제 미국 ET날짜), 이후면 오늘
+        const overseasSessionDateStr = session.overseasSessionDate;
+
         const rateInfo = await fetchExchangeRate();
         const rate = typeof rateInfo === 'object' ? rateInfo.rate : rateInfo;
         repo.rates.save(todayStr, rate);
@@ -123,24 +98,19 @@ export async function POST(request: Request) {
 
         let finalResponseEntry: HistoryEntry | null = null;
         let finalResponseIsSettled = false;
-
         let daysToProcess: string[] = [];
         let referenceDateStr = todayStr;
 
-        // 오늘이 주말이면 마지막 평일(금요일) 날짜로 라이브 entry를 생성해 반환
-        // isSettled:false로 반환 → 프론트엔드가 isLive=true로 처리 → 금요일 행을 현재가로 업데이트
-        const todayDayOfWeek = now.getDay(); // 0: Sun, 6: Sat
+        const todayDayOfWeek = now.getDay();
         const isTodayWeekend = todayDayOfWeek === 0 || todayDayOfWeek === 6;
 
         if (isTodayWeekend) {
-            // 마지막 평일(금요일) 날짜 계산
             const lastWeekdayDate = new Date(now);
             while ([0, 6].includes(lastWeekdayDate.getDay())) {
                 lastWeekdayDate.setDate(lastWeekdayDate.getDate() - 1);
             }
             const lastWeekdayStr = toLocalDateStr(lastWeekdayDate);
 
-            // 현재 라이브 가격으로 총 평가액 계산
             const invValue = liveInvEntries.reduce((acc, inv) => {
                 const val = (inv.currentPrice || inv.avgPrice) * inv.shares;
                 return acc + (inv.currency === 'USD' ? val * rate : val);
@@ -179,22 +149,20 @@ export async function POST(request: Request) {
                 isWeekendSettled: true
             } as any;
 
-            // 주말에는 금요일 장이 이미 종료되었으므로 필수 저장
             repo.history.upsert(weekendEntry);
-            
-            // 여기서 즉시 반환하지 않고, 아래의 loop에서 다른 누락된 요일들도 정산할 수 있게 유도
             finalResponseEntry = weekendEntry;
             finalResponseIsSettled = true;
             referenceDateStr = lastWeekdayStr; 
         }
 
-        if (body.auto && !isTodayWeekend) { // 주말이 아닐 때만 daysToProcess를 새로 설정 (주말이면 위에서 referenceDateStr 설정됨)
+        if (body.auto && !isTodayWeekend) {
             referenceDateStr = todayStr;
-            const refDate = new Date(referenceDateStr + 'T12:00:00Z');
-            const minus1 = new Date(refDate); minus1.setDate(refDate.getDate() - 1);
-            daysToProcess = [toLocalDateStr(minus1), referenceDateStr];
+            // 오늘(KST) + 해외 세션 날짜(다를 경우 어제)를 모두 처리
+            daysToProcess = [todayStr];
+            if (overseasSessionDateStr !== todayStr && !daysToProcess.includes(overseasSessionDateStr)) {
+                daysToProcess.unshift(overseasSessionDateStr);
+            }
         } else if (isTodayWeekend) {
-             // 주말인 경우: 마지막 평일(금요일)과 그 이전 평일(목요일) 등을 확인
              const refDate = new Date(referenceDateStr + 'T12:00:00Z');
              const minus1 = new Date(refDate); minus1.setDate(refDate.getDate() - 1);
              daysToProcess = [toLocalDateStr(minus1), referenceDateStr];
@@ -203,7 +171,6 @@ export async function POST(request: Request) {
             referenceDateStr = todayStr;
         }
 
-        // 공통: 아직 정산되지 않은 과거 내역들 추가
         const allHist = repo.history.getAll(false) as HistoryEntry[];
         for (const h of allHist) {
             if (h.meta && (!h.meta.domesticSettled || !h.meta.overseasSettled)) {
@@ -219,7 +186,6 @@ export async function POST(request: Request) {
         });
 
         for (const targetDate of daysToProcess) {
-            const status = getSettlementStatus(targetDate, now);
             const dbRow = repo.history.getByDate(targetDate);
             let meta: SettlementMeta = { domesticSettled: false, overseasSettled: false };
 
@@ -239,39 +205,60 @@ export async function POST(request: Request) {
                 continue;
             }
 
-            const shouldSaveToHistory = status.domesticSettled || status.overseasSettled;
+            const shouldSaveToHistory = isDomesticDateSettled(targetDate, now) || isOverseasDateSettled(targetDate, now);
             const needsProcessing = shouldSaveToHistory || targetDate === referenceDateStr;
             if (!needsProcessing) continue;
 
             const oldHoldings = dbRow && dbRow.holdings ? dbRow.holdings : [];
+            const targetHoldings = (targetDate === todayStr)
+                ? liveInvEntries
+                : (oldHoldings.length > 0 ? oldHoldings : liveInvEntries);
 
-            const mergedInvEntries = await Promise.all(liveInvEntries.map(async liveInv => {
-                const isDomestic = liveInv.marketType === 'Domestic' || ['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(liveInv.category);
-                if (isDomestic && meta.domesticSettled) {
-                    const oldInv = oldHoldings.find((o: any) => o.symbol === liveInv.symbol);
-                    if (oldInv) return oldInv;
-                }
-                if (!isDomestic && meta.overseasSettled) {
-                    const oldInv = oldHoldings.find((o: any) => o.symbol === liveInv.symbol);
-                    if (oldInv) return oldInv;
-                }
+            const mergedInvEntries = await Promise.all(targetHoldings.map(async (inv: any) => {
+                const isDomestic = inv.marketType === 'Domestic' ||
+                    ['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(inv.category);
 
-                // Fetch historical true closing price if the targetDate market has fully closed
-                const isMarketSettledForTargetDate = isDomestic ? status.domesticSettled : status.overseasSettled;
-                if (isMarketSettledForTargetDate && targetDate !== todayStr) {
-                    const historicalPrice = await fetchHistoricalClosePrice(liveInv.symbol, targetDate, isDomestic);
-                    if (historicalPrice !== null) {
-                        return { 
-                            ...liveInv, 
-                            currentPrice: historicalPrice, 
-                            isOverMarket: false, 
-                            overMarketChange: undefined, 
-                            overMarketPrice: undefined, 
-                            overMarketChangePercent: undefined 
-                        };
+                if (isDomestic) {
+                    if (dbRow?.meta?.domesticSettled) return inv;
+
+                    if (isDomesticDateSettled(targetDate, now)) {
+                        const price = await fetchHistoricalClosePrice(inv.symbol, targetDate, true);
+                        if (price !== null) return { ...inv, currentPrice: price, isOverMarket: false, overMarketPrice: undefined, overMarketChange: undefined, marketStatus: 'CLOSED' };
+                    }
+                    const lm = liveInvEntries.find(l => l.symbol === inv.symbol);
+                    return lm || inv;
+
+                } else {
+                    if (dbRow?.meta?.overseasSettled) return inv;
+
+                    if (targetDate === overseasSessionDateStr) {
+                        const lm = liveInvEntries.find(l => l.symbol === inv.symbol);
+                        if (!lm) return inv;
+
+                        if (isOverseasDateSettled(targetDate, now)) {
+                            if (lm.overMarketPrice && ['AFTER_MARKET', 'POST_MARKET'].includes(lm.overMarketSession || '')) {
+                                return { ...lm, currentPrice: lm.overMarketPrice, isOverMarket: false, overMarketPrice: undefined, overMarketChange: undefined, marketStatus: 'CLOSED' };
+                            }
+                            const price = await fetchHistoricalClosePrice(inv.symbol, targetDate, false);
+                            if (price !== null) return { ...inv, currentPrice: price, isOverMarket: false, overMarketPrice: undefined, overMarketChange: undefined, marketStatus: 'CLOSED' };
+                        }
+                        return lm;
+
+                    } else if (targetDate === todayStr) {
+                        const prevRow = repo.history.getByDate(overseasSessionDateStr);
+                        const prevHolding = (prevRow?.holdings as any[])?.find((h: any) => h.symbol === inv.symbol);
+                        if (prevHolding) return { ...prevHolding, isOverMarket: false, overMarketPrice: undefined, overMarketChange: undefined, marketStatus: 'CLOSED' };
+                        const lm = liveInvEntries.find(l => l.symbol === inv.symbol);
+                        return lm || inv;
+
+                    } else {
+                        if (isOverseasDateSettled(targetDate, now)) {
+                            const price = await fetchHistoricalClosePrice(inv.symbol, targetDate, false);
+                            if (price !== null) return { ...inv, currentPrice: price, isOverMarket: false, overMarketPrice: undefined, overMarketChange: undefined, marketStatus: 'CLOSED' };
+                        }
+                        return inv;
                     }
                 }
-                return liveInv;
             }));
 
             const totalInvValue = mergedInvEntries.reduce((acc, inv) => {
@@ -296,7 +283,6 @@ export async function POST(request: Request) {
                     return { ...alc, value: categoryValue / (alc.currency === 'USD' ? rate : 1) };
                 }
 
-                // 과거 내역 정산 시, 투자 자산 외의 정보(현금 등)는 이미 저장된 정보를 우선함 (오늘 수정한 현금이 어제 내역에 덮어씌워지는 것 방지)
                 if (targetDate !== todayStr && dbRow && dbRow.allocations) {
                     const oldAlc = dbRow.allocations.find((a: any) => a.category === alc.category);
                     if (oldAlc) return oldAlc;
@@ -327,8 +313,9 @@ export async function POST(request: Request) {
 
             const totalValue = totalInvValue + totalOtherValue;
 
-            if (status.domesticSettled) meta.domesticSettled = true;
-            if (status.overseasSettled) meta.overseasSettled = true;
+            // meta 정산 플래그 업데이트 (session.ts 기준)
+            if (isDomesticDateSettled(targetDate, now)) meta.domesticSettled = true;
+            if (isOverseasDateSettled(targetDate, now)) meta.overseasSettled = true;
 
             const newEntry: HistoryEntry = {
                 date: targetDate,

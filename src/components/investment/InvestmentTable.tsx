@@ -105,13 +105,13 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         const c = getActiveChange(s);
         const dailyProfitForCurrentHoldings = c * s.shares;
         return acc + convertToKRW(dailyProfitForCurrentHoldings, s.currency || 'KRW', rate);
-    }, 0) + realizedPL;
+    }, 0);
 
     const dailyChangePureValueUSD = investments.reduce((acc, s) => {
         const c = getActiveChange(s);
         const dailyProfitForCurrentHoldings = c * s.shares;
         return acc + (s.currency === 'USD' ? dailyProfitForCurrentHoldings : dailyProfitForCurrentHoldings / rate);
-    }, 0) + realizedPLUSD;
+    }, 0);
 
     const pureUSDPercent = (subTotal - dailyChangePureValue) > 0 ? (dailyChangePureValue / (subTotal - dailyChangePureValue)) * 100 : 0;
 
@@ -134,7 +134,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
             return acc + convertToKRW(activePrice * s.shares, s.currency || 'KRW', rate);
         }, 0);
 
-        const trueDailyChangeKRW = (currSubTotalTrueKRW - prevSubTotalTrueKRW) + realizedPL;
+        const trueDailyChangeKRW = (currSubTotalTrueKRW - prevSubTotalTrueKRW);
         const trueKRWPercent = prevSubTotalTrueKRW > 0 ? (trueDailyChangeKRW / prevSubTotalTrueKRW) * 100 : 0;
 
         if (isUSDMode) {

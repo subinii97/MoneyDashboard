@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { repo } from '@/lib/db';
-import { fetchMarketIndexHistory, fetchMarketIndex } from '@/lib/stock';
-import { calculateTWRMultipliers, syncOverseasFriday } from '@/lib/settlement';
+import { fetchMarketIndexHistory, fetchMarketIndex, fetchQuote } from '@/lib/stock';
+import { calculateTWRMultipliers } from '@/lib/settlement';
 import { toLocalDateStr } from '@/lib/utils';
+import { getSessionInfo } from '@/lib/session';
 
 export async function GET(request: Request) {
     try {
@@ -77,6 +78,25 @@ export async function GET(request: Request) {
                                 fetchMarketIndex('.IXIC').catch(() => null),
                                 fetchMarketIndex('.DJI').catch(() => null)
                             ]);
+                            const investments = repo.investments.getAll();
+                            const liveInvEntries = await Promise.all(investments.map(async (inv) => {
+                                const quote = await fetchQuote(inv.symbol);
+                                let currentPrice = inv.avgPrice;
+                                if (!(quote as any).error) {
+                                    currentPrice = (quote.isOverMarket && quote.overMarketPrice) 
+                                        ? quote.overMarketPrice 
+                                        : (quote.price || currentPrice);
+                                }
+                                return { 
+                                    ...inv, 
+                                    currentPrice,
+                                    change: (quote as any).change,
+                                    isOverMarket: quote.isOverMarket,
+                                    overMarketChange: quote.overMarketChange,
+                                    overMarketPrice: quote.overMarketPrice,
+                                    marketStatus: (quote as any).marketStatus
+                                };
+                            }));
                             liveEntry.liveIndices = {
                                 kospi: liveKospi?.price,
                                 kosdaq: liveKosdaq?.price,
@@ -141,22 +161,27 @@ export async function GET(request: Request) {
         const secondDate = visibleRows.length > 1 ? visibleRows[1].date : undefined;
 
         // 동기화된 베이스 가격/멀티플라이어 계산 (차트가 0%에서 시작하도록 보장)
-        const getSyncBase = (series: any[], d: string, nD: string | undefined) => {
-            if (nD) return getIndexPrice(series, nD);
+        const getSyncBase = (series: any[], d: string, nD: string | undefined, ent?: any, nEnt?: any) => {
+            // 정산이 완료된 시점이라면 자신(d)을 기준으로 시작하도록 베이스 설정
+            if (nD && !ent?.meta?.overseasSettled && !(nEnt?.isLive && new Date().getHours() >= 17)) {
+                return getIndexPrice(series, nD);
+            }
             return getIndexPrice(series, d);
         };
 
         const kospiBase = getIndexPrice(kospi, firstDate);
         const kosdaqBase = getIndexPrice(kosdaq, firstDate);
-        const nasdaqBase = getSyncBase(nasdaq, firstDate, secondDate);
-        const dowBase = getSyncBase(dow, firstDate, secondDate);
+        const firstRow = visibleRows[0];
+        const nextRowFromFirst = visibleRows.length > 1 ? visibleRows[1] : undefined;
+        const nasdaqBase = getSyncBase(nasdaq, firstDate, secondDate, firstRow, nextRowFromFirst);
+        const dowBase = getSyncBase(dow, firstDate, secondDate, firstRow, nextRowFromFirst);
 
         const allTransactions = repo.transactions.getTypeInRange('SELL', startDateStr, endDateStr);
         const domesticMultipliers = calculateTWRMultipliers(allRows, 'Domestic', 1350, allTransactions);
         const overseasMultipliers = calculateTWRMultipliers(allRows, 'Overseas', 1350, allTransactions);
 
         const domesticBase = domesticMultipliers[firstDate] || 1;
-        const overseasBase = secondDate ? (overseasMultipliers[secondDate] || 1) : (overseasMultipliers[firstDate] || 1);
+        const overseasBase = overseasMultipliers[firstDate] || 1;
 
         const calcRelReturn = (curr: number, base: number) => {
             return base > 0 ? ((curr / base) - 1) * 100 : 0;
@@ -164,38 +189,32 @@ export async function GET(request: Request) {
 
         const result = visibleRows.map((row, idx) => {
             const date = row.date;
-            // 만약 이미 정산된 행이라면 sync를 통해 다음 날의 값을 가져올 필요가 없음 (이미 자신의 세션 값이 반영됨)
             let currentKospi = getIndexPrice(kospi, date);
             let currentKosdaq = getIndexPrice(kosdaq, date);
-            
-            const nextRow = idx < visibleRows.length - 1 ? visibleRows[idx + 1] : undefined;
-            const nextDate = nextRow?.date;
+            let currentNasdaq = getIndexPrice(nasdaq, date);
+            let currentDow = getIndexPrice(dow, date);
 
-            // 해외 지수 및 수익 동기화: 무조건 다음 거래일 오전의 성과를 이전 날짜의 세션 결과로 간주 (Settled 여부 무관)
-            const syncVal = (series: any[], d: string, nD: string | undefined, liveVal?: number) => {
-                if (nD) return getIndexPrice(series, nD);
-                return liveVal || getIndexPrice(series, d);
-            };
-
-            const overseasVal = nextDate ? (overseasMultipliers[nextDate] || 1) : (overseasMultipliers[date] || 1);
-            let currentNasdaq = syncVal(nasdaq, date, nextDate, row.isLive ? row.liveIndices?.nasdaq : undefined);
-            let currentDow = syncVal(dow, date, nextDate, row.isLive ? row.liveIndices?.dow : undefined);
-
+            // 라이브 행의 경우 실시간 지수 오버라이드
             if (row.isLive && row.liveIndices) {
                 if (row.liveIndices.kospi) currentKospi = row.liveIndices.kospi;
                 if (row.liveIndices.kosdaq) currentKosdaq = row.liveIndices.kosdaq;
-                // nasdaq, dow, overseasVal는 위 동기화 로직에서 처리됨
+                if (row.liveIndices.nasdaq) currentNasdaq = row.liveIndices.nasdaq;
+                if (row.liveIndices.dow) currentDow = row.liveIndices.dow;
             }
 
+            // TWR: DB에 이미 올바른 날짜에 올바른 가격이 저장됐으므로 직접 사용
+            const domTWR = domesticMultipliers[date] || 1;
+            const osTWR = overseasMultipliers[date] || 1;
+
             return {
-                date: date,
+                date,
                 isLive: row.isLive || false,
                 kospi: calcRelReturn(currentKospi, kospiBase),
                 kosdaq: calcRelReturn(currentKosdaq, kosdaqBase),
                 nasdaq: calcRelReturn(currentNasdaq, nasdaqBase),
                 dow: calcRelReturn(currentDow, dowBase),
-                myDomestic: calcRelReturn(domesticMultipliers[date] || 1, domesticBase),
-                myOverseas: calcRelReturn(overseasVal, overseasBase)
+                myDomestic: calcRelReturn(domTWR, domesticBase),
+                myOverseas: calcRelReturn(osTWR, overseasBase)
             };
         });
 

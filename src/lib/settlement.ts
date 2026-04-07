@@ -15,33 +15,33 @@ export const INVESTMENT_CATEGORIES: AssetCategory[] = [
  * Get the total KRW value for a specific category in a history entry.
  */
 export const getCategoryValue = (entry: HistoryEntry, cat: AssetCategory, fallbackRate = DEFAULT_EXCHANGE_RATE): number => {
-    const allocation = entry.allocations?.find(a => a.category === cat);
     const entryRate = entry.exchangeRate || fallbackRate;
+    const allocation = entry.allocations?.find(a => a.category === cat);
     const allocationValue = allocation ? convertToKRW(allocation.value, allocation.currency, entryRate) : 0;
 
-    if (cat === 'Cash') {
-        if (allocationValue > 0) return allocationValue;
-        const others = HISTORY_CATEGORIES.filter(c => c !== 'Cash');
-        const totalOthers = others.reduce((sum, c) => sum + getCategoryValue(entry, c, entryRate), 0);
-        return Math.max(0, entry.totalValue - totalOthers);
-    }
-
     if (INVESTMENT_CATEGORIES.includes(cat)) {
-        if (allocationValue > 0) return allocationValue;
-
         const categoryInvestments = entry.holdings?.filter((h: any) => {
             if (h.category) return h.category === cat;
-            // Fallback categorization logic
             if (cat === 'Domestic Stock') return h.marketType === 'Domestic' || isDomesticSymbol(h.symbol);
             if (cat === 'Overseas Stock') return h.marketType === 'Overseas' || !isDomesticSymbol(h.symbol);
             return false;
         });
 
-        return categoryInvestments?.reduce((sum: number, h: any) => {
+        const holdingsValue = categoryInvestments?.reduce((sum: number, h: any) => {
             const currency = h.currency || (h.marketType === 'Domestic' ? 'KRW' : 'USD');
             const price = h.currentPrice ?? h.avgPrice;
             return sum + convertToKRW(price * h.shares, currency, entryRate);
         }, 0) || 0;
+
+        // 보정: holdings가 있으면 holdings 값을 우선시하고, 없으면 명시적 할당치를 사용
+        return (holdingsValue > 0) ? holdingsValue : allocationValue;
+    }
+
+    if (cat === 'Cash') {
+        const others = HISTORY_CATEGORIES.filter(c => c !== 'Cash');
+        const totalOthers = others.reduce((sum, c) => sum + getCategoryValue(entry, c, entryRate), 0);
+        // 명시적 할당치와 (총액 - 타 항목 합계) 중 더 큰 값을 선택 (자산 누락 방지)
+        return Math.max(allocationValue, (entry.totalValue || 0) - totalOthers);
     }
 
     return allocationValue;
@@ -146,7 +146,13 @@ export const calculateTWRMultipliers = (
                 const dObj = new Date(today.date + 'T00:00:00');
                 const isWeekend = dObj.getDay() === 0 || dObj.getDay() === 6;
                 if (!isWeekend) {
-                    const activeChange = (ch.isOverMarket && ch.overMarketChange !== undefined) ? ch.overMarketChange : ch.change;
+                    let activeChange = (ch.isOverMarket && ch.overMarketChange !== undefined) ? ch.overMarketChange : ch.change;
+                    
+                    const isOs = ch.marketType === 'Overseas' || (ch.category && !['Domestic Stock', 'Domestic Index', 'Domestic Bond'].includes(ch.category));
+                    if (isOs && ch.marketStatus !== 'OPEN' && !ch.isOverMarket) {
+                        activeChange = 0;
+                    }
+
                     if (activeChange !== undefined) {
                         price = ch.currentPrice - activeChange;
                     }

@@ -27,7 +27,7 @@ export function StockTile({ stock, rect, onHover }: { stock: Stock; rect: Rect; 
                 width: w, height: h, background: c.bg, border: 'none',
                 borderRadius: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 overflow: 'hidden', cursor: 'pointer', boxSizing: 'border-box',
-                transition: 'filter 0.2s',
+                transition: 'filter 0.2s, left 0.5s ease-out, top 0.5s ease-out, width 0.5s ease-out, height 0.5s ease-out, background 0.5s ease-out',
             }}
         >
             {showSymbol && (
