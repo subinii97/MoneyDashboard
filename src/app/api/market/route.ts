@@ -65,6 +65,7 @@ export async function GET(request: Request) {
         const indices = [
             { id: 'KOSPI', code: 'KOSPI' },
             { id: 'KOSDAQ', code: 'KOSDAQ' },
+            { id: 'S&P 500', code: '.INX' },
             { id: 'NASDAQ', code: '.IXIC' },
             { id: 'DOW', code: '.DJI' }
         ];

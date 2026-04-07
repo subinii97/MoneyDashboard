@@ -36,17 +36,24 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
         let overMarketChange: number | undefined;
         let overMarketChangePercent: number | undefined;
 
-        if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
+        const now = new Date();
+        const kstOffset = 9 * 60 * 60 * 1000;
+        const kstDate = new Date(now.getTime() + kstOffset);
+        const hour = kstDate.getUTCHours();
+        const minute = kstDate.getUTCMinutes();
+        const timeVal = hour + minute / 60;
+
+        if (data.marketStatus === 'BEFORE_MARKET' || (data.marketStatus !== 'OPEN' && timeVal >= 8 && timeVal < 9)) {
+            if (data.expectedPrice && data.expectedPrice !== '0') {
+                overMarketPrice = extractNumber(data.expectedPrice);
+                overMarketChange = extractNumber(data.expectedCompareToPreviousClosePrice);
+                overMarketChangePercent = extractNumber(data.expectedFluctuationsRatio);
+                isOverMarket = true;
+                overMarketSession = 'PRE_MARKET';
+            }
+        } else if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
             const over = data.overMarketPriceInfo;
             if (over.overPrice && over.overPrice !== '0' && over.overPrice !== '') {
-                // KR After-market limit: 8 PM KST
-                const now = new Date();
-                const kstOffset = 9 * 60 * 60 * 1000;
-                const kstDate = new Date(now.getTime() + kstOffset);
-                const hour = kstDate.getUTCHours();
-                const minute = kstDate.getUTCMinutes();
-                const timeVal = hour + minute / 60;
-
                 if (timeVal >= 15.6 && timeVal < 20) {
                     overMarketPrice = extractNumber(over.overPrice);
                     overMarketChange = extractNumber(String(over.compareToPreviousClosePrice || '0'));
@@ -67,6 +74,7 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
             changePercent,
             tradingValue,
             marketStatus: data.marketStatus || 'CLOSE',
+            marketCap: data.marketValueFullRaw !== undefined ? extractNumber(String(data.marketValueFullRaw)) : undefined,
             isOverMarket,
             overMarketSession,
             overMarketPrice,

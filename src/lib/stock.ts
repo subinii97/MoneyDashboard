@@ -52,7 +52,7 @@ export async function fetchExchangeRate(forceRefresh = false) {
 }
 
 export async function fetchMarketIndex(code: string, forceRefresh = false) {
-    const isDomestic = !code.startsWith('.');
+    const isDomestic = code === 'KOSPI' || code === 'KOSDAQ';
     if (isDomestic) return fetchDomesticIndex(code);
     return fetchOverseasIndex(code);
 }

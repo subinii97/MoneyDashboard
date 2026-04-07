@@ -110,6 +110,7 @@ export async function fetchNaverOverseasQuote(symbol: string, forceRefresh = fal
         tradingValue,
         previousClose: isNaN(previousClose) ? price : previousClose,
         marketStatus: data.marketStatus || 'CLOSE',
+        marketCap: data.marketValueFullRaw !== undefined ? extractNumber(String(data.marketValueFullRaw)) : undefined,
         isOverMarket,
         overMarketSession,
         overMarketPrice,

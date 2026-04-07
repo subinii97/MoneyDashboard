@@ -22,6 +22,7 @@ export default function AnalysisPage() {
     const [containerSize, setContainerSize] = useState({ w: 1100, h: 560 });
     const [sort, setSort] = useState<{ k: string, d: 'desc' | 'asc' }>({ k: 'performance', d: 'desc' });
     const [correlation, setCorrelation] = useState<any>(null);
+    const [indexChange, setIndexChange] = useState<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const heatmapRef = useRef<HTMLDivElement>(null);
 
@@ -62,9 +63,11 @@ export default function AnalysisPage() {
             const nycTime = nyc.getHours() + nyc.getMinutes() / 60;
             if (s === 'PRE_MARKET') return nycTime >= 4 && nycTime < 9.5;
             if (s === 'AFTER_MARKET' || s === 'POST_MARKET') return nycTime >= 16 && nycTime < 20;
-        } else if (s === 'AFTER_MARKET') {
+        } else if (market === 'KR' || market === 'KOSDAQ') {
             const kst = new Date(now.getTime() + 9 * 3600000);
-            const timeVal = kst.getUTCHours() + kst.getUTCMinutes() / 60; return timeVal >= 15.6 && timeVal < 20;
+            const timeVal = kst.getUTCHours() + kst.getUTCMinutes() / 60;
+            if (s === 'PRE_MARKET') return timeVal >= 8 && timeVal < 9;
+            if (s === 'AFTER_MARKET') return timeVal >= 15.6 && timeVal < 18;
         }
         return false;
     }, [market]);
@@ -74,14 +77,17 @@ export default function AnalysisPage() {
             const isActive = isSessionActive(s.overMarketSession);
             const isAfter = s.overMarketSession === 'AFTER_MARKET' || s.overMarketSession === 'POST_MARKET';
             let cp = s.changePercent, pr = s.price;
+
             if (marketStatus !== 'OPEN' && s.overMarketPrice && (isActive || isAfter)) {
-                pr = s.overMarketPrice; const prev = s.price / (1 + s.changePercent / 100);
-                if (prev > 0) cp = ((s.overMarketPrice / prev) - 1) * 100;
+                pr = s.overMarketPrice;
+                // 전일 누적 수익률이 아닌 '전일 종가 대비' 프리/애프터 마켓 변동률만 표시
+                cp = s.overMarketChangePercent ?? (((s.overMarketPrice / s.price) - 1) * 100);
             }
             return { ...s, changePercent: cp, price: pr };
         });
         const totalCap = stocks.reduce((a, s) => a + s.cap, 0) || 1;
-        return { ...sec, stocks, changePercent: stocks.reduce((a, s) => a + s.changePercent * (s.cap / totalCap), 0) };
+        const dynamicChangePercent = stocks.reduce((a, s) => a + s.changePercent * (s.cap / totalCap), 0);
+        return { ...sec, stocks, changePercent: dynamicChangePercent };
     }), [sectors, isSessionActive, marketStatus]);
 
     const sectorRects = useMemo(() => squarifyLayout(displaySectors.map(s => s.weight), 0, 0, containerSize.w, containerSize.h), [displaySectors, containerSize]);
@@ -90,7 +96,9 @@ export default function AnalysisPage() {
         if (!sectors.length) setLoading(true);
         try {
             const [sRes, cRes] = await Promise.all([fetch(`/api/analysis/sectors?market=${m}&t=${Date.now()}`), fetch(`/api/analysis/correlation?t=${Date.now()}`)]);
-            const sJson = await sRes.json(); if (sJson.status) setMarketStatus(sJson.status);
+            const sJson = await sRes.json();
+            if (sJson.status) setMarketStatus(sJson.status);
+            if (sJson.indexChange !== undefined) setIndexChange(sJson.indexChange);
             const raw = (sJson.sectors || []).filter((s: Sector) => s.weight > 0);
             if (raw.length) { setSectors(raw); setLastFetched(new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\. /g, '-').replace(/\.$/, '')); }
             if (cRes.ok) setCorrelation(await cRes.json());
@@ -130,9 +138,9 @@ export default function AnalysisPage() {
                                     background: marketStatus === 'OPEN' ? 'rgba(34, 197, 94, 0.1)' : (marketStatus === 'CLOSED' ? 'rgba(0,0,0,0.05)' : 'rgba(245, 158, 11, 0.1)'),
                                     color: marketStatus === 'OPEN' ? '#22c55e' : (marketStatus === 'CLOSED' ? '#666' : '#f59e0b'),
                                     border: `1px solid ${marketStatus === 'OPEN' ? 'rgba(34, 197, 94, 0.2)' : (marketStatus === 'CLOSED' ? 'rgba(0,0,0,0.1)' : 'rgba(245, 158, 11, 0.2)')}`
-                                }}>● {market === 'KR' ? 'KOSPI' : (market === 'US' ? 'S&P 500' : market)} {marketStatus}</div>
+                                }}>● {market === 'KR' ? 'KOSPI' : (market === 'KOSDAQ' ? 'KOSDAQ' : 'S&P 500')} {marketStatus}</div>
                             </div>
-                            <div style={{ fontWeight: 900, color: marketChange >= 0 ? '#dc2626' : '#2563eb' }}>{market === 'US' ? 'S&P 500' : (market === 'KR' ? 'KOSPI' : market)} {marketChange >= 0 ? '▲' : '▼'} {Math.abs(marketChange).toFixed(2)}%</div>
+                            <div style={{ fontWeight: 900, color: indexChange >= 0 ? '#dc2626' : '#2563eb' }}>{market === 'US' ? 'S&P 500' : (market === 'KR' ? 'KOSPI' : market)} {indexChange >= 0 ? '▲' : '▼'} {Math.abs(indexChange).toFixed(2)}%</div>
                             {correlation && (
                                 <div onMouseEnter={() => setHoverSync(true)} onMouseLeave={() => setHoverSync(false)} style={{ position: 'relative', cursor: 'help', fontWeight: 700, color: 'var(--muted)' }}>
                                     한미 증시 동조화: <span style={{ fontWeight: 800, color: correlation.correlationLag > 0.6 ? '#dc2626' : 'inherit' }}>{(correlation.correlationLag * 100).toFixed(1)}%</span>
@@ -141,11 +149,47 @@ export default function AnalysisPage() {
                             )}
                         </div>
                     </div>
-                    <div className="ignore-in-capture" style={{ display: 'flex', gap: '0.75rem' }}>
-                        <div style={{ display: 'flex', background: 'var(--card)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                            {(['KR', 'KOSDAQ', 'US'] as const).map(m => <button key={m} onClick={() => setMarket(m)} style={{ padding: '0.4rem 1.1rem', fontSize: '0.8rem', borderRadius: '7px', border: 'none', background: market === m ? 'var(--foreground)' : 'transparent', color: market === m ? 'var(--background)' : 'var(--muted)', cursor: 'pointer', fontWeight: 700 }}>{m === 'KR' ? 'KOSPI' : (m === 'US' ? 'S&P 500' : m)}</button>)}
+                    <div className="ignore-in-capture" style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', background: 'var(--card)', padding: '2px', borderRadius: '10px', border: '1px solid var(--border)', height: '32px', alignItems: 'center' }}>
+                            {(['KR', 'KOSDAQ', 'US'] as const).map(m => (
+                                <button 
+                                    key={m} 
+                                    onClick={() => setMarket(m)} 
+                                    style={{ 
+                                        height: '26px',
+                                        padding: '0 0.85rem', 
+                                        fontSize: '0.75rem', 
+                                        borderRadius: '7px', 
+                                        border: 'none', 
+                                        background: market === m ? 'var(--foreground)' : 'transparent', 
+                                        color: market === m ? 'var(--background)' : 'var(--muted)', 
+                                        cursor: 'pointer', 
+                                        fontWeight: 800,
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {m === 'KR' ? 'KOSPI' : (m === 'US' ? 'S&P 500' : m)}
+                                </button>
+                            ))}
                         </div>
-                        <button onClick={handleSaveImage} style={{ padding: '0 1rem', background: 'var(--card)', borderRadius: '10px', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.85rem' }}><ImageIcon size={18} /> PNG 저장</button>
+                        <button 
+                            onClick={handleSaveImage} 
+                            style={{ 
+                                height: '32px',
+                                padding: '0 0.9rem', 
+                                background: 'var(--card)', 
+                                borderRadius: '10px', 
+                                border: '1px solid var(--border)', 
+                                cursor: 'pointer', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '6px', 
+                                fontWeight: 800, 
+                                fontSize: '0.75rem' 
+                            }}
+                        >
+                            <ImageIcon size={14} /> PNG 저장
+                        </button>
                     </div>
                 </header>
                 <div ref={containerRef} style={{ width: '100%', height: containerSize.h, position: 'relative', background: 'var(--card)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', minHeight: 400 }}>
