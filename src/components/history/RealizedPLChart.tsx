@@ -126,7 +126,7 @@ const RealizedPLChart = ({ transactions, rate, isPrivate }: any) => {
                             stroke="var(--primary)"
                             strokeDasharray="4 3"
                             strokeWidth={1}
-                            isFront={true}
+                            isFront={true as any}
                             label={{
                                 position: 'left',
                                 value: formatKRW(activeEntry.profit),

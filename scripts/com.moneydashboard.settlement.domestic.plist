@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  국내 정산 — KST 20:05 (UTC 11:05) 매 평일
+  설치: cp com.moneydashboard.settlement.domestic.plist ~/Library/LaunchAgents/
+         launchctl load ~/Library/LaunchAgents/com.moneydashboard.settlement.domestic.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.moneydashboard.settlement.domestic</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/subin/projects/MoneyDashboard/scripts/daily-settlement.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <!-- 월~금 UTC 11:05 = KST 20:05 (국내 장 마감 후) -->
+        <dict>
+            <key>Weekday</key><integer>1</integer>
+            <key>Hour</key><integer>11</integer>
+            <key>Minute</key><integer>5</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>2</integer>
+            <key>Hour</key><integer>11</integer>
+            <key>Minute</key><integer>5</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>3</integer>
+            <key>Hour</key><integer>11</integer>
+            <key>Minute</key><integer>5</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>4</integer>
+            <key>Hour</key><integer>11</integer>
+            <key>Minute</key><integer>5</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>5</integer>
+            <key>Hour</key><integer>11</integer>
+            <key>Minute</key><integer>5</integer>
+        </dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/subin/projects/MoneyDashboard/logs/settlement-domestic.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/subin/projects/MoneyDashboard/logs/settlement-domestic-error.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
