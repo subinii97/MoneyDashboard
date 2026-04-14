@@ -201,8 +201,8 @@ export const WeeklySettlementTable = ({ weeklySettlements, refreshTransactions, 
                                                             <td style={{ padding: '0.6rem', fontWeight: '600' }}>{tx.name ? `${tx.name} (${tx.symbol})` : (tx.symbol || tx.notes || '-')}</td>
                                                             <td style={{ padding: '0.6rem', color, fontWeight: '700', textAlign: 'center' }}>{label}</td>
                                                             <td style={{ padding: '0.6rem', textAlign: 'right', color: 'var(--muted)' }}>{tx.shares ? `${tx.shares}주` : '-'}</td>
-                                                            <td style={{ padding: '0.6rem', textAlign: 'right', color: 'var(--muted)' }}>{tx.price ? `${tx.price.toLocaleString()} ${tx.currency}` : '-'}</td>
-                                                            <td style={{ padding: '0.6rem', textAlign: 'right', fontWeight: '600' }}>{formatValue(tx.amount || (tx.price * tx.shares), isPrivate)}</td>
+                                                            <td style={{ padding: '0.6rem', textAlign: 'right', color: 'var(--muted)' }}>{tx.price ? formatValue(tx.price, isPrivate, tx.currency) : '-'}</td>
+                                                            <td style={{ padding: '0.6rem', textAlign: 'right', fontWeight: '600' }}>{formatValue(tx.amount || (tx.price * tx.shares), isPrivate, tx.currency)}</td>
                                                             <td style={{ padding: '0.3rem', textAlign: 'center' }}>
                                                                 <button onClick={() => setEditingTx({ ...tx })} className="btn-small-link">수정</button>
                                                                 <button onClick={() => handleDeleteTx(tx.id)} disabled={deletingId === tx.id} className="btn-small-link-del">삭제</button>

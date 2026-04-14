@@ -169,16 +169,27 @@ export const calculateTWRMultipliers = (
 
             prevMarketValue += convertToKRW(pPrice * ph.shares, currency, ratePrev);
 
-            let cPrice: number;
-            if (ch) {
-                cPrice = ch.currentPrice || ch.avgPrice;
-            } else {
-                const sellTx = todaySellTxs.find((t: any) =>
-                    t.symbol?.toUpperCase().trim() === ph.symbol?.toUpperCase().trim()
-                );
-                cPrice = sellTx ? sellTx.price : pPrice;
+            // Calculate current value including any sales
+            const sellTxs = todaySellTxs.filter((t: any) =>
+                t.symbol?.toUpperCase().trim() === ph.symbol?.toUpperCase().trim()
+            );
+            const soldShares = sellTxs.reduce((sum, t) => sum + (t.shares || 0), 0);
+            const soldValue = sellTxs.reduce((sum, t) => sum + (t.shares * t.price), 0);
+
+            // Cap sold shares at what we actually had to avoid negative logic from day-trading
+            const validSoldShares = Math.min(ph.shares, soldShares);
+            const remainingShares = Math.max(0, ph.shares - validSoldShares);
+
+            let holdingValueToday = 0;
+            if (validSoldShares > 0) {
+                const avgSellPrice = soldValue / soldShares;
+                holdingValueToday += convertToKRW(validSoldShares * avgSellPrice, currency, rateCurr);
             }
-            projectedMarketValue += convertToKRW(cPrice * ph.shares, currency, rateCurr);
+            if (remainingShares > 0) {
+                const cPrice = ch ? (ch.currentPrice || ch.avgPrice) : pPrice;
+                holdingValueToday += convertToKRW(remainingShares * cPrice, currency, rateCurr);
+            }
+            projectedMarketValue += holdingValueToday;
         });
 
         // Account for new positions opened today (adjust for cash flow neutrality)

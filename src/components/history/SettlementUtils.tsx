@@ -1,7 +1,7 @@
 import React from 'react';
-import { formatKRW } from '@/lib/utils';
+import { formatPrice, formatKRW } from '@/lib/utils';
 
-export const formatValue = (v: number, isPrivate: boolean) => isPrivate ? '*****' : formatKRW(v);
+export const formatValue = (v: number, isPrivate: boolean, currency: string = 'KRW') => isPrivate ? '*****' : formatPrice(v, currency);
 
 interface RenderChangeProps {
     val: number;

@@ -80,6 +80,37 @@ export function processHistoryData(history: HistoryEntry[], transactions: any[],
                 const vC = convertToKRW(ch * h.shares, h.currency || 'USD', r), vP = convertToKRW((pr - ch) * h.shares, h.currency || 'USD', r);
                 if (h.marketType === 'Domestic' || INVESTMENT_CATEGORIES.slice(0,3).includes(h.category)) { dGain += vC; dPrv += vP; } else { oGain += vC; oPrv += vP; }
             });
+
+            // Account for sold assets (Realized profit)
+            phs.forEach((ph: any) => {
+                const currentH = hds.find((h: any) => h.symbol === ph.symbol);
+                const prevShares = ph.shares || 0;
+                const currShares = currentH ? currentH.shares : 0;
+                
+                // Only account for shares that were held yesterday and sold today
+                const soldFromYesterday = Math.max(0, prevShares - currShares);
+                
+                if (soldFromYesterday > 0) {
+                    const sellTxs = (transactions || []).filter((t: any) => t.date === entry.date && t.type === 'SELL' && t.symbol === ph.symbol);
+                    if (sellTxs.length > 0) {
+                        const totalProceeds = sellTxs.reduce((sum, t) => sum + (t.shares * t.price), 0);
+                        const totalSoldQty = sellTxs.reduce((sum, t) => sum + t.shares, 0);
+                        const avgSellPrice = totalProceeds / totalSoldQty;
+                        const yesterdayPrice = (ph.isOverMarket && ph.overMarketPrice !== undefined) ? ph.overMarketPrice : (ph.currentPrice || ph.avgPrice);
+                        
+                        // We only take the gain for the portion that was held yesterday
+                        const realizedGain = (avgSellPrice - yesterdayPrice) * soldFromYesterday;
+                        const vC = convertToKRW(realizedGain, ph.currency || 'USD', r);
+                        const vP = convertToKRW(yesterdayPrice * soldFromYesterday, ph.currency || 'USD', r);
+                        
+                        if (ph.marketType === 'Domestic' || INVESTMENT_CATEGORIES.slice(0,3).includes(ph.category)) { 
+                            dGain += vC; dPrv += vP; 
+                        } else { 
+                            oGain += vC; oPrv += vP; 
+                        }
+                    }
+                }
+            });
             if (dPrv > 0) domPct = (dGain / dPrv) * 100; if (oPrv > 0) osPct = (oGain / oPrv) * 100;
         }
 
@@ -175,7 +206,7 @@ export function processHistoryData(history: HistoryEntry[], transactions: any[],
             const start = type === 'W' ? new Date(new Date(k).setDate(new Date(k).getDate() - 5)).toISOString().substring(0,10) : '';
             return {
                 [type === 'M' ? 'month' : 'period']: type === 'M' ? k : `${start.substring(2)} ~ ${k.substring(2)}`,
-                date: e.date, value: cM.total, change: totalProfit, changePercent: aR * 100,
+                date: e.date, value: cM.total, change: p ? e.totalValue - p.totalValue : 0, changePercent: (p && p.totalValue > 0) ? (e.totalValue / p.totalValue - 1) * 100 : 0,
                 transactions: type === 'W' ? transactions.filter(t => t.date >= start && t.date <= k).map(t => ({ ...t, name: syMap[t.symbol!] })) : undefined,
                 metrics: {
                     cash: { current: cM.cash, change: pM ? cM.cash - pM.cash : 0, percent: 0 },
