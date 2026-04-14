@@ -144,7 +144,7 @@ export const AddAssetCard: React.FC<AddAssetCardProps> = ({
                                     <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                                         {results.map((item) => (
                                             <li
-                                                key={item.symbol}
+                                                key={`${item.symbol}-${item.exchange}`}
                                                 onClick={() => handleSelect(item)}
                                                 style={{
                                                     padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)',
