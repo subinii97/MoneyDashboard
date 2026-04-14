@@ -146,6 +146,10 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
         }
     }
 
+    const totalCostBasisKRW = investments.reduce((acc, s) => {
+        return acc + convertToKRW(s.avgPrice * s.shares, s.currency || 'KRW', rate);
+    }, 0);
+
     if (investments.length === 0) return null;
 
     const renderSummaryItem = (label: string, value: number, percent: number | { krw: number; usd: number }, isSubTotal = false, minWidth?: string) => {
@@ -168,14 +172,14 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         fontWeight: '800',
                         color: percent.krw > 0 ? '#dc2626' : (percent.krw < 0 ? '#3b82f6' : 'var(--muted)'),
                     }}>
-                        {(percent.krw > 0 ? '▲' : (percent.krw < 0 ? '▼' : '')) + Math.abs(percent.krw).toFixed(2) + '% '}<span style={{fontSize: '0.8em', opacity: 0.8}}>(원화)</span>
+                        {(percent.krw > 0 ? '▲' : (percent.krw < 0 ? '▼' : '')) + Math.abs(percent.krw).toFixed(2) + '% '}<span style={{ fontSize: '0.8em', opacity: 0.8 }}>(원화)</span>
                     </div>
                     <div style={{
                         fontSize: isPrivate ? '1.35rem' : '0.95rem',
                         fontWeight: '700',
                         color: percent.usd > 0 ? '#dc2626' : (percent.usd < 0 ? '#3b82f6' : 'var(--muted)'),
                     }}>
-                        {(percent.usd > 0 ? '▲' : (percent.usd < 0 ? '▼' : '')) + Math.abs(percent.usd).toFixed(2) + '% '}<span style={{fontSize: '0.8em', opacity: 0.8}}>(외화)</span>
+                        {(percent.usd > 0 ? '▲' : (percent.usd < 0 ? '▼' : '')) + Math.abs(percent.usd).toFixed(2) + '% '}<span style={{ fontSize: '0.8em', opacity: 0.8 }}>(외화)</span>
                     </div>
                 </div>
             );
@@ -207,8 +211,8 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 </div>
                 <div className="flex-center" style={{ gap: '2rem', alignItems: 'flex-start' }}>
                     {!isDomestic && (
-                        <div 
-                            className="glass flex-center" 
+                        <div
+                            className="glass flex-center"
                             style={{ padding: '0.2rem', borderRadius: '8px', gap: '0.2rem', marginTop: '0.2rem', cursor: 'pointer', flexDirection: 'column' }}
                             onClick={() => setIsUSDMode(prev => !prev)}
                             title="클릭하여 원화/달러 전환"
@@ -229,18 +233,16 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 <table className="dashboard-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: 'center', width: '40%' }}>종목</th>
-                            <th style={{ textAlign: 'center', width: '20%' }}>
+                            <th style={{ textAlign: 'center', width: '37%' }}>종목</th>
+                            <th style={{ textAlign: 'center', width: '19%' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                    <span>현재가 /</span>
-                                    <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'dailyPercent' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('dailyPercent')} title="일간 변동률 기준 정렬">
-                                        전일대비{sortKey === 'dailyPercent' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                                    </span>
+                                    <span>현재가 / 전일대비</span>
                                     {!isPrivate && <span>/ 평단가</span>}
                                 </div>
                             </th>
-                            <th style={{ textAlign: 'center', width: '10%' }}>수량</th>
-                            <th style={{ textAlign: 'center', width: '18%' }}>
+                            <th style={{ textAlign: 'center', width: '7%' }}>수량</th>
+                            <th style={{ textAlign: 'center', width: '8%' }}>평가비중</th>
+                            <th style={{ textAlign: 'center', width: '15%' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                     <span style={{ cursor: 'pointer', transition: 'color 0.2s', color: sortKey === 'value' ? 'var(--primary)' : 'inherit' }} onClick={() => toggleSort('value')} title="평가액 기준 정렬">
                                         평가액{sortKey === 'value' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
@@ -251,7 +253,7 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                     </span>
                                 </div>
                             </th>
-                            <th style={{ textAlign: 'center', width: '12%' }}>거래 / 수정 / 삭제</th>
+                            <th style={{ textAlign: 'center', width: '10%' }}>작업</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -280,9 +282,12 @@ export const InvestmentTable: React.FC<InvestmentTableProps> = ({
                                 rate={rate}
                                 isPrivate={isPrivate}
                                 subTotal={subTotal}
+                                totalCostBasis={totalCostBasisKRW}
                                 onEdit={onEdit}
                                 onDelete={onDelete}
                                 onTransaction={onTransaction}
+                                getActiveChange={activeChange}
+                                getActiveChangePercent={activeChangePercent}
                             />
                         ))
                         }

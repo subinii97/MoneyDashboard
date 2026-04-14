@@ -10,6 +10,7 @@ interface InvestmentTableRowProps {
     rate: number;
     isPrivate: boolean;
     subTotal: number;
+    totalCostBasis: number;
     onEdit: (inv: Investment) => void;
     onDelete: (id: string) => void;
     onTransaction: (inv: Investment) => void;
@@ -31,20 +32,19 @@ const getExchangeStyle = (ex: string) => {
 };
 
 export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
-    inv, rate, isPrivate, subTotal, onEdit, onDelete, onTransaction,
+    inv, rate, isPrivate, subTotal, totalCostBasis, onEdit, onDelete, onTransaction,
     isBoughtToday = false, getActiveChange, getActiveChangePercent
 }) => {
     const isUSD = inv.currency === 'USD';
     const isOverActive = inv.isOverMarket && inv.overMarketPrice !== undefined;
     const currentPriceActive = isOverActive ? inv.overMarketPrice! : (inv.currentPrice || inv.avgPrice);
 
-    // 외부에서 주입된 함수가 있으면 사용, 없으면 기본값
     const resolvedChange = getActiveChange
         ? getActiveChange(inv)
-        : isOverActive ? (inv.overMarketChange ?? inv.change ?? 0) : (inv.change || 0);
+        : (inv.change || 0);
     const resolvedChangePercent = getActiveChangePercent
         ? getActiveChangePercent(inv)
-        : isOverActive ? (inv.overMarketChangePercent ?? inv.changePercent ?? 0) : (inv.changePercent || 0);
+        : (inv.changePercent || 0);
 
     const activeChange = resolvedChange;
     const activeChangePercent = resolvedChangePercent;
@@ -98,8 +98,11 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
 
     const marketVal = currentPriceActive * inv.shares;
     const marketValKRW = convertToKRW(marketVal, inv.currency || 'KRW', rate);
-    const weight = subTotal > 0 ? (marketValKRW / subTotal) * 100 : 0;
     const costBasis = inv.avgPrice * inv.shares;
+    const costBasisKRW = convertToKRW(costBasis, inv.currency || 'KRW', rate);
+
+    const weight = subTotal > 0 ? (marketValKRW / subTotal) * 100 : 0;
+
     const pl = marketVal - costBasis;
     const plPercent = costBasis > 0 ? ((marketVal / costBasis) - 1) * 100 : 0;
     const plKRW = convertToKRW(marketVal, inv.currency || 'KRW', rate) - convertToKRW(costBasis, inv.currency || 'KRW', rate);
@@ -130,14 +133,19 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                         color: ex.color, backgroundColor: ex.bg,
                         border: `1px solid ${ex.color}33`, flexShrink: 0,
                     }}>{ex.label}</span>
-                    <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{inv.name || inv.symbol}</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: '600', color: 'var(--muted)', opacity: 0.7, letterSpacing: '0.03em' }}>
-                        {inv.symbol}
-                    </span>
-                    {(inv.category || inv.marketType) && (
-                        <span style={{ fontSize: '0.58rem', padding: '1px 3px', borderRadius: '4px', border: '1px solid var(--border)', opacity: 0.5, flexShrink: 0 }}>
-                            {inv.category?.includes('Stock') ? '주식' : inv.category?.includes('Index') ? '지수' : '주식'}
-                        </span>
+
+                    {isUSD ? (
+                        <>
+                            <span style={{ fontWeight: '800', fontSize: '1.05rem', letterSpacing: '0.01em' }}>{inv.symbol}</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '500', color: 'var(--muted)', opacity: 0.8 }}>{inv.name}</span>
+                        </>
+                    ) : (
+                        <>
+                            <span style={{ fontWeight: '800', fontSize: '1.05rem' }}>{inv.name || inv.symbol}</span>
+                            <span style={{ fontSize: '0.66rem', fontWeight: '600', color: 'var(--muted)', opacity: 0.7, letterSpacing: '0.03em' }}>
+                                {inv.symbol}
+                            </span>
+                        </>
                     )}
                 </div>
                 {/* 2행: 장 상태 + 사용자 태그 */}
@@ -169,16 +177,19 @@ export const InvestmentTableRow: React.FC<InvestmentTableRowProps> = ({
                     </div>
                 ) : <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.15rem' }}>—</div>}
 
-                {!isPrivate && (
-                    <div style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.2rem', opacity: 0.8, fontWeight: '500' }}>
-                        평단 {formatPrice(inv.avgPrice)}
-                    </div>
-                )}
+                <div style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.2rem', opacity: 0.8, fontWeight: '500' }}>
+                    평단 {formatPrice(inv.avgPrice)}
+                </div>
             </td>
 
             {/* ── 수량 ── */}
             <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', borderRight: '1px solid var(--border)', fontSize: '1rem', fontWeight: '500' }}>
                 {!isPrivate && inv.shares}
+            </td>
+
+            {/* ── 평가비중 ── */}
+            <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', borderRight: '1px solid var(--border)', fontSize: '1rem', fontWeight: '500' }}>
+                {weight.toFixed(1)}%
             </td>
 
             {/* ── 평가 / 변동 ── */}
