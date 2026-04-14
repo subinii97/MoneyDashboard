@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
-
-const interInput = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
     title: "Money Dashboard",
@@ -18,7 +15,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className={interInput.className}>
+            <body style={{ fontFeatureSettings: "'tnum' 1, 'cv11' 1" }}>
                 <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem={false}>
                     <Navbar />
                     {children}

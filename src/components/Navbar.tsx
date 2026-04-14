@@ -21,7 +21,7 @@ export default function Navbar() {
         { name: 'History', href: '/history', icon: Activity },
         { name: 'Portfolio', href: '/portfolio', icon: BarChart2 },
         { name: 'Investment', href: '/investment', icon: Briefcase },
-        { name: 'Analysis', href: '/analysis', icon: TrendingUp },
+        { name: 'Markets', href: '/markets', icon: TrendingUp },
     ];
 
     return (
