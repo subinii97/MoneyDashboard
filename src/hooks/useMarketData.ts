@@ -28,7 +28,7 @@ const EMPTY_MARKET_DATA: MarketData = {
 };
 
 const MARKET_REFRESH_MS = 5_000;
-const SPARKLINE_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+const SPARKLINE_REFRESH_MS = 10 * 1000; // 10 seconds
 
 export function useMarketData() {
     const [marketData, setMarketData] = useState<MarketData>(EMPTY_MARKET_DATA);

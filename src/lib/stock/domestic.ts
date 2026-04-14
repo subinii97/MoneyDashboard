@@ -18,7 +18,7 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
         if (!data) return { symbol, error: 'No data' };
 
         const name = data.stockName || symbol;
-        const price = extractNumber(data.closePrice);
+        let price = extractNumber(data.closePrice);
         const changeMagnitude = extractNumber(data.compareToPreviousClosePrice);
         const changePercentMagnitude = extractNumber(data.fluctuationsRatio);
 
@@ -43,6 +43,7 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
         const minute = kstDate.getUTCMinutes();
         const timeVal = hour + minute / 60;
 
+        // PRE_MARKET (08:00 ~ 09:00)
         if (data.marketStatus === 'BEFORE_MARKET' || (data.marketStatus !== 'OPEN' && timeVal >= 8 && timeVal < 9)) {
             if (data.expectedPrice && data.expectedPrice !== '0') {
                 overMarketPrice = extractNumber(data.expectedPrice);
@@ -51,15 +52,25 @@ export async function fetchNaverQuote(symbol: string, forceRefresh = false) {
                 isOverMarket = true;
                 overMarketSession = 'PRE_MARKET';
             }
-        } else if (data.marketStatus !== 'OPEN' && data.overMarketPriceInfo) {
+        } 
+        
+        // AFTER_MARKET (15:30 ~ 20:00)
+        if (data.overMarketPriceInfo) {
             const over = data.overMarketPriceInfo;
             if (over.overPrice && over.overPrice !== '0' && over.overPrice !== '') {
-                if (timeVal >= 15.6 && timeVal < 20) {
-                    overMarketPrice = extractNumber(over.overPrice);
-                    overMarketChange = extractNumber(String(over.compareToPreviousClosePrice || '0'));
-                    overMarketChangePercent = extractNumber(String(over.fluctuationsRatio || '0'));
+                const ovPrice = extractNumber(over.overPrice);
+                const ovChange = extractNumber(String(over.compareToPreviousClosePrice || '0'));
+                const ovChangePercent = extractNumber(String(over.fluctuationsRatio || '0'));
+                
+                if (timeVal >= 15.3 && timeVal < 20) {
                     isOverMarket = true;
                     overMarketSession = 'AFTER_MARKET';
+                    overMarketPrice = ovPrice;
+                    overMarketChange = ovChange;
+                    overMarketChangePercent = ovChangePercent;
+                } else if (timeVal >= 20 || timeVal < 8) {
+                    // Closed, but use the latest over market price as the display price
+                    price = ovPrice;
                 }
             }
         }

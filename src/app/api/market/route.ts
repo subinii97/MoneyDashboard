@@ -66,15 +66,21 @@ export async function GET(request: Request) {
             { id: 'KOSPI', code: 'KOSPI' },
             { id: 'KOSDAQ', code: 'KOSDAQ' },
             { id: 'S&P 500', code: '.INX' },
-            { id: 'NASDAQ', code: '.IXIC' },
-            { id: 'DOW', code: '.DJI' }
+            { id: '나스닥', code: '.IXIC' },
+            { id: '다우존스', code: '.DJI' },
+            { id: '니케이 225', code: '.NI225' },
+            { id: '상해종합', code: '.SSEC' },
+            { id: '항셍지수', code: '.HSI' },
+            { id: '독일 DAX', code: '.GDAXI' },
+            { id: '영국 FTSE 100', code: '.FTSE' }
         ];
 
         const exchangeRates = [
             { id: 'USDKRW', code: 'FX_USDKRW' },
             { id: 'EURKRW', code: 'FX_EURKRW' },
             { id: 'EURUSD', code: 'FX_EURUSD' },
-            { id: 'JPYKRW', code: 'FX_JPYKRW' }
+            { id: 'JPYKRW', code: 'FX_JPYKRW' },
+            { id: 'CNYKRW', code: 'FX_CNYKRW', name: '원/위안 (CNY/KRW)' }
         ];
 
         const commoditiesInfo = [
@@ -82,6 +88,7 @@ export async function GET(request: Request) {
             { url: 'https://www.investing.com/commodities/silver', id: 'SILVER', name: '은' },
             { url: 'https://www.investing.com/commodities/copper', id: 'COPPER', name: '구리' },
             { url: 'https://www.investing.com/commodities/iron-ore-62-cfr-futures', id: 'IRON', name: '철광석' },
+            { url: 'https://www.investing.com/commodities/brent-oil', id: 'BRENT', name: '브렌트유' },
             { url: 'https://www.investing.com/commodities/crude-oil', id: 'WTI', name: 'WTI 원유' }
         ];
 

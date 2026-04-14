@@ -6,6 +6,17 @@ export const formatKRW = (value: number): string => {
     return (value < 0 ? '-₩' : '₩') + abs.toLocaleString();
 };
 
+export const formatUSD = (value: number): string => {
+    if (isNaN(value) || !isFinite(value)) return '$0.00';
+    const sign = value < 0 ? '-' : '';
+    return sign + '$' + Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+export const formatPrice = (value: number, currency: string = 'KRW'): string => {
+    if (currency === 'USD') return formatUSD(value);
+    return formatKRW(value);
+};
+
 export const convertToKRW = (value: number, currency: string, rate: number): number => {
     if (isNaN(value) || !isFinite(value)) return 0;
     if (currency === 'USD') {

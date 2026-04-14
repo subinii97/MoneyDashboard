@@ -12,7 +12,7 @@ export async function fetchExchangeRate(forceRefresh = false) {
                 time: marketData.time
             };
         }
-        
+
         // Fallback to HTML scraping
         const url = 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW';
         const response = await fetch(url, {
@@ -43,7 +43,7 @@ export async function fetchExchangeRate(forceRefresh = false) {
                 }
             });
         }
-        
+
         // Try to find change from HTML if possible
         const changeText = $('.head_info .change').first().text() || '0';
         const changeVal = extractNumber(changeText);
@@ -82,8 +82,9 @@ export async function fetchMarketExchangeRate(code: string, forceRefresh = false
         let name = target.currencyName || target.itemSymbol || target.itemCode || target.name || code;
         if (code === 'FX_USDKRW') name = '원달러 (USD/KRW)';
         if (code === 'FX_EURKRW') name = '원유로 (EUR/KRW)';
-        if (code === 'FX_JPYKRW') name = '원엔 (JPY/KRW 100)';
-        if (code === 'FX_EURUSD') name = '유로달러 (EUR/USD)';
+        if (code === 'FX_JPYKRW') name = '원엔 (JPY/1000KRW)';
+        if (code === 'FX_EURUSD') name = '달러유로 (EUR/USD)';
+        if (code === 'FX_CNYKRW') name = '원위안 (CNY/KRW)';
 
         return {
             name,
@@ -116,7 +117,7 @@ async function fetchEURUSDFromYahoo() {
                 }
 
                 return {
-                    name: '유로달러 (EUR/USD)',
+                    name: '달러유로 (EUR/USD)',
                     price,
                     change,
                     changePercent,

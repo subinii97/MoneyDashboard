@@ -58,15 +58,12 @@ export function getActivePrice(inv: Investment): number {
         : (inv.currentPrice || inv.avgPrice);
 }
 
-/**
- * Resolves the absolute change for the current session.
- * For newly bought stocks (on the same day), change is relative to purchase price instead of previous close.
- */
 export function getActiveChange(inv: Investment, todayBuySymbols?: Set<string>): number {
     const activePrice = getActivePrice(inv);
     if (todayBuySymbols?.has(inv.symbol?.toUpperCase().trim())) {
         return activePrice - inv.avgPrice;
     }
+    // 현재 활성화된 세션(장외 또는 정규장)의 변동분만 반환합니다.
     return (inv.isOverMarket && inv.overMarketChange !== undefined)
         ? inv.overMarketChange
         : (inv.change || 0);
@@ -79,6 +76,7 @@ export function getActiveChangePercent(inv: Investment, todayBuySymbols?: Set<st
     if (todayBuySymbols?.has(inv.symbol?.toUpperCase().trim())) {
         return inv.avgPrice > 0 ? ((getActivePrice(inv) - inv.avgPrice) / inv.avgPrice) * 100 : 0;
     }
+    // 현재 활성화된 세션(장외 또는 정규장)의 수익률만 반환합니다.
     return (inv.isOverMarket && inv.overMarketChangePercent !== undefined)
         ? inv.overMarketChangePercent
         : (inv.changePercent || 0);
