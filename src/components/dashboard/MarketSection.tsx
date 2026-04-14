@@ -121,41 +121,64 @@ export function MarketSection({ data, sparklines, loading, lastFetched }: Market
         const id = item.id;
         if (id === 'KOSPI') return 'https://finance.naver.com/sise/sise_index.naver?code=KOSPI';
         if (id === 'KOSDAQ') return 'https://finance.naver.com/sise/sise_index.naver?code=KOSDAQ';
-        if (id === 'NASDAQ') return 'https://www.investing.com/indices/nasdaq-composite';
-        if (id === 'DOW') return 'https://www.investing.com/indices/us-30';
+        if (id === '나스닥' || id === 'NASDAQ') return 'https://www.investing.com/indices/nasdaq-composite';
+        if (id === '다우존스' || id === 'DOW') return 'https://www.investing.com/indices/us-30';
+        if (id === '니케이 225') return 'https://www.investing.com/indices/japan-ni225';
+        if (id === '상해종합') return 'https://www.investing.com/indices/shanghai-composite';
+        if (id === '항셍지수') return 'https://www.investing.com/indices/hang-sen-40';
+        if (id === '독일 DAX') return 'https://www.investing.com/indices/germany-30';
+        if (id === '영국 FTSE 100') return 'https://www.investing.com/indices/uk-100';
         if (id === 'USDKRW') return 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW';
         if (id === 'EURKRW') return 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_EURKRW';
         if (id === 'JPYKRW') return 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_JPYKRW';
+        if (id === 'CNYKRW') return 'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_CNYKRW';
         if (id === 'EURUSD') return 'https://www.investing.com/currencies/eur-usd';
         if (id === 'BTC') return 'https://www.binance.com/en/trade/BTC_USDT';
         if (id === 'ETH') return 'https://www.binance.com/en/trade/ETH_USDT';
         if (id === 'GOLD') return 'https://www.investing.com/commodities/gold';
         if (id === 'SILVER') return 'https://www.investing.com/commodities/silver';
         if (id === 'WTI') return 'https://www.investing.com/commodities/crude-oil';
+        if (id === 'BRENT') return 'https://www.investing.com/commodities/brent-oil';
         if (id === 'COPPER') return 'https://www.investing.com/commodities/copper';
         if (id === 'IRON') return 'https://www.investing.com/commodities/iron-ore-62-cfr-futures';
         return '#';
     };
 
     const renderRow = (item: any, sparkKey: string, isAlwaysLive = false, prefix = '', suffix = '') => (
-        <div key={item.id} style={{ ...rowStyle, cursor: 'pointer' }}
+        <div key={item.id} style={{ ...rowStyle, cursor: 'pointer', padding: '1.2rem 0.5rem' }}
             onClick={() => window.open(getExternalLink(item), '_blank')}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--card-hover)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
-            <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem' }}>{item.name || item.id}</div>
+            <div style={{ flex: '0 0 160px', minWidth: 0 }}>
+                <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--foreground)', marginBottom: '0.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {(() => {
+                        const name = item.name || item.id;
+                        if (name.includes('(')) {
+                            const [main, sub] = name.split('(');
+                            return (
+                                <>
+                                    {main}
+                                    <span style={{ fontSize: '0.85rem', fontWeight: '500', opacity: 0.7, marginLeft: '0.25rem' }}>
+                                        ({sub}
+                                    </span>
+                                </>
+                            );
+                        }
+                        return name;
+                    })()}
+                </div>
                 {renderStatusTime(item, isAlwaysLive)}
             </div>
-            <div style={{ flex: '0 0 auto', margin: '0 1rem' }}>
+            <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
                 <Sparkline
                     data={sparklines[sparkKey] || []}
-                    width={100}
+                    width={110}
                     height={32}
                     color={(item.change || 0) >= 0 ? '#dc2626' : '#3b82f6'}
                 />
             </div>
-            <div style={{ flex: '0 0 auto' }}>
+            <div style={{ flex: '0 0 130px', minWidth: 0 }}>
                 {renderPriceInfo(item, prefix, suffix)}
             </div>
         </div>
